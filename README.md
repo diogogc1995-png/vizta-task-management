@@ -4,10 +4,10 @@ App interna de gestão de tarefas (estilo Asana/Monday), construída para a Vizt
 
 ## Estado atual da stack
 
-- **Frontend**: `index.html` — um único ficheiro autónomo. React + Tailwind carregados via CDN, sem passo de build (o JSX já vem pré-compilado para JS simples). Isto foi uma escolha deliberada para permitir "drag & drop" no Netlify Drop sem CLI nem Node. **Não é a arquitetura ideal a prazo** — ver secção "Próximos passos" abaixo.
+- **Frontend**: `index.html` — um único ficheiro autónomo. React + Tailwind carregados via CDN, sem passo de build. O código da app é **JSX real** dentro de um `<script type="text/babel">`, compilado no browser pelo `@babel/standalone` (também via CDN). Isto foi uma escolha deliberada para permitir editar/estender a app sem CLI nem Node e manter o deploy simples. Custo: ~1s de compilação no primeiro carregamento (fica em cache). **Não é a arquitetura ideal a prazo** — ver secção "Próximos passos" abaixo.
+- **Deploy do frontend**: Netlify ligado ao repositório Git — cada `git push` para `main` publica automaticamente (sem passo de build; a Netlify serve o `index.html` da raiz).
 - **Backend**: 100% Supabase — Postgres (com Row Level Security), Auth (email/password), Storage (anexos), pg_cron (tarefas agendadas) e pg_net (chamadas HTTP para o Resend, para enviar emails diretamente da base de dados).
 - **Emails**: Resend, chamado a partir de funções Postgres (`app_send_email`), sem nenhum backend/servidor à parte.
-- **Deploy do frontend**: Netlify, atualmente por *drag & drop* manual do `index.html` (sem CI/CD).
 
 ## Credenciais e configuração
 
