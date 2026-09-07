@@ -1836,6 +1836,8 @@ function App() {
   const [folders, setFolders] = useState([]);
   const [folderAssignments, setFolderAssignments] = useState({});
   const [collapsedFolders, setCollapsedFolders] = useState({});
+  const [dragProjectId, setDragProjectId] = useState(null);
+  const [dragOverFolder, setDragOverFolder] = useState(undefined);
   const dragTaskId = useRef(null);
 
   useEffect(() => {
@@ -1942,6 +1944,15 @@ function App() {
     }
     await loadFolders();
     setContextMenu(null);
+  }
+  async function handleDropProjectOnFolder(folderId) {
+    const pid = dragProjectId;
+    setDragProjectId(null);
+    setDragOverFolder(undefined);
+    if (!pid) return;
+    const current = folderAssignments[pid] || null;
+    if (current === (folderId || null)) return;
+    await handleMoveProjectToFolder(pid, folderId);
   }
 
   async function loadTags(projectId) {
@@ -2165,6 +2176,16 @@ function App() {
               return (
                 <button
                   key={pid}
+                  draggable
+                  onDragStart={(e) => {
+                    setDragProjectId(pid);
+                    e.dataTransfer.effectAllowed = "move";
+                    e.dataTransfer.setData("text/plain", pid);
+                  }}
+                  onDragEnd={() => {
+                    setDragProjectId(null);
+                    setDragOverFolder(undefined);
+                  }}
                   onClick={() => {
                     setSelectedProject(pid);
                     setShowDashboard(false);
@@ -2172,6 +2193,7 @@ function App() {
                   onContextMenu={(e) => openProjectContextMenu(e, pid)}
                   className={
                     "w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-sm text-left " +
+                    (dragProjectId === pid ? "opacity-40 " : "") +
                     (!showDashboard && selectedProject === pid ? "bg-white/10 text-white" : "text-slate-300 hover:bg-white/5")
                   }
                 >
@@ -2187,8 +2209,25 @@ function App() {
                 {folders.map((f) => {
                   const projectIds = projectOrder.filter((pid) => folderAssignments[pid] === f.id);
                   const collapsed = collapsedFolders[f.id];
+                  const isDropTarget = dragProjectId && dragOverFolder === f.id;
                   return (
-                    <div key={f.id}>
+                    <div
+                      key={f.id}
+                      onDragOver={(e) => {
+                        if (!dragProjectId) return;
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = "move";
+                        if (dragOverFolder !== f.id) setDragOverFolder(f.id);
+                      }}
+                      onDragLeave={(e) => {
+                        if (!e.currentTarget.contains(e.relatedTarget)) setDragOverFolder(undefined);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        handleDropProjectOnFolder(f.id);
+                      }}
+                      className={"rounded-lg " + (isDropTarget ? "bg-[#F26641]/15 ring-1 ring-[#F26641]/40" : "")}
+                    >
                       <button
                         onClick={() => setCollapsedFolders((prev) => ({ ...prev, [f.id]: !prev[f.id] }))}
                         onContextMenu={(e) => openFolderContextMenu(e, f)}
@@ -2200,10 +2239,40 @@ function App() {
                         <span className="text-[10px]">{projectIds.length}</span>
                       </button>
                       {!collapsed && <div className="pl-3">{projectIds.map(renderProjectButton)}</div>}
+                      {isDropTarget && projectIds.length === 0 && (
+                        <p className="text-[10px] text-slate-400 px-2 pb-1.5 pl-6">Largar aqui para mover para "{f.name}"</p>
+                      )}
                     </div>
                   );
                 })}
-                {unfiled.map(renderProjectButton)}
+                <div
+                  onDragOver={(e) => {
+                    if (!dragProjectId) return;
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                    if (dragOverFolder !== "__none__") setDragOverFolder("__none__");
+                  }}
+                  onDragLeave={(e) => {
+                    if (!e.currentTarget.contains(e.relatedTarget)) setDragOverFolder(undefined);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    handleDropProjectOnFolder(null);
+                  }}
+                  className={
+                    "rounded-lg " +
+                    (folders.length > 0 ? "mt-1 pt-1 " : "") +
+                    (dragProjectId && dragOverFolder === "__none__" ? "bg-[#F26641]/15 ring-1 ring-[#F26641]/40" : "")
+                  }
+                >
+                  {folders.length > 0 && dragProjectId && (
+                    <p className="text-[10px] uppercase tracking-wide text-slate-500 px-2 pb-1">Sem pasta</p>
+                  )}
+                  {unfiled.map(renderProjectButton)}
+                  {dragProjectId && unfiled.length === 0 && folders.length > 0 && (
+                    <p className="text-[10px] text-slate-400 px-2 py-1.5">Largar aqui para tirar da pasta</p>
+                  )}
+                </div>
               </>
             );
           })()}
