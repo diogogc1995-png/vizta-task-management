@@ -224,6 +224,18 @@ const IconHistory = (p) => (
     }
   />
 );
+const IconMenu = (p) => (
+  <Icon
+    {...p}
+    path={
+      <>
+        <line x1="3" y1="6" x2="21" y2="6" />
+        <line x1="3" y1="12" x2="21" y2="12" />
+        <line x1="3" y1="18" x2="21" y2="18" />
+      </>
+    }
+  />
+);
 const IconChevronLeft = (p) => <Icon {...p} path={<polyline points="15 18 9 12 15 6" />} />;
 const IconChevronRight = (p) => <Icon {...p} path={<polyline points="9 18 15 12 9 6" />} />;
 const IconFilter = (p) => (
@@ -890,7 +902,7 @@ function TaskModal({ initial, projectId, currentUserId, projectTags, onClose, on
 
   return (
     <div
-      className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4"
+      className="fixed inset-0 bg-black/40 flex items-start sm:items-center justify-center z-50 px-3 py-6 overflow-y-auto"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -1109,7 +1121,7 @@ function NewProjectModal({ onClose, onCreate }) {
 
   return (
     <div
-      className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4"
+      className="fixed inset-0 bg-black/40 flex items-start sm:items-center justify-center z-50 px-3 py-6 overflow-y-auto"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -1183,7 +1195,7 @@ function EditProjectModal({ project, onClose, onSave, onDelete }) {
 
   return (
     <div
-      className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4"
+      className="fixed inset-0 bg-black/40 flex items-start sm:items-center justify-center z-50 px-3 py-6 overflow-y-auto"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -1294,8 +1306,8 @@ function DashboardView({ tasks, projects, onOpen }) {
     .filter((t) => !filterColumn || t.column === filterColumn)
     .sort((a, b) => ((a.due || "9999") < (b.due || "9999") ? -1 : 1));
   return (
-    <div className="px-6 py-4">
-      <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1 mb-3 w-fit">
+    <div className="px-4 sm:px-6 py-4">
+      <div className="flex flex-wrap items-center gap-1 bg-slate-100 rounded-lg p-1 mb-3 w-fit max-w-full">
         <button
           onClick={() => setFilterColumn("")}
           className={
@@ -1322,7 +1334,8 @@ function DashboardView({ tasks, projects, onOpen }) {
           );
         })}
       </div>
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div className="overflow-x-auto">
+       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden min-w-[620px]">
         <div className="grid grid-cols-[1fr_120px_100px_90px_130px] gap-2 px-4 py-2 bg-slate-50 text-[11px] font-medium text-slate-500 uppercase tracking-wide">
           <span>Título</span>
           <span>Projeto</span>
@@ -1374,6 +1387,7 @@ function DashboardView({ tasks, projects, onOpen }) {
             </div>
           );
         })}
+       </div>
       </div>
     </div>
   );
@@ -1426,7 +1440,7 @@ function MembersModal({ projectId, currentUserId, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4"
+      className="fixed inset-0 bg-black/40 flex items-start sm:items-center justify-center z-50 px-3 py-6 overflow-y-auto"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -1683,8 +1697,9 @@ function Column({ col, tasks, onOpen, onDragStart, onDrop, onAddTask }) {
 /* ---------- Vista de Lista ---------- */
 function ListView({ tasks, onOpen }) {
   return (
-    <div className="px-6 py-4">
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+    <div className="px-4 sm:px-6 py-4">
+      <div className="overflow-x-auto">
+       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden min-w-[620px]">
         <div className="grid grid-cols-[1fr_100px_90px_170px_130px] gap-2 px-4 py-2 bg-slate-50 text-[11px] font-medium text-slate-500 uppercase tracking-wide">
           <span>Título</span>
           <span>Status</span>
@@ -1727,6 +1742,7 @@ function ListView({ tasks, onOpen }) {
             </div>
           );
         })}
+       </div>
       </div>
     </div>
   );
@@ -1757,9 +1773,9 @@ function CalendarView({ tasks, onOpen }) {
     }
   });
   return (
-    <div className="px-6 py-4">
+    <div className="px-4 sm:px-6 py-4">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-semibold text-slate-800">
+        <span className="text-sm font-semibold text-slate-800 inline-block first-letter:uppercase">
           {cursor.toLocaleDateString("pt-PT", { month: "long", year: "numeric" })}
         </span>
         <div className="flex gap-1">
@@ -1771,19 +1787,21 @@ function CalendarView({ tasks, onOpen }) {
           </button>
         </div>
       </div>
-      <div className="grid grid-cols-7 gap-1 text-[11px] text-slate-400 mb-1 px-1">
-        {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((d) => (
-          <div key={d} className="text-center">
-            {d}
-          </div>
-        ))}
-      </div>
-      <div className="grid grid-cols-7 gap-1">
-        {cells.map((d, idx) => (
-          <div key={idx} className={"min-h-[80px] rounded-lg border p-1 " + (d ? "border-slate-200 bg-white" : "border-transparent")}>
-            {d && (
-              <>
-                <p className="text-[11px] text-slate-400 mb-1">{d}</p>
+      <div className="overflow-x-auto">
+       <div className="min-w-[560px]">
+        <div className="grid grid-cols-7 gap-1 text-[11px] text-slate-400 mb-1 px-1">
+          {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((d) => (
+            <div key={d} className="text-center">
+              {d}
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-7 gap-1">
+          {cells.map((d, idx) => (
+            <div key={idx} className={"min-h-[80px] rounded-lg border p-1 " + (d ? "border-slate-200 bg-white" : "border-transparent")}>
+              {d && (
+                <>
+                  <p className="text-[11px] text-slate-400 mb-1">{d}</p>
                 {(tasksByDay[d] || []).slice(0, 3).map((t) => {
                   const style = COLUMN_STYLES[t.column] || COLUMN_STYLES.todo;
                   return (
@@ -1803,7 +1821,9 @@ function CalendarView({ tasks, onOpen }) {
               </>
             )}
           </div>
-        ))}
+          ))}
+        </div>
+       </div>
       </div>
     </div>
   );
@@ -1836,6 +1856,7 @@ function App() {
   const [folders, setFolders] = useState([]);
   const [folderAssignments, setFolderAssignments] = useState({});
   const [collapsedFolders, setCollapsedFolders] = useState({});
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dragProjectId, setDragProjectId] = useState(null);
   const [dragOverFolder, setDragOverFolder] = useState(undefined);
   const dragTaskId = useRef(null);
@@ -2129,8 +2150,18 @@ function App() {
   const openTask = (t) => setModalTask(t);
 
   return (
-    <div className="h-screen w-full flex bg-[#F6F5F1]">
-      <aside className="w-60 shrink-0 flex flex-col text-slate-200" style={{ backgroundColor: "#1E2A32" }}>
+    <div className="h-screen w-full flex bg-[#F6F5F1] overflow-hidden">
+      {sidebarOpen && (
+        <div className="lg:hidden fixed inset-0 bg-black/40 z-30" onClick={() => setSidebarOpen(false)} />
+      )}
+      <aside
+        className={
+          "w-64 sm:w-60 shrink-0 flex flex-col text-slate-200 z-40 transition-transform duration-200 " +
+          "fixed inset-y-0 left-0 lg:static lg:translate-x-0 " +
+          (sidebarOpen ? "translate-x-0" : "-translate-x-full")
+        }
+        style={{ backgroundColor: "#1E2A32" }}
+      >
         <div className="flex items-center gap-2 px-4 py-4">
           <div className="w-7 h-7 rounded-md flex items-center justify-center" style={{ backgroundColor: "#F26641" }}>
             <IconFolder size={15} style={{ color: "#1E2A32" }} />
@@ -2140,11 +2171,19 @@ function App() {
             <br />
             Task Management
           </span>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden ml-auto text-slate-400 hover:text-white"
+            title="Fechar menu"
+          >
+            <IconX size={18} />
+          </button>
         </div>
         <div className="px-2 mb-2">
           <button
             onClick={() => {
               setShowDashboard(true);
+              setSidebarOpen(false);
             }}
             className={
               "w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-sm text-left " +
@@ -2189,6 +2228,7 @@ function App() {
                   onClick={() => {
                     setSelectedProject(pid);
                     setShowDashboard(false);
+                    setSidebarOpen(false);
                   }}
                   onContextMenu={(e) => openProjectContextMenu(e, pid)}
                   className={
@@ -2294,11 +2334,12 @@ function App() {
       <main className="flex-1 flex flex-col overflow-hidden">
         {showDashboard ? (
           <>
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white">
-              <div className="flex items-center gap-2">
-                <IconLayoutDashboard size={16} className="text-slate-700" />
-                <h1 className="text-base font-semibold text-slate-900">O Meu Dashboard</h1>
-              </div>
+            <div className="flex items-center gap-2 px-4 sm:px-6 py-4 border-b border-slate-200 bg-white">
+              <button onClick={() => setSidebarOpen(true)} className="lg:hidden text-slate-500 hover:text-slate-700 -ml-1 p-1" title="Menu">
+                <IconMenu size={20} />
+              </button>
+              <IconLayoutDashboard size={16} className="text-slate-700 shrink-0" />
+              <h1 className="text-base font-semibold text-slate-900 truncate">O Meu Dashboard</h1>
             </div>
             <div className="flex-1 overflow-y-auto">
               <DashboardView
@@ -2314,47 +2355,52 @@ function App() {
           </>
         ) : (
           <>
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: project ? project.color : "#ccc" }} />
-                <h1 className="text-base font-semibold text-slate-900">{project ? project.name : "Sem projetos"}</h1>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 sm:px-6 py-3 border-b border-slate-200 bg-white">
+              <button onClick={() => setSidebarOpen(true)} className="lg:hidden text-slate-500 hover:text-slate-700 -ml-1 p-1 shrink-0" title="Menu">
+                <IconMenu size={20} />
+              </button>
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: project ? project.color : "#ccc" }} />
+                <h1 className="text-base font-semibold text-slate-900 truncate">{project ? project.name : "Sem projetos"}</h1>
                 {project && project.owner_id === session.user.id && (
-                  <button onClick={() => setShowEditProject(true)} className="text-slate-300 hover:text-slate-500" title="Editar projeto">
+                  <button onClick={() => setShowEditProject(true)} className="text-slate-300 hover:text-slate-500 shrink-0" title="Editar projeto">
                     <IconEdit size={14} />
                   </button>
                 )}
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                 <div className="relative">
                   <IconSearch size={14} className="absolute left-2.5 top-2.5 text-slate-400" />
                   <input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Procurar tarefas"
-                    className="pl-8 pr-3 py-1.5 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-[#F26641]/30 focus:border-[#F26641] w-40"
+                    placeholder="Procurar"
+                    className="pl-8 pr-3 py-1.5 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-[#F26641]/30 focus:border-[#F26641] w-28 sm:w-40"
                   />
                 </div>
                 <button
                   onClick={() => selectedProject && setShowMembers(true)}
                   disabled={!selectedProject}
-                  className="flex items-center gap-1.5 text-sm text-slate-600 px-3 py-1.5 rounded-lg font-medium border border-slate-200 hover:bg-slate-50 disabled:opacity-40"
+                  className="flex items-center gap-1.5 text-sm text-slate-600 px-2.5 sm:px-3 py-1.5 rounded-lg font-medium border border-slate-200 hover:bg-slate-50 disabled:opacity-40"
+                  title="Equipa"
                 >
-                  <IconUsers size={14} /> Equipa
+                  <IconUsers size={14} /> <span className="hidden sm:inline">Equipa</span>
                 </button>
                 <NotificationsBell userId={session.user.id} onOpenTask={handleOpenNotificationTask} />
                 <button
                   onClick={() => selectedProject && setModalTask({ column: "todo", __new: true })}
                   disabled={!selectedProject}
-                  className="flex items-center gap-1.5 text-sm text-white px-3 py-1.5 rounded-lg font-medium disabled:opacity-40"
+                  className="flex items-center gap-1.5 text-sm text-white px-2.5 sm:px-3 py-1.5 rounded-lg font-medium disabled:opacity-40"
                   style={{ backgroundColor: "#F26641" }}
+                  title="Nova tarefa"
                 >
-                  <IconPlus size={14} /> Nova tarefa
+                  <IconPlus size={14} /> <span className="hidden sm:inline">Nova tarefa</span>
                 </button>
               </div>
             </div>
             {selectedProject && (
-              <div className="flex items-center justify-between px-6 py-2 border-b border-slate-200 bg-white">
-                <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 sm:px-6 py-2 border-b border-slate-200 bg-white">
+                <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1 w-fit">
                   <button
                     onClick={() => setView("kanban")}
                     className={
@@ -2383,12 +2429,12 @@ function App() {
                     <IconCalendar size={13} /> Calendário
                   </button>
                 </div>
-                <div className="flex items-center gap-2">
-                  <IconFilter size={13} className="text-slate-400" />
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 -mb-1 sm:pb-0 sm:mb-0">
+                  <IconFilter size={13} className="text-slate-400 shrink-0" />
                   <select
                     value={filterAssignee}
                     onChange={(e) => setFilterAssignee(e.target.value)}
-                    className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none bg-white"
+                    className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none bg-white shrink-0"
                   >
                     <option value="">Todos os responsáveis</option>
                     {assigneeOptions.map((m) => (
@@ -2400,7 +2446,7 @@ function App() {
                   <select
                     value={filterPriority}
                     onChange={(e) => setFilterPriority(e.target.value)}
-                    className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none bg-white"
+                    className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none bg-white shrink-0"
                   >
                     <option value="">Todas as prioridades</option>
                     {Object.entries(PRIORITY).map(([k, v]) => (
@@ -2412,7 +2458,7 @@ function App() {
                   <select
                     value={filterTagId}
                     onChange={(e) => setFilterTagId(e.target.value)}
-                    className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none bg-white"
+                    className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none bg-white shrink-0"
                   >
                     <option value="">Todas as etiquetas</option>
                     {tags.map((t) => (
@@ -2424,7 +2470,7 @@ function App() {
                   <select
                     value={filterColumn}
                     onChange={(e) => setFilterColumn(e.target.value)}
-                    className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none bg-white"
+                    className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none bg-white shrink-0"
                   >
                     <option value="">Todos os status</option>
                     {COLUMN_DEFS.map((c) => (
@@ -2436,7 +2482,7 @@ function App() {
                   <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value)}
-                    className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none bg-white"
+                    className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none bg-white shrink-0"
                   >
                     <option value="">Sem ordenação</option>
                     <option value="due">Prazo (mais próximo)</option>
@@ -2458,8 +2504,8 @@ function App() {
                 </button>
               </div>
             ) : view === "kanban" ? (
-              <div className="flex-1 overflow-x-auto px-6 py-4">
-                <div className="flex gap-3 h-full">
+              <div className="flex-1 overflow-x-auto px-4 sm:px-6 py-4">
+                <div className="flex gap-3 h-full min-w-min">
                   {COLUMN_DEFS.map((col) => (
                     <Column
                       key={col.id}
