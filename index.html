@@ -1285,9 +1285,43 @@ function ContextMenuItem({ onClick, danger, children }) {
 
 /* ---------- Dashboard pessoal ---------- */
 function DashboardView({ tasks, projects, onOpen }) {
-  const sorted = [...tasks].sort((a, b) => ((a.due || "9999") < (b.due || "9999") ? -1 : 1));
+  const [filterColumn, setFilterColumn] = useState("");
+  const countByColumn = {};
+  tasks.forEach((t) => {
+    countByColumn[t.column] = (countByColumn[t.column] || 0) + 1;
+  });
+  const sorted = [...tasks]
+    .filter((t) => !filterColumn || t.column === filterColumn)
+    .sort((a, b) => ((a.due || "9999") < (b.due || "9999") ? -1 : 1));
   return (
     <div className="px-6 py-4">
+      <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1 mb-3 w-fit">
+        <button
+          onClick={() => setFilterColumn("")}
+          className={
+            "flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md font-medium " +
+            (filterColumn === "" ? "bg-white shadow-sm text-slate-900" : "text-slate-500")
+          }
+        >
+          Todas <span className="text-[10px] text-slate-400">{tasks.length}</span>
+        </button>
+        {COLUMN_DEFS.map((c) => {
+          const style = COLUMN_STYLES[c.id] || COLUMN_STYLES.todo;
+          return (
+            <button
+              key={c.id}
+              onClick={() => setFilterColumn(c.id)}
+              className={
+                "flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md font-medium " +
+                (filterColumn === c.id ? "bg-white shadow-sm text-slate-900" : "text-slate-500")
+              }
+            >
+              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: style.chip }} />
+              {c.title} <span className="text-[10px] text-slate-400">{countByColumn[c.id] || 0}</span>
+            </button>
+          );
+        })}
+      </div>
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
         <div className="grid grid-cols-[1fr_120px_100px_90px_130px] gap-2 px-4 py-2 bg-slate-50 text-[11px] font-medium text-slate-500 uppercase tracking-wide">
           <span>Título</span>
@@ -1296,7 +1330,13 @@ function DashboardView({ tasks, projects, onOpen }) {
           <span>Prioridade</span>
           <span>Prazo</span>
         </div>
-        {sorted.length === 0 && <p className="text-sm text-slate-400 text-center py-8">Não tens tarefas atribuídas em nenhum projeto.</p>}
+        {sorted.length === 0 && (
+          <p className="text-sm text-slate-400 text-center py-8">
+            {tasks.length === 0
+              ? "Não tens tarefas atribuídas em nenhum projeto."
+              : "Nenhuma tarefa tua nesta coluna."}
+          </p>
+        )}
         {sorted.map((t) => {
           const pr = PRIORITY[t.priority] || PRIORITY.media;
           const col = COLUMN_DEFS.find((c) => c.id === t.column);
