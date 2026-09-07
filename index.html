@@ -1,0 +1,2718 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Vizta - Task Management</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  body { font-family: 'Inter', sans-serif; margin: 0; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+function _extends() { return _extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, _extends.apply(null, arguments); }
+const {
+  useState,
+  useEffect,
+  useRef
+} = React;
+const {
+  createClient
+} = window.supabase;
+
+/* ---------- Configuração Supabase ---------- */
+const SUPABASE_URL = "https://tatwnuyjthomlnlzjjuy.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRhdHdudXlqdGhvbWxubHpqanV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1MjUzNjgsImV4cCI6MjEwNDEwMTM2OH0.MTC0q7iK-GtB2Wkq1ADvgcemcHRhnASed79BwvuatD0";
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/* ---------- Ícones simples em SVG ---------- */
+const Icon = ({
+  path,
+  size = 16,
+  ...props
+}) => /*#__PURE__*/React.createElement("svg", _extends({
+  width: size,
+  height: size,
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: "2",
+  strokeLinecap: "round",
+  strokeLinejoin: "round"
+}, props), path);
+const IconPlus = p => /*#__PURE__*/React.createElement(Icon, _extends({}, p, {
+  path: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("line", {
+    x1: "12",
+    y1: "5",
+    x2: "12",
+    y2: "19"
+  }), /*#__PURE__*/React.createElement("line", {
+    x1: "5",
+    y1: "12",
+    x2: "19",
+    y2: "12"
+  }))
+}));
+const IconX = p => /*#__PURE__*/React.createElement(Icon, _extends({}, p, {
+  path: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("line", {
+    x1: "18",
+    y1: "6",
+    x2: "6",
+    y2: "18"
+  }), /*#__PURE__*/React.createElement("line", {
+    x1: "6",
+    y1: "6",
+    x2: "18",
+    y2: "18"
+  }))
+}));
+const IconLogOut = p => /*#__PURE__*/React.createElement(Icon, _extends({}, p, {
+  path: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("path", {
+    d: "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"
+  }), /*#__PURE__*/React.createElement("polyline", {
+    points: "16 17 21 12 16 7"
+  }), /*#__PURE__*/React.createElement("line", {
+    x1: "21",
+    y1: "12",
+    x2: "9",
+    y2: "12"
+  }))
+}));
+const IconTrash = p => /*#__PURE__*/React.createElement(Icon, _extends({}, p, {
+  path: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("polyline", {
+    points: "3 6 5 6 21 6"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+  }))
+}));
+const IconCalendar = p => /*#__PURE__*/React.createElement(Icon, _extends({}, p, {
+  path: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("rect", {
+    x: "3",
+    y: "4",
+    width: "18",
+    height: "18",
+    rx: "2"
+  }), /*#__PURE__*/React.createElement("line", {
+    x1: "16",
+    y1: "2",
+    x2: "16",
+    y2: "6"
+  }), /*#__PURE__*/React.createElement("line", {
+    x1: "8",
+    y1: "2",
+    x2: "8",
+    y2: "6"
+  }), /*#__PURE__*/React.createElement("line", {
+    x1: "3",
+    y1: "10",
+    x2: "21",
+    y2: "10"
+  }))
+}));
+const IconGrip = p => /*#__PURE__*/React.createElement(Icon, _extends({}, p, {
+  path: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("circle", {
+    cx: "9",
+    cy: "6",
+    r: "1"
+  }), /*#__PURE__*/React.createElement("circle", {
+    cx: "15",
+    cy: "6",
+    r: "1"
+  }), /*#__PURE__*/React.createElement("circle", {
+    cx: "9",
+    cy: "12",
+    r: "1"
+  }), /*#__PURE__*/React.createElement("circle", {
+    cx: "15",
+    cy: "12",
+    r: "1"
+  }), /*#__PURE__*/React.createElement("circle", {
+    cx: "9",
+    cy: "18",
+    r: "1"
+  }), /*#__PURE__*/React.createElement("circle", {
+    cx: "15",
+    cy: "18",
+    r: "1"
+  }))
+}));
+const IconSearch = p => /*#__PURE__*/React.createElement(Icon, _extends({}, p, {
+  path: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("circle", {
+    cx: "11",
+    cy: "11",
+    r: "8"
+  }), /*#__PURE__*/React.createElement("line", {
+    x1: "21",
+    y1: "21",
+    x2: "16.65",
+    y2: "16.65"
+  }))
+}));
+const IconFolder = p => /*#__PURE__*/React.createElement(Icon, _extends({}, p, {
+  path: /*#__PURE__*/React.createElement("path", {
+    d: "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"
+  })
+}));
+const IconUsers = p => /*#__PURE__*/React.createElement(Icon, _extends({}, p, {
+  path: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("path", {
+    d: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"
+  }), /*#__PURE__*/React.createElement("circle", {
+    cx: "9",
+    cy: "7",
+    r: "4"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M23 21v-2a4 4 0 0 0-3-3.87"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M16 3.13a4 4 0 0 1 0 7.75"
+  }))
+}));
+const IconBell = p => /*#__PURE__*/React.createElement(Icon, _extends({}, p, {
+  path: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("path", {
+    d: "M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M10.3 21a1.94 1.94 0 0 0 3.4 0"
+  }))
+}));
+const IconTag = p => /*#__PURE__*/React.createElement(Icon, _extends({}, p, {
+  path: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("path", {
+    d: "M20.59 13.41 13.42 20.6a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82Z"
+  }), /*#__PURE__*/React.createElement("circle", {
+    cx: "7",
+    cy: "7",
+    r: "1.5"
+  }))
+}));
+const IconPaperclip = p => /*#__PURE__*/React.createElement(Icon, _extends({}, p, {
+  path: /*#__PURE__*/React.createElement("path", {
+    d: "m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"
+  })
+}));
+const IconList = p => /*#__PURE__*/React.createElement(Icon, _extends({}, p, {
+  path: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("line", {
+    x1: "8",
+    y1: "6",
+    x2: "21",
+    y2: "6"
+  }), /*#__PURE__*/React.createElement("line", {
+    x1: "8",
+    y1: "12",
+    x2: "21",
+    y2: "12"
+  }), /*#__PURE__*/React.createElement("line", {
+    x1: "8",
+    y1: "18",
+    x2: "21",
+    y2: "18"
+  }), /*#__PURE__*/React.createElement("line", {
+    x1: "3",
+    y1: "6",
+    x2: "3.01",
+    y2: "6"
+  }), /*#__PURE__*/React.createElement("line", {
+    x1: "3",
+    y1: "12",
+    x2: "3.01",
+    y2: "12"
+  }), /*#__PURE__*/React.createElement("line", {
+    x1: "3",
+    y1: "18",
+    x2: "3.01",
+    y2: "18"
+  }))
+}));
+const IconKanban = p => /*#__PURE__*/React.createElement(Icon, _extends({}, p, {
+  path: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("rect", {
+    x: "3",
+    y: "3",
+    width: "6",
+    height: "18",
+    rx: "1"
+  }), /*#__PURE__*/React.createElement("rect", {
+    x: "10.5",
+    y: "3",
+    width: "6",
+    height: "10",
+    rx: "1"
+  }), /*#__PURE__*/React.createElement("rect", {
+    x: "18",
+    y: "3",
+    width: "3",
+    height: "14",
+    rx: "1"
+  }))
+}));
+const IconCheckSquare = p => /*#__PURE__*/React.createElement(Icon, _extends({}, p, {
+  path: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("polyline", {
+    points: "9 11 12 14 22 4"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"
+  }))
+}));
+const IconRepeat = p => /*#__PURE__*/React.createElement(Icon, _extends({}, p, {
+  path: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("polyline", {
+    points: "17 1 21 5 17 9"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M3 11V9a4 4 0 0 1 4-4h14"
+  }), /*#__PURE__*/React.createElement("polyline", {
+    points: "7 23 3 19 7 15"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M21 13v2a4 4 0 0 1-4 4H3"
+  }))
+}));
+const IconHistory = p => /*#__PURE__*/React.createElement(Icon, _extends({}, p, {
+  path: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("path", {
+    d: "M3 3v5h5"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M3.05 13A9 9 0 1 0 6 5.3L3 8"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M12 7v5l4 2"
+  }))
+}));
+const IconChevronLeft = p => /*#__PURE__*/React.createElement(Icon, _extends({}, p, {
+  path: /*#__PURE__*/React.createElement("polyline", {
+    points: "15 18 9 12 15 6"
+  })
+}));
+const IconChevronRight = p => /*#__PURE__*/React.createElement(Icon, _extends({}, p, {
+  path: /*#__PURE__*/React.createElement("polyline", {
+    points: "9 18 15 12 9 6"
+  })
+}));
+const IconFilter = p => /*#__PURE__*/React.createElement(Icon, _extends({}, p, {
+  path: /*#__PURE__*/React.createElement("polygon", {
+    points: "22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"
+  })
+}));
+const IconEdit = p => /*#__PURE__*/React.createElement(Icon, _extends({}, p, {
+  path: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("path", {
+    d: "M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"
+  }))
+}));
+const IconChevronDown = p => /*#__PURE__*/React.createElement(Icon, _extends({}, p, {
+  path: /*#__PURE__*/React.createElement("polyline", {
+    points: "6 9 12 15 18 9"
+  })
+}));
+const IconFolderPlus = p => /*#__PURE__*/React.createElement(Icon, _extends({}, p, {
+  path: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("path", {
+    d: "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"
+  }), /*#__PURE__*/React.createElement("line", {
+    x1: "12",
+    y1: "11",
+    x2: "12",
+    y2: "17"
+  }), /*#__PURE__*/React.createElement("line", {
+    x1: "9",
+    y1: "14",
+    x2: "15",
+    y2: "14"
+  }))
+}));
+const IconLayoutDashboard = p => /*#__PURE__*/React.createElement(Icon, _extends({}, p, {
+  path: /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("rect", {
+    x: "3",
+    y: "3",
+    width: "7",
+    height: "9",
+    rx: "1"
+  }), /*#__PURE__*/React.createElement("rect", {
+    x: "14",
+    y: "3",
+    width: "7",
+    height: "5",
+    rx: "1"
+  }), /*#__PURE__*/React.createElement("rect", {
+    x: "14",
+    y: "12",
+    width: "7",
+    height: "9",
+    rx: "1"
+  }), /*#__PURE__*/React.createElement("rect", {
+    x: "3",
+    y: "16",
+    width: "7",
+    height: "5",
+    rx: "1"
+  }))
+}));
+
+/* ---------- Constantes ---------- */
+const COLUMN_DEFS = [{
+  id: "todo",
+  title: "Por fazer"
+}, {
+  id: "doing",
+  title: "Em curso"
+}, {
+  id: "review",
+  title: "Em revisão"
+}, {
+  id: "done",
+  title: "Concluído"
+}];
+const COLUMN_STYLES = {
+  todo: {
+    bg: "bg-slate-100",
+    headerBg: "bg-slate-100/70",
+    text: "text-slate-600",
+    pillBg: "bg-slate-100",
+    chip: "#94A3B8"
+  },
+  doing: {
+    bg: "bg-blue-50",
+    headerBg: "bg-blue-50/70",
+    text: "text-blue-700",
+    pillBg: "bg-blue-100",
+    chip: "#3B82F6"
+  },
+  review: {
+    bg: "bg-violet-50",
+    headerBg: "bg-violet-50/70",
+    text: "text-violet-700",
+    pillBg: "bg-violet-100",
+    chip: "#8B5CF6"
+  },
+  done: {
+    bg: "bg-emerald-50",
+    headerBg: "bg-emerald-50/70",
+    text: "text-emerald-700",
+    pillBg: "bg-emerald-100",
+    chip: "#10B981"
+  }
+};
+const PRIORITY = {
+  baixa: {
+    label: "Baixa",
+    text: "text-slate-600",
+    bg: "bg-slate-100",
+    order: 0
+  },
+  media: {
+    label: "Média",
+    text: "text-amber-700",
+    bg: "bg-amber-100",
+    order: 1
+  },
+  alta: {
+    label: "Alta",
+    text: "text-rose-700",
+    bg: "bg-rose-100",
+    order: 2
+  }
+};
+const PROJECT_COLORS = ["#F26641", "#4A4E9E", "#B5423B", "#C9A227", "#2F6E5B", "#5B3A5C"];
+const WEEKDAYS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+const RECURRENCE_LABELS = {
+  diaria: "Diariamente",
+  semanal: "Semanalmente",
+  mensal: "Mensalmente"
+};
+function initials(name) {
+  return (name || "?").trim().slice(0, 2).toUpperCase();
+}
+function displayName(p) {
+  if (!p) return "Alguém";
+  if (p.name && p.name.trim()) return p.name;
+  if (p.email) return p.email.split("@")[0];
+  return "Alguém";
+}
+function formatDateBR(dateStr) {
+  if (!dateStr) return "";
+  const [y, m, d] = dateStr.slice(0, 10).split("-");
+  return d + "/" + m + "/" + y;
+}
+function formatWhen(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString("pt-PT", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric"
+  }) + " às " + d.toLocaleTimeString("pt-PT", {
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+function formatBytes(n) {
+  if (!n) return "";
+  if (n < 1024) return n + " B";
+  if (n < 1024 * 1024) return (n / 1024).toFixed(0) + " KB";
+  return (n / (1024 * 1024)).toFixed(1) + " MB";
+}
+function Avatar({
+  name
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    className: "w-6 h-6 rounded-full bg-[#F26641]/10 text-[#F26641] text-[10px] font-semibold flex items-center justify-center shrink-0",
+    title: name
+  }, initials(name));
+}
+function TagChip({
+  tag,
+  onRemove
+}) {
+  return /*#__PURE__*/React.createElement("span", {
+    className: "inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium",
+    style: {
+      backgroundColor: (tag.color || "#F26641") + "20",
+      color: tag.color || "#F26641"
+    }
+  }, tag.name, onRemove && /*#__PURE__*/React.createElement("button", {
+    onClick: onRemove,
+    className: "hover:opacity-60"
+  }, /*#__PURE__*/React.createElement(IconX, {
+    size: 9
+  })));
+}
+
+/* ---------- Autenticação ---------- */
+function AuthScreen() {
+  const [mode, setMode] = useState("login");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
+  const [loading, setLoading] = useState(false);
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError("");
+    setInfo("");
+    if (!email.trim() || !password.trim() || mode === "signup" && !name.trim()) {
+      setError("Preenche todos os campos para continuar.");
+      return;
+    }
+    setLoading(true);
+    if (mode === "signup") {
+      const {
+        data,
+        error
+      } = await sb.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          data: {
+            name: name.trim()
+          }
+        }
+      });
+      setLoading(false);
+      if (error) {
+        setError(traduzErro(error.message));
+        return;
+      }
+      if (data.session === null) {
+        setInfo("Conta criada! Verifica o teu email para confirmar a conta antes de entrares.");
+      }
+    } else {
+      const {
+        error
+      } = await sb.auth.signInWithPassword({
+        email: email.trim(),
+        password
+      });
+      setLoading(false);
+      if (error) {
+        setError(traduzErro(error.message));
+        return;
+      }
+    }
+  }
+  function traduzErro(msg) {
+    if (/already registered/i.test(msg)) return "Já existe uma conta com este email.";
+    if (/invalid login credentials/i.test(msg)) return "Email ou palavra-passe incorretos.";
+    if (/email not confirmed/i.test(msg)) return "Confirma o teu email antes de entrares (verifica a caixa de entrada).";
+    if (/password should be at least/i.test(msg)) return "A palavra-passe deve ter pelo menos 6 caracteres.";
+    return msg;
+  }
+  return /*#__PURE__*/React.createElement("div", {
+    className: "min-h-screen w-full flex items-center justify-center bg-[#F6F5F1] px-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-full max-w-sm"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 mb-8 justify-center"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-9 h-9 rounded-lg flex items-center justify-center",
+    style: {
+      backgroundColor: "#1E2A32"
+    }
+  }, /*#__PURE__*/React.createElement(IconFolder, {
+    size: 18,
+    style: {
+      color: "#E1F5EE"
+    }
+  })), /*#__PURE__*/React.createElement("span", {
+    className: "text-xl font-semibold",
+    style: {
+      fontFamily: "'Fraunces', serif",
+      color: "#1E2A32"
+    }
+  }, "Vizta ", /*#__PURE__*/React.createElement("span", {
+    className: "font-normal text-slate-400"
+  }, "\xB7"), " Task Management")), /*#__PURE__*/React.createElement("div", {
+    className: "bg-white rounded-2xl border border-slate-200 p-7 shadow-sm"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex mb-5 bg-slate-100 rounded-lg p-1"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setMode("login");
+      setError("");
+      setInfo("");
+    },
+    className: "flex-1 text-sm py-1.5 rounded-md font-medium " + (mode === "login" ? "bg-white shadow-sm text-slate-900" : "text-slate-500")
+  }, "Entrar"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setMode("signup");
+      setError("");
+      setInfo("");
+    },
+    className: "flex-1 text-sm py-1.5 rounded-md font-medium " + (mode === "signup" ? "bg-white shadow-sm text-slate-900" : "text-slate-500")
+  }, "Criar conta")), /*#__PURE__*/React.createElement("form", {
+    onSubmit: handleSubmit,
+    className: "space-y-3"
+  }, mode === "signup" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "text-xs font-medium text-slate-600 mb-1 block"
+  }, "Nome"), /*#__PURE__*/React.createElement("input", {
+    value: name,
+    onChange: e => setName(e.target.value),
+    placeholder: "O teu nome",
+    className: "w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#F26641]/30 focus:border-[#F26641]"
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "text-xs font-medium text-slate-600 mb-1 block"
+  }, "Email"), /*#__PURE__*/React.createElement("input", {
+    value: email,
+    onChange: e => setEmail(e.target.value),
+    placeholder: "nome@empresa.com",
+    type: "email",
+    className: "w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#F26641]/30 focus:border-[#F26641]"
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "text-xs font-medium text-slate-600 mb-1 block"
+  }, "Palavra-passe"), /*#__PURE__*/React.createElement("input", {
+    value: password,
+    onChange: e => setPassword(e.target.value),
+    placeholder: "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022",
+    type: "password",
+    className: "w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#F26641]/30 focus:border-[#F26641]"
+  })), error && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-rose-600"
+  }, error), info && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-[#F26641]"
+  }, info), /*#__PURE__*/React.createElement("button", {
+    type: "submit",
+    disabled: loading,
+    className: "w-full text-white rounded-lg py-2.5 text-sm font-medium mt-2 disabled:opacity-50",
+    style: {
+      backgroundColor: "#F26641"
+    }
+  }, loading ? "A processar..." : mode === "signup" ? "Criar conta" : "Entrar"))), /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-slate-400 text-center mt-4 leading-relaxed"
+  }, "As contas s\xE3o reais: a password fica encriptada e os teus dados ficam guardados numa base de dados partilhada, acess\xEDvel de qualquer dispositivo.")));
+}
+
+/* ---------- Subtarefas ---------- */
+function SubtasksSection({
+  taskId
+}) {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [text, setText] = useState("");
+  async function load() {
+    setLoading(true);
+    const {
+      data
+    } = await sb.from("subtasks").select("*").eq("task_id", taskId).order("position", {
+      ascending: true
+    }).order("created_at", {
+      ascending: true
+    });
+    setItems(data || []);
+    setLoading(false);
+  }
+  useEffect(() => {
+    load();
+  }, [taskId]);
+  async function handleAdd(e) {
+    e.preventDefault();
+    if (!text.trim()) return;
+    await sb.from("subtasks").insert({
+      task_id: taskId,
+      title: text.trim(),
+      position: items.length
+    });
+    setText("");
+    await load();
+  }
+  async function toggle(item) {
+    setItems(prev => prev.map(i => i.id === item.id ? {
+      ...i,
+      done: !i.done
+    } : i));
+    await sb.from("subtasks").update({
+      done: !item.done
+    }).eq("id", item.id);
+  }
+  async function remove(id) {
+    await sb.from("subtasks").delete().eq("id", id);
+    await load();
+  }
+  const done = items.filter(i => i.done).length;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "border-t border-slate-100 px-5 py-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between mb-2"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs font-medium text-slate-600"
+  }, "Subtarefas"), items.length > 0 && /*#__PURE__*/React.createElement("span", {
+    className: "text-[10px] text-slate-400"
+  }, done, "/", items.length)), loading ? /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-slate-400"
+  }, "A carregar...") : /*#__PURE__*/React.createElement("div", {
+    className: "space-y-1 mb-2"
+  }, items.map(i => /*#__PURE__*/React.createElement("div", {
+    key: i.id,
+    className: "flex items-center gap-2 group"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: i.done,
+    onChange: () => toggle(i),
+    className: "accent-[#F26641]"
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "flex-1 text-sm " + (i.done ? "line-through text-slate-400" : "text-slate-700")
+  }, i.title), /*#__PURE__*/React.createElement("button", {
+    onClick: () => remove(i.id),
+    className: "text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100"
+  }, /*#__PURE__*/React.createElement(IconX, {
+    size: 13
+  }))))), /*#__PURE__*/React.createElement("form", {
+    onSubmit: handleAdd,
+    className: "flex gap-2"
+  }, /*#__PURE__*/React.createElement("input", {
+    value: text,
+    onChange: e => setText(e.target.value),
+    placeholder: "Adicionar passo...",
+    className: "flex-1 border border-slate-300 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-[#F26641]/30 focus:border-[#F26641]"
+  }), /*#__PURE__*/React.createElement("button", {
+    type: "submit",
+    className: "text-xs text-white px-3 py-1.5 rounded-lg font-medium shrink-0",
+    style: {
+      backgroundColor: "#F26641"
+    }
+  }, "+")));
+}
+
+/* ---------- Anexos ---------- */
+function AttachmentsSection({
+  taskId,
+  currentUserId
+}) {
+  const [files, setFiles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
+  async function load() {
+    setLoading(true);
+    const {
+      data
+    } = await sb.from("attachments").select("*").eq("task_id", taskId).is("comment_id", null).order("created_at", {
+      ascending: false
+    });
+    const withUrls = await Promise.all((data || []).map(async f => {
+      const {
+        data: signed
+      } = await sb.storage.from("attachments").createSignedUrl(f.file_path, 3600);
+      return {
+        ...f,
+        url: signed?.signedUrl
+      };
+    }));
+    setFiles(withUrls);
+    setLoading(false);
+  }
+  useEffect(() => {
+    load();
+  }, [taskId]);
+  async function handleUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploading(true);
+    const path = taskId + "/" + Date.now() + "_" + file.name;
+    const {
+      error
+    } = await sb.storage.from("attachments").upload(path, file);
+    if (!error) {
+      await sb.from("attachments").insert({
+        task_id: taskId,
+        uploader_id: currentUserId,
+        file_path: path,
+        file_name: file.name,
+        file_size: file.size,
+        mime_type: file.type
+      });
+      await load();
+    }
+    setUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+  async function remove(f) {
+    await sb.storage.from("attachments").remove([f.file_path]);
+    await sb.from("attachments").delete().eq("id", f.id);
+    await load();
+  }
+  return /*#__PURE__*/React.createElement("div", {
+    className: "border-t border-slate-100 px-5 py-4"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs font-medium text-slate-600 mb-2"
+  }, "Anexos"), loading ? /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-slate-400"
+  }, "A carregar...") : /*#__PURE__*/React.createElement("div", {
+    className: "space-y-1.5 mb-2"
+  }, files.length === 0 && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-slate-400"
+  }, "Sem anexos."), files.map(f => /*#__PURE__*/React.createElement("div", {
+    key: f.id,
+    className: "flex items-center gap-2 group bg-slate-50 rounded-lg px-2.5 py-1.5"
+  }, /*#__PURE__*/React.createElement(IconPaperclip, {
+    size: 13,
+    className: "text-slate-400 shrink-0"
+  }), /*#__PURE__*/React.createElement("a", {
+    href: f.url,
+    target: "_blank",
+    rel: "noreferrer",
+    className: "flex-1 text-sm text-slate-700 truncate hover:underline"
+  }, f.file_name), /*#__PURE__*/React.createElement("span", {
+    className: "text-[10px] text-slate-400 shrink-0"
+  }, formatBytes(f.file_size)), f.uploader_id === currentUserId && /*#__PURE__*/React.createElement("button", {
+    onClick: () => remove(f),
+    className: "text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 shrink-0"
+  }, /*#__PURE__*/React.createElement(IconX, {
+    size: 13
+  }))))), /*#__PURE__*/React.createElement("label", {
+    className: "inline-flex items-center gap-1.5 text-xs text-slate-600 border border-slate-200 rounded-lg px-3 py-1.5 cursor-pointer hover:bg-slate-50"
+  }, /*#__PURE__*/React.createElement(IconPaperclip, {
+    size: 13
+  }), " ", uploading ? "A enviar..." : "Anexar ficheiro", /*#__PURE__*/React.createElement("input", {
+    ref: fileInputRef,
+    type: "file",
+    className: "hidden",
+    onChange: handleUpload,
+    disabled: uploading
+  })));
+}
+
+/* ---------- Comentários ---------- */
+function CommentsSection({
+  taskId,
+  currentUserId
+}) {
+  const [comments, setComments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [text, setText] = useState("");
+  const [posting, setPosting] = useState(false);
+  const fileInputRef = useRef(null);
+  const [pendingFile, setPendingFile] = useState(null);
+  async function loadComments() {
+    setLoading(true);
+    const {
+      data
+    } = await sb.from("task_comments").select("id, body, created_at, author_id, author:profiles(name, email), attachments(id, file_name, file_path)").eq("task_id", taskId).order("created_at", {
+      ascending: true
+    });
+    const withUrls = await Promise.all((data || []).map(async c => {
+      const atts = await Promise.all((c.attachments || []).map(async a => {
+        const {
+          data: signed
+        } = await sb.storage.from("attachments").createSignedUrl(a.file_path, 3600);
+        return {
+          ...a,
+          url: signed?.signedUrl
+        };
+      }));
+      return {
+        ...c,
+        attachments: atts
+      };
+    }));
+    setComments(withUrls);
+    setLoading(false);
+  }
+  useEffect(() => {
+    loadComments();
+  }, [taskId]);
+  async function handlePost(e) {
+    e.preventDefault();
+    if (!text.trim() && !pendingFile) return;
+    setPosting(true);
+    const {
+      data: comment,
+      error
+    } = await sb.from("task_comments").insert({
+      task_id: taskId,
+      author_id: currentUserId,
+      body: text.trim() || "(anexo)"
+    }).select().single();
+    if (!error && comment && pendingFile) {
+      const path = taskId + "/" + Date.now() + "_" + pendingFile.name;
+      const {
+        error: upErr
+      } = await sb.storage.from("attachments").upload(path, pendingFile);
+      if (!upErr) {
+        await sb.from("attachments").insert({
+          task_id: taskId,
+          comment_id: comment.id,
+          uploader_id: currentUserId,
+          file_path: path,
+          file_name: pendingFile.name,
+          file_size: pendingFile.size,
+          mime_type: pendingFile.type
+        });
+      }
+    }
+    setText("");
+    setPendingFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    setPosting(false);
+    await loadComments();
+  }
+  async function handleDelete(id) {
+    await sb.from("task_comments").delete().eq("id", id);
+    await loadComments();
+  }
+  return /*#__PURE__*/React.createElement("div", {
+    className: "border-t border-slate-100 px-5 py-4"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs font-medium text-slate-600 mb-2"
+  }, "Coment\xE1rios"), loading ? /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-slate-400"
+  }, "A carregar...") : /*#__PURE__*/React.createElement("div", {
+    className: "space-y-3 max-h-48 overflow-y-auto mb-3"
+  }, comments.length === 0 && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-slate-400"
+  }, "Ainda sem coment\xE1rios."), comments.map(c => /*#__PURE__*/React.createElement("div", {
+    key: c.id,
+    className: "flex gap-2 group"
+  }, /*#__PURE__*/React.createElement(Avatar, {
+    name: displayName(c.author)
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 min-w-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-baseline gap-2"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-xs font-medium text-slate-800"
+  }, displayName(c.author)), /*#__PURE__*/React.createElement("span", {
+    className: "text-[10px] text-slate-400"
+  }, formatWhen(c.created_at)), c.author_id === currentUserId && /*#__PURE__*/React.createElement("button", {
+    onClick: () => handleDelete(c.id),
+    className: "text-[10px] text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100"
+  }, "eliminar")), /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-slate-700 whitespace-pre-wrap break-words"
+  }, c.body), (c.attachments || []).map(a => /*#__PURE__*/React.createElement("a", {
+    key: a.id,
+    href: a.url,
+    target: "_blank",
+    rel: "noreferrer",
+    className: "inline-flex items-center gap-1 text-xs text-[#F26641] hover:underline mt-1"
+  }, /*#__PURE__*/React.createElement(IconPaperclip, {
+    size: 11
+  }), " ", a.file_name)))))), /*#__PURE__*/React.createElement("form", {
+    onSubmit: handlePost,
+    className: "space-y-1.5"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2"
+  }, /*#__PURE__*/React.createElement("input", {
+    value: text,
+    onChange: e => setText(e.target.value),
+    placeholder: "Escrever um coment\xE1rio... (usa @email para mencionar)",
+    className: "flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#F26641]/30 focus:border-[#F26641]"
+  }), /*#__PURE__*/React.createElement("button", {
+    type: "submit",
+    disabled: posting || !text.trim() && !pendingFile,
+    className: "text-sm text-white px-3 py-2 rounded-lg font-medium disabled:opacity-40 shrink-0",
+    style: {
+      backgroundColor: "#F26641"
+    }
+  }, "Enviar")), /*#__PURE__*/React.createElement("label", {
+    className: "inline-flex items-center gap-1 text-[11px] text-slate-500 cursor-pointer hover:text-slate-700"
+  }, /*#__PURE__*/React.createElement(IconPaperclip, {
+    size: 11
+  }), " ", pendingFile ? pendingFile.name : "anexar ficheiro", /*#__PURE__*/React.createElement("input", {
+    ref: fileInputRef,
+    type: "file",
+    className: "hidden",
+    onChange: e => setPendingFile(e.target.files[0] || null)
+  }))));
+}
+
+/* ---------- Histórico de atividade ---------- */
+const ACTIVITY_LABELS = {
+  criada: "criou a tarefa",
+  coluna: "moveu a coluna:",
+  prioridade: "mudou a prioridade:",
+  responsavel: "atribuiu a:",
+  prazo: "mudou o prazo:",
+  titulo: "mudou o título:"
+};
+function ActivitySection({
+  taskId
+}) {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const {
+        data
+      } = await sb.from("task_activity").select("id, action, detail, created_at, actor:profiles(name)").eq("task_id", taskId).order("created_at", {
+        ascending: false
+      });
+      setItems(data || []);
+      setLoading(false);
+    })();
+  }, [taskId]);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "border-t border-slate-100 px-5 py-4"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs font-medium text-slate-600 mb-2"
+  }, "Hist\xF3rico"), loading ? /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-slate-400"
+  }, "A carregar...") : /*#__PURE__*/React.createElement("div", {
+    className: "space-y-1.5 max-h-40 overflow-y-auto"
+  }, items.length === 0 && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-slate-400"
+  }, "Sem atividade registada."), items.map(i => /*#__PURE__*/React.createElement("p", {
+    key: i.id,
+    className: "text-xs text-slate-500"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "font-medium text-slate-700"
+  }, displayName(i.actor)), " ", ACTIVITY_LABELS[i.action] || i.action, " ", i.detail && /*#__PURE__*/React.createElement("span", {
+    className: "text-slate-600"
+  }, i.detail), /*#__PURE__*/React.createElement("span", {
+    className: "text-slate-400"
+  }, " \xB7 ", formatWhen(i.created_at))))));
+}
+
+/* ---------- Modal de tarefa ---------- */
+function TaskModal({
+  initial,
+  projectId,
+  currentUserId,
+  projectTags,
+  onClose,
+  onSave,
+  onDelete,
+  onCreateTag
+}) {
+  const [title, setTitle] = useState(initial?.title || "");
+  const [description, setDescription] = useState(initial?.description || "");
+  const [column, setColumn] = useState(initial?.column || "todo");
+  const [priority, setPriority] = useState(initial?.priority || "media");
+  const [assigneeEmails, setAssigneeEmails] = useState((initial?.assignees || []).map(a => a.email));
+  const [newAssigneeEmail, setNewAssigneeEmail] = useState("");
+  const [due, setDue] = useState(initial?.due || "");
+  const [selectedTagIds, setSelectedTagIds] = useState(initial?.tagIds || []);
+  const [newTagName, setNewTagName] = useState("");
+  const [recurrence, setRecurrence] = useState(initial?.recurrence || "");
+  const [recurrenceWeekday, setRecurrenceWeekday] = useState(initial?.recurrenceWeekday ?? 1);
+  const [recurrenceDayOfMonth, setRecurrenceDayOfMonth] = useState(initial?.recurrenceDayOfMonth || 1);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  function toggleTag(id) {
+    setSelectedTagIds(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]);
+  }
+  function addAssignee(e) {
+    e.preventDefault();
+    const email = newAssigneeEmail.trim();
+    if (!email) return;
+    if (!assigneeEmails.includes(email)) setAssigneeEmails(prev => [...prev, email]);
+    setNewAssigneeEmail("");
+  }
+  function removeAssignee(email) {
+    setAssigneeEmails(prev => prev.filter(e => e !== email));
+  }
+  async function handleCreateTag() {
+    if (!newTagName.trim()) return;
+    const newTag = await onCreateTag(newTagName.trim());
+    setNewTagName("");
+    if (newTag) setSelectedTagIds(prev => [...prev, newTag.id]);
+  }
+  async function handleSave() {
+    if (!title.trim()) {
+      setError("Dá um título à tarefa.");
+      return;
+    }
+    setSaving(true);
+    const result = await onSave({
+      id: initial?.id,
+      title: title.trim(),
+      description: description.trim(),
+      column,
+      priority,
+      assigneeEmails,
+      due: due || null,
+      project: projectId,
+      tagIds: selectedTagIds,
+      recurrence: recurrence || null,
+      recurrenceWeekday: recurrence === "semanal" ? recurrenceWeekday : null,
+      recurrenceDayOfMonth: recurrence === "mensal" ? recurrenceDayOfMonth : null
+    });
+    setSaving(false);
+    if (result && result.error) setError(result.error);
+  }
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4",
+    onMouseDown: e => {
+      if (e.target === e.currentTarget) onClose();
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white rounded-xl w-full max-w-lg shadow-xl max-h-[90vh] overflow-y-auto"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between px-5 py-4 border-b border-slate-100"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "text-sm font-semibold text-slate-900"
+  }, initial ? "Editar tarefa" : "Nova tarefa"), /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "text-slate-400 hover:text-slate-600"
+  }, /*#__PURE__*/React.createElement(IconX, {
+    size: 18
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "p-5 space-y-4"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "text-xs font-medium text-slate-600 mb-1 block"
+  }, "T\xEDtulo"), /*#__PURE__*/React.createElement("input", {
+    value: title,
+    onChange: e => setTitle(e.target.value),
+    placeholder: "Ex: Rever contrato de arrendamento",
+    className: "w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#F26641]/30 focus:border-[#F26641]",
+    autoFocus: true
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "text-xs font-medium text-slate-600 mb-1 block"
+  }, "Descri\xE7\xE3o"), /*#__PURE__*/React.createElement("textarea", {
+    value: description,
+    onChange: e => setDescription(e.target.value),
+    placeholder: "Detalhes ou contexto adicional",
+    rows: 3,
+    className: "w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none resize-none focus:ring-2 focus:ring-[#F26641]/30 focus:border-[#F26641]"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-3"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "text-xs font-medium text-slate-600 mb-1 block"
+  }, "Coluna"), /*#__PURE__*/React.createElement("select", {
+    value: column,
+    onChange: e => setColumn(e.target.value),
+    className: "w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#F26641]/30 focus:border-[#F26641] bg-white"
+  }, COLUMN_DEFS.map(c => /*#__PURE__*/React.createElement("option", {
+    key: c.id,
+    value: c.id
+  }, c.title)))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "text-xs font-medium text-slate-600 mb-1 block"
+  }, "Prioridade"), /*#__PURE__*/React.createElement("select", {
+    value: priority,
+    onChange: e => setPriority(e.target.value),
+    className: "w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#F26641]/30 focus:border-[#F26641] bg-white"
+  }, Object.entries(PRIORITY).map(([k, v]) => /*#__PURE__*/React.createElement("option", {
+    key: k,
+    value: k
+  }, v.label))))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "text-xs font-medium text-slate-600 mb-1 block"
+  }, "Respons\xE1veis"), assigneeEmails.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap gap-1.5 mb-2"
+  }, assigneeEmails.map(email => /*#__PURE__*/React.createElement("span", {
+    key: email,
+    className: "inline-flex items-center gap-1 text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded-full"
+  }, email, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: () => removeAssignee(email),
+    className: "hover:text-rose-500"
+  }, /*#__PURE__*/React.createElement(IconX, {
+    size: 11
+  }))))), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2"
+  }, /*#__PURE__*/React.createElement("input", {
+    value: newAssigneeEmail,
+    onChange: e => setNewAssigneeEmail(e.target.value),
+    onKeyDown: e => {
+      if (e.key === "Enter") addAssignee(e);
+    },
+    placeholder: "pessoa@empresa.com",
+    type: "email",
+    className: "flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#F26641]/30 focus:border-[#F26641]"
+  }), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: addAssignee,
+    className: "text-xs px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50"
+  }, "Adicionar"))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "text-xs font-medium text-slate-600 mb-1 block"
+  }, "Prazo"), /*#__PURE__*/React.createElement("input", {
+    value: due,
+    onChange: e => setDue(e.target.value),
+    type: "date",
+    className: "w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#F26641]/30 focus:border-[#F26641]"
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "text-xs font-medium text-slate-600 mb-1 block flex items-center gap-1"
+  }, /*#__PURE__*/React.createElement(IconTag, {
+    size: 12
+  }), " Etiquetas"), /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap gap-1.5 mb-2"
+  }, projectTags.map(t => /*#__PURE__*/React.createElement("button", {
+    key: t.id,
+    type: "button",
+    onClick: () => toggleTag(t.id),
+    className: "rounded-full",
+    style: {
+      opacity: selectedTagIds.includes(t.id) ? 1 : 0.4
+    }
+  }, /*#__PURE__*/React.createElement(TagChip, {
+    tag: t
+  })))), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2"
+  }, /*#__PURE__*/React.createElement("input", {
+    value: newTagName,
+    onChange: e => setNewTagName(e.target.value),
+    placeholder: "Nova etiqueta...",
+    className: "flex-1 border border-slate-300 rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-[#F26641]/30 focus:border-[#F26641]"
+  }), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: handleCreateTag,
+    className: "text-xs px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50"
+  }, "Criar"))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "text-xs font-medium text-slate-600 mb-1 block flex items-center gap-1"
+  }, /*#__PURE__*/React.createElement(IconRepeat, {
+    size: 12
+  }), " Repetir"), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-3"
+  }, /*#__PURE__*/React.createElement("select", {
+    value: recurrence,
+    onChange: e => setRecurrence(e.target.value),
+    className: "w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#F26641]/30 focus:border-[#F26641] bg-white"
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "Nunca"), /*#__PURE__*/React.createElement("option", {
+    value: "diaria"
+  }, "Diariamente"), /*#__PURE__*/React.createElement("option", {
+    value: "semanal"
+  }, "Semanalmente"), /*#__PURE__*/React.createElement("option", {
+    value: "mensal"
+  }, "Mensalmente")), recurrence === "semanal" && /*#__PURE__*/React.createElement("select", {
+    value: recurrenceWeekday,
+    onChange: e => setRecurrenceWeekday(Number(e.target.value)),
+    className: "w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#F26641]/30 focus:border-[#F26641] bg-white"
+  }, WEEKDAYS.map((w, idx) => /*#__PURE__*/React.createElement("option", {
+    key: idx,
+    value: idx
+  }, w))), recurrence === "mensal" && /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    min: "1",
+    max: "31",
+    value: recurrenceDayOfMonth,
+    onChange: e => setRecurrenceDayOfMonth(Number(e.target.value)),
+    className: "w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#F26641]/30 focus:border-[#F26641]",
+    placeholder: "Dia do m\xEAs"
+  })), recurrence && /*#__PURE__*/React.createElement("p", {
+    className: "text-[10px] text-slate-400 mt-1"
+  }, "Uma nova tarefa \xE9 criada automaticamente todos os dias em que a regra se aplicar.")), error && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-rose-600"
+  }, error)), initial?.id && /*#__PURE__*/React.createElement(SubtasksSection, {
+    taskId: initial.id
+  }), initial?.id && /*#__PURE__*/React.createElement(AttachmentsSection, {
+    taskId: initial.id,
+    currentUserId: currentUserId
+  }), initial?.id && /*#__PURE__*/React.createElement(CommentsSection, {
+    taskId: initial.id,
+    currentUserId: currentUserId
+  }), initial?.id && /*#__PURE__*/React.createElement(ActivitySection, {
+    taskId: initial.id
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between px-5 py-4 border-t border-slate-100"
+  }, initial ? /*#__PURE__*/React.createElement("button", {
+    onClick: () => onDelete(initial.id),
+    className: "text-sm text-rose-600 hover:text-rose-700 flex items-center gap-1.5"
+  }, /*#__PURE__*/React.createElement(IconTrash, {
+    size: 14
+  }), " Eliminar") : /*#__PURE__*/React.createElement("span", null), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "text-sm px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-100"
+  }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
+    onClick: handleSave,
+    disabled: saving,
+    className: "text-sm px-4 py-2 rounded-lg text-white font-medium disabled:opacity-50",
+    style: {
+      backgroundColor: "#F26641"
+    }
+  }, saving ? "A guardar..." : "Guardar")))));
+}
+
+/* ---------- Novo projeto ---------- */
+function NewProjectModal({
+  onClose,
+  onCreate
+}) {
+  const [name, setName] = useState("");
+  const [color, setColor] = useState(PROJECT_COLORS[0]);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4",
+    onMouseDown: e => {
+      if (e.target === e.currentTarget) onClose();
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white rounded-xl w-full max-w-sm shadow-xl"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between px-5 py-4 border-b border-slate-100"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "text-sm font-semibold text-slate-900"
+  }, "Novo projeto"), /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "text-slate-400 hover:text-slate-600"
+  }, /*#__PURE__*/React.createElement(IconX, {
+    size: 18
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "p-5 space-y-4"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "text-xs font-medium text-slate-600 mb-1 block"
+  }, "Nome do projeto"), /*#__PURE__*/React.createElement("input", {
+    value: name,
+    onChange: e => setName(e.target.value),
+    placeholder: "Ex: Lan\xE7amento Q1",
+    className: "w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#F26641]/30 focus:border-[#F26641]",
+    autoFocus: true
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "text-xs font-medium text-slate-600 mb-1 block"
+  }, "Cor"), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2"
+  }, PROJECT_COLORS.map(c => /*#__PURE__*/React.createElement("button", {
+    key: c,
+    onClick: () => setColor(c),
+    className: "w-7 h-7 rounded-full",
+    style: {
+      backgroundColor: c,
+      outline: color === c ? "2px solid #1E2A32" : "none",
+      outlineOffset: "2px"
+    }
+  })))), error && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-rose-600"
+  }, error)), /*#__PURE__*/React.createElement("div", {
+    className: "flex justify-end gap-2 px-5 py-4 border-t border-slate-100"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "text-sm px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-100"
+  }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
+    disabled: saving,
+    onClick: async () => {
+      if (!name.trim()) {
+        setError("Dá um nome ao projeto.");
+        return;
+      }
+      setSaving(true);
+      const r = await onCreate(name.trim(), color);
+      setSaving(false);
+      if (r && r.error) setError(r.error);
+    },
+    className: "text-sm px-4 py-2 rounded-lg text-white font-medium disabled:opacity-50",
+    style: {
+      backgroundColor: "#F26641"
+    }
+  }, saving ? "A criar..." : "Criar projeto"))));
+}
+
+/* ---------- Editar projeto ---------- */
+function EditProjectModal({
+  project,
+  onClose,
+  onSave,
+  onDelete
+}) {
+  const [name, setName] = useState(project.name);
+  const [color, setColor] = useState(project.color);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4",
+    onMouseDown: e => {
+      if (e.target === e.currentTarget) onClose();
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white rounded-xl w-full max-w-sm shadow-xl"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between px-5 py-4 border-b border-slate-100"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "text-sm font-semibold text-slate-900"
+  }, "Editar projeto"), /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "text-slate-400 hover:text-slate-600"
+  }, /*#__PURE__*/React.createElement(IconX, {
+    size: 18
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "p-5 space-y-4"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "text-xs font-medium text-slate-600 mb-1 block"
+  }, "Nome do projeto"), /*#__PURE__*/React.createElement("input", {
+    value: name,
+    onChange: e => setName(e.target.value),
+    className: "w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#F26641]/30 focus:border-[#F26641]",
+    autoFocus: true
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "text-xs font-medium text-slate-600 mb-1 block"
+  }, "Cor"), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2"
+  }, PROJECT_COLORS.map(c => /*#__PURE__*/React.createElement("button", {
+    key: c,
+    onClick: () => setColor(c),
+    className: "w-7 h-7 rounded-full",
+    style: {
+      backgroundColor: c,
+      outline: color === c ? "2px solid #1E2A32" : "none",
+      outlineOffset: "2px"
+    }
+  })))), error && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-rose-600"
+  }, error)), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between px-5 py-4 border-t border-slate-100"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => onDelete(project.id),
+    className: "text-sm text-rose-600 hover:text-rose-700 flex items-center gap-1.5"
+  }, /*#__PURE__*/React.createElement(IconTrash, {
+    size: 14
+  }), " Eliminar projeto"), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "text-sm px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-100"
+  }, "Cancelar"), /*#__PURE__*/React.createElement("button", {
+    disabled: saving,
+    onClick: async () => {
+      if (!name.trim()) {
+        setError("Dá um nome ao projeto.");
+        return;
+      }
+      setSaving(true);
+      const r = await onSave(project.id, name.trim(), color);
+      setSaving(false);
+      if (r && r.error) setError(r.error);
+    },
+    className: "text-sm px-4 py-2 rounded-lg text-white font-medium disabled:opacity-50",
+    style: {
+      backgroundColor: "#F26641"
+    }
+  }, saving ? "A guardar..." : "Guardar")))));
+}
+
+/* ---------- Menu de contexto (botão direito) ---------- */
+function ContextMenu({
+  x,
+  y,
+  children,
+  onClose
+}) {
+  const ref = useRef(null);
+  useEffect(() => {
+    function onDocClick(e) {
+      if (ref.current && !ref.current.contains(e.target)) onClose();
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+  return /*#__PURE__*/React.createElement("div", {
+    ref: ref,
+    className: "fixed z-50 bg-white rounded-lg shadow-xl border border-slate-200 py-1 min-w-[180px]",
+    style: {
+      top: y,
+      left: x
+    }
+  }, children);
+}
+function ContextMenuItem({
+  onClick,
+  danger,
+  children
+}) {
+  return /*#__PURE__*/React.createElement("button", {
+    onClick: onClick,
+    className: "w-full text-left px-3 py-1.5 text-sm hover:bg-slate-50 " + (danger ? "text-rose-600" : "text-slate-700")
+  }, children);
+}
+
+/* ---------- Dashboard pessoal ---------- */
+function DashboardView({
+  tasks,
+  projects,
+  onOpen
+}) {
+  const sorted = [...tasks].sort((a, b) => (a.due || "9999") < (b.due || "9999") ? -1 : 1);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "px-6 py-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white rounded-xl border border-slate-200 overflow-hidden"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-[1fr_120px_100px_90px_130px] gap-2 px-4 py-2 bg-slate-50 text-[11px] font-medium text-slate-500 uppercase tracking-wide"
+  }, /*#__PURE__*/React.createElement("span", null, "T\xEDtulo"), /*#__PURE__*/React.createElement("span", null, "Projeto"), /*#__PURE__*/React.createElement("span", null, "Status"), /*#__PURE__*/React.createElement("span", null, "Prioridade"), /*#__PURE__*/React.createElement("span", null, "Prazo")), sorted.length === 0 && /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-slate-400 text-center py-8"
+  }, "N\xE3o tens tarefas atribu\xEDdas em nenhum projeto."), sorted.map(t => {
+    const pr = PRIORITY[t.priority] || PRIORITY.media;
+    const col = COLUMN_DEFS.find(c => c.id === t.column);
+    const style = COLUMN_STYLES[t.column] || COLUMN_STYLES.todo;
+    const proj = projects[t.project];
+    return /*#__PURE__*/React.createElement("div", {
+      key: t.id,
+      onClick: () => onOpen(t),
+      className: "grid grid-cols-[1fr_120px_100px_90px_130px] gap-2 px-4 py-2.5 border-t border-slate-100 hover:bg-slate-50 cursor-pointer items-center " + (t.column === "done" ? "bg-emerald-50/30" : "")
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "min-w-0"
+    }, /*#__PURE__*/React.createElement("p", {
+      className: "text-sm text-slate-800 truncate"
+    }, t.title), t.tags && t.tags.length > 0 && /*#__PURE__*/React.createElement("div", {
+      className: "flex flex-wrap gap-1 mt-1"
+    }, t.tags.map(tag => /*#__PURE__*/React.createElement(TagChip, {
+      key: tag.id,
+      tag: tag
+    })))), /*#__PURE__*/React.createElement("span", {
+      className: "flex items-center gap-1.5 text-xs text-slate-600 truncate"
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "w-1.5 h-1.5 rounded-full shrink-0",
+      style: {
+        backgroundColor: proj?.color
+      }
+    }), " ", proj?.name), /*#__PURE__*/React.createElement("span", {
+      className: "text-[11px] px-1.5 py-0.5 rounded font-medium w-fit " + style.pillBg + " " + style.text
+    }, col?.title), /*#__PURE__*/React.createElement("span", {
+      className: "text-[11px] px-1.5 py-0.5 rounded font-medium w-fit " + pr.bg + " " + pr.text
+    }, pr.label), t.column === "done" && t.completedAt ? /*#__PURE__*/React.createElement("span", {
+      className: "text-xs text-emerald-600 font-medium"
+    }, "Conclu\xEDda ", formatDateBR(t.completedAt)) : /*#__PURE__*/React.createElement("span", {
+      className: "text-xs text-slate-500"
+    }, t.due ? formatDateBR(t.due) : "—"));
+  })));
+}
+
+/* ---------- Equipa ---------- */
+function MembersModal({
+  projectId,
+  currentUserId,
+  onClose
+}) {
+  const [members, setMembers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [email, setEmail] = useState("");
+  const [error, setError] = useState("");
+  const [inviting, setInviting] = useState(false);
+  async function loadMembers() {
+    setLoading(true);
+    const {
+      data
+    } = await sb.from("project_members").select("user_id, profiles(name, email)").eq("project_id", projectId);
+    setMembers(data || []);
+    setLoading(false);
+  }
+  useEffect(() => {
+    loadMembers();
+  }, [projectId]);
+  async function handleInvite(e) {
+    e.preventDefault();
+    setError("");
+    if (!email.trim()) return;
+    setInviting(true);
+    const {
+      data: found
+    } = await sb.from("profiles").select("id").eq("email", email.trim()).maybeSingle();
+    if (!found) {
+      setInviting(false);
+      setError("Não encontrei nenhuma conta com esse email. A pessoa precisa de se registar primeiro.");
+      return;
+    }
+    const {
+      error: insErr
+    } = await sb.from("project_members").upsert({
+      project_id: projectId,
+      user_id: found.id
+    }, {
+      onConflict: "project_id,user_id"
+    });
+    setInviting(false);
+    if (insErr) {
+      setError(insErr.message);
+      return;
+    }
+    setEmail("");
+    await loadMembers();
+  }
+  async function handleRemove(userId) {
+    await sb.from("project_members").delete().eq("project_id", projectId).eq("user_id", userId);
+    await loadMembers();
+  }
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4",
+    onMouseDown: e => {
+      if (e.target === e.currentTarget) onClose();
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white rounded-xl w-full max-w-sm shadow-xl"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between px-5 py-4 border-b border-slate-100"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "text-sm font-semibold text-slate-900"
+  }, "Equipa do projeto"), /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "text-slate-400 hover:text-slate-600"
+  }, /*#__PURE__*/React.createElement(IconX, {
+    size: 18
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "p-5"
+  }, /*#__PURE__*/React.createElement("form", {
+    onSubmit: handleInvite,
+    className: "flex gap-2 mb-4"
+  }, /*#__PURE__*/React.createElement("input", {
+    value: email,
+    onChange: e => setEmail(e.target.value),
+    placeholder: "email@empresa.com",
+    type: "email",
+    className: "flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#F26641]/30 focus:border-[#F26641]"
+  }), /*#__PURE__*/React.createElement("button", {
+    type: "submit",
+    disabled: inviting,
+    className: "text-sm text-white px-3 py-2 rounded-lg font-medium disabled:opacity-50 shrink-0",
+    style: {
+      backgroundColor: "#F26641"
+    }
+  }, inviting ? "..." : "Convidar")), error && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-rose-600 mb-3"
+  }, error), loading ? /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-slate-400"
+  }, "A carregar...") : /*#__PURE__*/React.createElement("div", {
+    className: "space-y-1.5 max-h-64 overflow-y-auto"
+  }, members.length === 0 && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-slate-400"
+  }, "Ainda n\xE3o convidaste ningu\xE9m."), members.map(m => /*#__PURE__*/React.createElement("div", {
+    key: m.user_id,
+    className: "flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50"
+  }, /*#__PURE__*/React.createElement(Avatar, {
+    name: displayName(m.profiles)
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 min-w-0"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-slate-800 truncate"
+  }, displayName(m.profiles)), /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-slate-400 truncate"
+  }, m.profiles?.email)), m.user_id !== currentUserId && /*#__PURE__*/React.createElement("button", {
+    onClick: () => handleRemove(m.user_id),
+    className: "text-slate-300 hover:text-rose-500",
+    title: "Remover"
+  }, /*#__PURE__*/React.createElement(IconX, {
+    size: 14
+  }))))))));
+}
+
+/* ---------- Notificações ---------- */
+function NotificationsBell({
+  userId,
+  onOpenTask
+}) {
+  const [open, setOpen] = useState(false);
+  const [items, setItems] = useState([]);
+  const [unread, setUnread] = useState(0);
+  const boxRef = useRef(null);
+  async function loadUnreadCount() {
+    const {
+      count
+    } = await sb.from("notifications").select("id", {
+      count: "exact",
+      head: true
+    }).eq("user_id", userId).eq("read", false);
+    setUnread(count || 0);
+  }
+  async function loadList() {
+    const {
+      data
+    } = await sb.from("notifications").select("*").eq("user_id", userId).order("created_at", {
+      ascending: false
+    }).limit(20);
+    setItems(data || []);
+  }
+  useEffect(() => {
+    loadUnreadCount();
+    const interval = setInterval(loadUnreadCount, 30000);
+    return () => clearInterval(interval);
+  }, [userId]);
+  useEffect(() => {
+    function onDocClick(e) {
+      if (boxRef.current && !boxRef.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+  async function handleToggle() {
+    const next = !open;
+    setOpen(next);
+    if (next) await loadList();
+  }
+  async function handleClickItem(n) {
+    if (!n.read) {
+      await sb.from("notifications").update({
+        read: true
+      }).eq("id", n.id);
+      setItems(prev => prev.map(i => i.id === n.id ? {
+        ...i,
+        read: true
+      } : i));
+      setUnread(u => Math.max(0, u - 1));
+    }
+    if (n.task_id) onOpenTask(n.task_id, n.body?.split(" — ")[1] || null);
+    setOpen(false);
+  }
+  async function markAllRead() {
+    await sb.from("notifications").update({
+      read: true
+    }).eq("user_id", userId).eq("read", false);
+    setItems(prev => prev.map(i => ({
+      ...i,
+      read: true
+    })));
+    setUnread(0);
+  }
+  return /*#__PURE__*/React.createElement("div", {
+    className: "relative",
+    ref: boxRef
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: handleToggle,
+    className: "relative text-slate-500 hover:text-slate-700 p-1.5"
+  }, /*#__PURE__*/React.createElement(IconBell, {
+    size: 18
+  }), unread > 0 && /*#__PURE__*/React.createElement("span", {
+    className: "absolute -top-0.5 -right-0.5 bg-[#F26641] text-white text-[9px] rounded-full min-w-[15px] h-[15px] flex items-center justify-center px-1"
+  }, unread > 9 ? "9+" : unread)), open && /*#__PURE__*/React.createElement("div", {
+    className: "absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-slate-200 z-50 max-h-96 overflow-y-auto"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between px-4 py-3 border-b border-slate-100"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-sm font-semibold text-slate-900"
+  }, "Notifica\xE7\xF5es"), unread > 0 && /*#__PURE__*/React.createElement("button", {
+    onClick: markAllRead,
+    className: "text-[11px] text-[#F26641] hover:underline"
+  }, "marcar todas como lidas")), items.length === 0 && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-slate-400 px-4 py-6 text-center"
+  }, "Sem notifica\xE7\xF5es."), items.map(n => /*#__PURE__*/React.createElement("button", {
+    key: n.id,
+    onClick: () => handleClickItem(n),
+    className: "w-full text-left px-4 py-2.5 border-b border-slate-50 hover:bg-slate-50 " + (n.read ? "" : "bg-[#F26641]/5")
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs font-medium text-slate-800"
+  }, n.title), n.body && /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-slate-500 truncate"
+  }, n.body), /*#__PURE__*/React.createElement("p", {
+    className: "text-[10px] text-slate-400 mt-0.5"
+  }, formatWhen(n.created_at))))));
+}
+
+/* ---------- Cartão e coluna (Kanban) ---------- */
+function AvatarStack({
+  people
+}) {
+  if (!people || people.length === 0) return null;
+  const shown = people.slice(0, 3);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center -space-x-1.5"
+  }, shown.map((p, i) => /*#__PURE__*/React.createElement("div", {
+    key: p.id || i,
+    className: "ring-2 ring-white rounded-full"
+  }, /*#__PURE__*/React.createElement(Avatar, {
+    name: displayName(p)
+  }))), people.length > 3 && /*#__PURE__*/React.createElement("div", {
+    className: "w-6 h-6 rounded-full bg-slate-200 text-slate-600 text-[9px] font-semibold flex items-center justify-center ring-2 ring-white"
+  }, "+", people.length - 3));
+}
+function TaskCard({
+  task,
+  onOpen,
+  onDragStart
+}) {
+  const pr = PRIORITY[task.priority] || PRIORITY.media;
+  const isOverdue = task.due && task.column !== "done" && new Date(task.due) < new Date(new Date().toDateString());
+  const subtasksTotal = task.subtasksTotal || 0;
+  const subtasksDone = task.subtasksDone || 0;
+  const colStyle = COLUMN_STYLES[task.column] || COLUMN_STYLES.todo;
+  return /*#__PURE__*/React.createElement("div", {
+    draggable: true,
+    onDragStart: e => onDragStart(e, task.id),
+    onClick: () => onOpen(task),
+    className: "border rounded-lg p-3 mb-2 cursor-pointer hover:shadow-sm transition group " + (task.column === "done" ? "bg-emerald-50/40 border-emerald-200" : "bg-white border-slate-200 hover:border-slate-300")
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-start justify-between gap-2 mb-2"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-slate-800 font-medium leading-snug"
+  }, task.title), /*#__PURE__*/React.createElement(IconGrip, {
+    size: 14,
+    className: "text-slate-300 opacity-0 group-hover:opacity-100 shrink-0 mt-0.5"
+  })), task.tags && task.tags.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap gap-1 mb-2"
+  }, task.tags.map(t => /*#__PURE__*/React.createElement(TagChip, {
+    key: t.id,
+    tag: t
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 flex-wrap"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-[11px] px-1.5 py-0.5 rounded font-medium " + pr.bg + " " + pr.text
+  }, pr.label), task.column === "done" && task.completedAt ? /*#__PURE__*/React.createElement("span", {
+    className: "text-[11px] flex items-center gap-1 text-emerald-600 font-medium"
+  }, /*#__PURE__*/React.createElement(IconCalendar, {
+    size: 11
+  }), " Conclu\xEDda ", formatDateBR(task.completedAt)) : task.due && /*#__PURE__*/React.createElement("span", {
+    className: "text-[11px] flex items-center gap-1 " + (isOverdue ? "text-rose-600 font-medium" : "text-slate-400")
+  }, /*#__PURE__*/React.createElement(IconCalendar, {
+    size: 11
+  }), " ", formatDateBR(task.due)), task.recurrence && /*#__PURE__*/React.createElement(IconRepeat, {
+    size: 11,
+    className: "text-slate-400"
+  }), subtasksTotal > 0 && /*#__PURE__*/React.createElement("span", {
+    className: "text-[11px] text-slate-400 flex items-center gap-1"
+  }, /*#__PURE__*/React.createElement(IconCheckSquare, {
+    size: 11
+  }), " ", subtasksDone, "/", subtasksTotal)), /*#__PURE__*/React.createElement(AvatarStack, {
+    people: task.assignees
+  })));
+}
+function Column({
+  col,
+  tasks,
+  onOpen,
+  onDragStart,
+  onDrop,
+  onAddTask
+}) {
+  const [over, setOver] = useState(false);
+  const style = COLUMN_STYLES[col.id] || COLUMN_STYLES.todo;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "flex-shrink-0 w-72 rounded-xl p-2 " + (over ? "bg-[#F26641]/10" : style.headerBg),
+    onDragOver: e => {
+      e.preventDefault();
+      setOver(true);
+    },
+    onDragLeave: () => setOver(false),
+    onDrop: e => {
+      setOver(false);
+      onDrop(e, col.id);
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between px-2 py-1.5 mb-1"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "w-2 h-2 rounded-full",
+    style: {
+      backgroundColor: style.chip
+    }
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "text-sm font-semibold " + style.text
+  }, col.title), /*#__PURE__*/React.createElement("span", {
+    className: "text-xs text-slate-400 bg-white rounded-full px-1.5"
+  }, tasks.length)), /*#__PURE__*/React.createElement("button", {
+    onClick: () => onAddTask(col.id),
+    className: "text-slate-400 hover:text-slate-600"
+  }, /*#__PURE__*/React.createElement(IconPlus, {
+    size: 15
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "min-h-[40px]"
+  }, tasks.length === 0 && /*#__PURE__*/React.createElement("div", {
+    className: "text-xs text-slate-400 text-center py-6 border border-dashed border-slate-200 rounded-lg"
+  }, "Sem tarefas aqui"), tasks.map(t => /*#__PURE__*/React.createElement(TaskCard, {
+    key: t.id,
+    task: t,
+    onOpen: onOpen,
+    onDragStart: onDragStart
+  }))));
+}
+
+/* ---------- Vista de Lista ---------- */
+function ListView({
+  tasks,
+  onOpen
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    className: "px-6 py-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white rounded-xl border border-slate-200 overflow-hidden"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-[1fr_100px_90px_170px_130px] gap-2 px-4 py-2 bg-slate-50 text-[11px] font-medium text-slate-500 uppercase tracking-wide"
+  }, /*#__PURE__*/React.createElement("span", null, "T\xEDtulo"), /*#__PURE__*/React.createElement("span", null, "Status"), /*#__PURE__*/React.createElement("span", null, "Prioridade"), /*#__PURE__*/React.createElement("span", null, "Respons\xE1veis"), /*#__PURE__*/React.createElement("span", null, "Prazo")), tasks.length === 0 && /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-slate-400 text-center py-8"
+  }, "Sem tarefas."), tasks.map(t => {
+    const pr = PRIORITY[t.priority] || PRIORITY.media;
+    const col = COLUMN_DEFS.find(c => c.id === t.column);
+    const style = COLUMN_STYLES[t.column] || COLUMN_STYLES.todo;
+    return /*#__PURE__*/React.createElement("div", {
+      key: t.id,
+      onClick: () => onOpen(t),
+      className: "grid grid-cols-[1fr_100px_90px_170px_130px] gap-2 px-4 py-2.5 border-t border-slate-100 hover:bg-slate-50 cursor-pointer items-center " + (t.column === "done" ? "bg-emerald-50/30" : "")
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "min-w-0"
+    }, /*#__PURE__*/React.createElement("p", {
+      className: "text-sm text-slate-800 truncate"
+    }, t.title), t.tags && t.tags.length > 0 && /*#__PURE__*/React.createElement("div", {
+      className: "flex flex-wrap gap-1 mt-1"
+    }, t.tags.map(tag => /*#__PURE__*/React.createElement(TagChip, {
+      key: tag.id,
+      tag: tag
+    })))), /*#__PURE__*/React.createElement("span", {
+      className: "text-[11px] px-1.5 py-0.5 rounded font-medium w-fit " + style.pillBg + " " + style.text
+    }, col?.title), /*#__PURE__*/React.createElement("span", {
+      className: "text-[11px] px-1.5 py-0.5 rounded font-medium w-fit " + pr.bg + " " + pr.text
+    }, pr.label), /*#__PURE__*/React.createElement("span", {
+      className: "text-xs text-slate-500 truncate"
+    }, (t.assignees || []).map(a => displayName(a)).join(", ") || "—"), t.column === "done" && t.completedAt ? /*#__PURE__*/React.createElement("span", {
+      className: "text-xs text-emerald-600 font-medium"
+    }, "Conclu\xEDda ", formatDateBR(t.completedAt)) : /*#__PURE__*/React.createElement("span", {
+      className: "text-xs text-slate-500"
+    }, t.due ? formatDateBR(t.due) : "—"));
+  })));
+}
+
+/* ---------- Vista de Calendário ---------- */
+function CalendarView({
+  tasks,
+  onOpen
+}) {
+  const [cursor, setCursor] = useState(() => {
+    const d = new Date();
+    d.setDate(1);
+    return d;
+  });
+  const year = cursor.getFullYear(),
+    month = cursor.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const startOffset = firstDay.getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cells = [];
+  for (let i = 0; i < startOffset; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  const tasksByDay = {};
+  tasks.forEach(t => {
+    if (!t.due) return;
+    const [y, m, d] = t.due.split("-").map(Number);
+    if (y === year && m === month + 1) {
+      tasksByDay[d] = tasksByDay[d] || [];
+      tasksByDay[d].push(t);
+    }
+  });
+  return /*#__PURE__*/React.createElement("div", {
+    className: "px-6 py-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between mb-3"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-sm font-semibold text-slate-800"
+  }, cursor.toLocaleDateString("pt-PT", {
+    month: "long",
+    year: "numeric"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-1"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setCursor(new Date(year, month - 1, 1)),
+    className: "p-1 rounded hover:bg-slate-100 text-slate-500"
+  }, /*#__PURE__*/React.createElement(IconChevronLeft, {
+    size: 16
+  })), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setCursor(new Date(year, month + 1, 1)),
+    className: "p-1 rounded hover:bg-slate-100 text-slate-500"
+  }, /*#__PURE__*/React.createElement(IconChevronRight, {
+    size: 16
+  })))), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-7 gap-1 text-[11px] text-slate-400 mb-1 px-1"
+  }, ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map(d => /*#__PURE__*/React.createElement("div", {
+    key: d,
+    className: "text-center"
+  }, d))), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-7 gap-1"
+  }, cells.map((d, idx) => /*#__PURE__*/React.createElement("div", {
+    key: idx,
+    className: "min-h-[80px] rounded-lg border p-1 " + (d ? "border-slate-200 bg-white" : "border-transparent")
+  }, d && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-slate-400 mb-1"
+  }, d), (tasksByDay[d] || []).slice(0, 3).map(t => {
+    const style = COLUMN_STYLES[t.column] || COLUMN_STYLES.todo;
+    return /*#__PURE__*/React.createElement("div", {
+      key: t.id,
+      onClick: () => onOpen(t),
+      className: "text-[10px] px-1 py-0.5 mb-0.5 rounded truncate cursor-pointer",
+      style: {
+        backgroundColor: style.chip + "20",
+        color: style.chip
+      }
+    }, t.title);
+  }), (tasksByDay[d] || []).length > 3 && /*#__PURE__*/React.createElement("p", {
+    className: "text-[9px] text-slate-400"
+  }, "+", (tasksByDay[d] || []).length - 3, " mais"))))));
+}
+
+/* ---------- App principal ---------- */
+function App() {
+  const [session, setSession] = useState(undefined);
+  const [profile, setProfile] = useState(null);
+  const [projects, setProjects] = useState({});
+  const [projectOrder, setProjectOrder] = useState([]);
+  const [tasks, setTasks] = useState({});
+  const [tags, setTags] = useState([]);
+  const [selectedProject, setSelectedProject] = useState(null);
+  const [modalTask, setModalTask] = useState(undefined);
+  const [showNewProject, setShowNewProject] = useState(false);
+  const [showEditProject, setShowEditProject] = useState(false);
+  const [showMembers, setShowMembers] = useState(false);
+  const [search, setSearch] = useState("");
+  const [view, setView] = useState("kanban");
+  const [filterAssignee, setFilterAssignee] = useState("");
+  const [filterPriority, setFilterPriority] = useState("");
+  const [filterTagId, setFilterTagId] = useState("");
+  const [filterColumn, setFilterColumn] = useState("");
+  const [sortBy, setSortBy] = useState("");
+  const [members, setMembers] = useState([]);
+  const [loadingData, setLoadingData] = useState(false);
+  const [contextMenu, setContextMenu] = useState(null);
+  const [showDashboard, setShowDashboard] = useState(false);
+  const [folders, setFolders] = useState([]);
+  const [folderAssignments, setFolderAssignments] = useState({});
+  const [collapsedFolders, setCollapsedFolders] = useState({});
+  const dragTaskId = useRef(null);
+  useEffect(() => {
+    sb.auth.getSession().then(({
+      data
+    }) => setSession(data.session));
+    const {
+      data: sub
+    } = sb.auth.onAuthStateChange((_event, s) => setSession(s));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+  useEffect(() => {
+    if (!session) {
+      setProfile(null);
+      return;
+    }
+    sb.from("profiles").select("*").eq("id", session.user.id).single().then(({
+      data
+    }) => setProfile(data));
+  }, [session]);
+  async function loadData() {
+    setLoadingData(true);
+    const {
+      data: projectRows
+    } = await sb.from("projects").select("*").order("created_at", {
+      ascending: true
+    });
+    const {
+      data: taskRows
+    } = await sb.from("tasks").select("*, task_assignees(profiles(id,name,email)), task_tags(tags(id,name,color)), subtasks(id,done)").order("created_at", {
+      ascending: true
+    });
+    const projMap = {};
+    const order = [];
+    (projectRows || []).forEach(p => {
+      projMap[p.id] = p;
+      order.push(p.id);
+    });
+    const taskMap = {};
+    (taskRows || []).forEach(t => {
+      const assignees = (t.task_assignees || []).map(a => a.profiles).filter(Boolean);
+      taskMap[t.id] = {
+        id: t.id,
+        title: t.title,
+        description: t.description || "",
+        column: t.column_id,
+        priority: t.priority,
+        due: t.due,
+        completedAt: t.completed_at,
+        project: t.project_id,
+        assignees,
+        tags: (t.task_tags || []).map(tt => tt.tags).filter(Boolean),
+        tagIds: (t.task_tags || []).map(tt => tt.tags?.id).filter(Boolean),
+        subtasksTotal: (t.subtasks || []).length,
+        subtasksDone: (t.subtasks || []).filter(s => s.done).length,
+        recurrence: t.recurrence,
+        recurrenceWeekday: t.recurrence_weekday,
+        recurrenceDayOfMonth: t.recurrence_day_of_month
+      };
+    });
+    setProjects(projMap);
+    setProjectOrder(order);
+    setTasks(taskMap);
+    setSelectedProject(prev => prev && projMap[prev] ? prev : order[0] || null);
+    setLoadingData(false);
+  }
+  useEffect(() => {
+    if (session && profile) loadData();
+  }, [session, profile]);
+  async function loadFolders() {
+    const {
+      data: folderRows
+    } = await sb.from("sidebar_folders").select("*").order("position", {
+      ascending: true
+    }).order("created_at", {
+      ascending: true
+    });
+    const {
+      data: assignRows
+    } = await sb.from("project_folder_assignments").select("project_id, folder_id");
+    setFolders(folderRows || []);
+    const map = {};
+    (assignRows || []).forEach(a => {
+      map[a.project_id] = a.folder_id;
+    });
+    setFolderAssignments(map);
+  }
+  useEffect(() => {
+    if (session) loadFolders();
+  }, [session]);
+  async function handleCreateFolder() {
+    const name = window.prompt("Nome da nova pasta:");
+    if (!name || !name.trim()) return;
+    await sb.from("sidebar_folders").insert({
+      owner_id: session.user.id,
+      name: name.trim()
+    });
+    await loadFolders();
+  }
+  async function handleRenameFolder(folder) {
+    const name = window.prompt("Novo nome da pasta:", folder.name);
+    if (!name || !name.trim()) return;
+    await sb.from("sidebar_folders").update({
+      name: name.trim()
+    }).eq("id", folder.id);
+    await loadFolders();
+  }
+  async function handleDeleteFolder(folder) {
+    if (!window.confirm("Eliminar a pasta \"" + folder.name + "\"? Os projetos lá dentro voltam a ficar sem pasta.")) return;
+    await sb.from("sidebar_folders").delete().eq("id", folder.id);
+    await loadFolders();
+    setContextMenu(null);
+  }
+  async function handleMoveProjectToFolder(projectId, folderId) {
+    if (folderId) {
+      await sb.from("project_folder_assignments").upsert({
+        owner_id: session.user.id,
+        project_id: projectId,
+        folder_id: folderId
+      }, {
+        onConflict: "owner_id,project_id"
+      });
+    } else {
+      await sb.from("project_folder_assignments").delete().eq("owner_id", session.user.id).eq("project_id", projectId);
+    }
+    await loadFolders();
+    setContextMenu(null);
+  }
+  async function loadTags(projectId) {
+    const {
+      data
+    } = await sb.from("tags").select("*").eq("project_id", projectId).order("name");
+    setTags(data || []);
+  }
+  async function loadMembers(projectId) {
+    const {
+      data
+    } = await sb.from("project_members").select("user_id, profiles(name,email)").eq("project_id", projectId);
+    setMembers((data || []).map(m => m.profiles).filter(Boolean));
+  }
+  useEffect(() => {
+    if (selectedProject) {
+      loadTags(selectedProject);
+      loadMembers(selectedProject);
+    }
+  }, [selectedProject]);
+  if (session === undefined) {
+    return /*#__PURE__*/React.createElement("div", {
+      className: "min-h-screen flex items-center justify-center bg-[#F6F5F1] text-slate-400 text-sm"
+    }, "A carregar...");
+  }
+  if (!session) return /*#__PURE__*/React.createElement(AuthScreen, null);
+  if (!profile || loadingData) {
+    return /*#__PURE__*/React.createElement("div", {
+      className: "min-h-screen flex items-center justify-center bg-[#F6F5F1] text-slate-400 text-sm"
+    }, "A carregar os teus dados...");
+  }
+  const project = selectedProject ? projects[selectedProject] : null;
+  const myTasks = Object.values(tasks).filter(t => (t.assignees || []).some(a => a.id === session.user.id));
+  const allProjectTasksUnfiltered = Object.values(tasks).filter(t => t.project === selectedProject);
+  const assigneeOptions = [];
+  const seenEmails = new Set();
+  allProjectTasksUnfiltered.forEach(t => (t.assignees || []).forEach(a => {
+    if (a.email && !seenEmails.has(a.email)) {
+      seenEmails.add(a.email);
+      assigneeOptions.push(a);
+    }
+  }));
+  let projectTasks = allProjectTasksUnfiltered.filter(t => search.trim() === "" || t.title.toLowerCase().includes(search.toLowerCase()));
+  if (filterAssignee) projectTasks = projectTasks.filter(t => (t.assignees || []).some(a => a.email === filterAssignee));
+  if (filterPriority) projectTasks = projectTasks.filter(t => t.priority === filterPriority);
+  if (filterTagId) projectTasks = projectTasks.filter(t => (t.tagIds || []).includes(filterTagId));
+  if (filterColumn) projectTasks = projectTasks.filter(t => t.column === filterColumn);
+  if (sortBy === "due") projectTasks = [...projectTasks].sort((a, b) => (a.due || "9999") < (b.due || "9999") ? -1 : 1);
+  if (sortBy === "priority") projectTasks = [...projectTasks].sort((a, b) => PRIORITY[b.priority].order - PRIORITY[a.priority].order);
+  if (sortBy === "title") projectTasks = [...projectTasks].sort((a, b) => a.title.localeCompare(b.title));
+  async function handleSaveTask(task) {
+    const assigneeIds = [];
+    for (const email of task.assigneeEmails) {
+      const {
+        data: found
+      } = await sb.from("profiles").select("id").eq("email", email).maybeSingle();
+      if (!found) return {
+        error: "Não encontrei nenhuma conta com o email " + email + "."
+      };
+      assigneeIds.push(found.id);
+    }
+    const payload = {
+      project_id: task.project,
+      title: task.title,
+      description: task.description,
+      column_id: task.column,
+      priority: task.priority,
+      due: task.due,
+      recurrence: task.recurrence,
+      recurrence_weekday: task.recurrenceWeekday,
+      recurrence_day_of_month: task.recurrenceDayOfMonth,
+      is_recurring_template: !!task.recurrence
+    };
+    let taskId = task.id;
+    let error;
+    if (task.id) {
+      ({
+        error
+      } = await sb.from("tasks").update(payload).eq("id", task.id));
+    } else {
+      payload.created_by = session.user.id;
+      const {
+        data,
+        error: insErr
+      } = await sb.from("tasks").insert(payload).select().single();
+      error = insErr;
+      if (data) taskId = data.id;
+    }
+    if (error) return {
+      error: error.message
+    };
+    if (taskId) {
+      const {
+        data: existingLinks
+      } = await sb.from("task_tags").select("tag_id").eq("task_id", taskId);
+      const existingIds = (existingLinks || []).map(l => l.tag_id);
+      const toAdd = task.tagIds.filter(id => !existingIds.includes(id));
+      const toRemove = existingIds.filter(id => !task.tagIds.includes(id));
+      if (toAdd.length) await sb.from("task_tags").insert(toAdd.map(tag_id => ({
+        task_id: taskId,
+        tag_id
+      })));
+      if (toRemove.length) await sb.from("task_tags").delete().eq("task_id", taskId).in("tag_id", toRemove);
+      const {
+        data: existingAssignees
+      } = await sb.from("task_assignees").select("user_id").eq("task_id", taskId);
+      const existingAssigneeIds = (existingAssignees || []).map(a => a.user_id);
+      const assigneesToAdd = assigneeIds.filter(id => !existingAssigneeIds.includes(id));
+      const assigneesToRemove = existingAssigneeIds.filter(id => !assigneeIds.includes(id));
+      if (assigneesToAdd.length) await sb.from("task_assignees").insert(assigneesToAdd.map(user_id => ({
+        task_id: taskId,
+        user_id
+      })));
+      if (assigneesToRemove.length) await sb.from("task_assignees").delete().eq("task_id", taskId).in("user_id", assigneesToRemove);
+    }
+    await loadData();
+    setModalTask(undefined);
+  }
+  async function handleCreateTag(name) {
+    const {
+      data,
+      error
+    } = await sb.from("tags").insert({
+      project_id: selectedProject,
+      name,
+      color: "#F26641"
+    }).select().single();
+    if (error) return null;
+    await loadTags(selectedProject);
+    return data;
+  }
+  async function handleDeleteTask(id) {
+    await sb.from("tasks").delete().eq("id", id);
+    setModalTask(undefined);
+    await loadData();
+  }
+  function handleDragStart(e, taskId) {
+    dragTaskId.current = taskId;
+  }
+  async function handleDrop(e, columnId) {
+    e.preventDefault();
+    const id = dragTaskId.current;
+    if (!id) return;
+    dragTaskId.current = null;
+    setTasks(prev => ({
+      ...prev,
+      [id]: {
+        ...prev[id],
+        column: columnId
+      }
+    }));
+    await sb.from("tasks").update({
+      column_id: columnId
+    }).eq("id", id);
+  }
+  async function handleCreateProject(name, color) {
+    const {
+      data,
+      error
+    } = await sb.from("projects").insert({
+      name,
+      color,
+      owner_id: session.user.id
+    }).select().single();
+    if (error) return {
+      error: error.message
+    };
+    await sb.from("project_members").upsert({
+      project_id: data.id,
+      user_id: session.user.id
+    }, {
+      onConflict: "project_id,user_id"
+    });
+    await loadData();
+    setSelectedProject(data.id);
+    setShowNewProject(false);
+  }
+  function handleAddTaskInColumn(columnId) {
+    setModalTask({
+      column: columnId,
+      __new: true
+    });
+  }
+  async function handleUpdateProject(id, name, color) {
+    const {
+      error
+    } = await sb.from("projects").update({
+      name,
+      color
+    }).eq("id", id);
+    if (error) return {
+      error: error.message
+    };
+    await loadData();
+    setShowEditProject(false);
+  }
+  async function handleDeleteProject(id) {
+    await sb.from("projects").delete().eq("id", id);
+    setShowEditProject(false);
+    setSelectedProject(null);
+    await loadData();
+  }
+  function openProjectContextMenu(e, pid) {
+    e.preventDefault();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      type: "project",
+      id: pid
+    });
+  }
+  function openFolderContextMenu(e, folder) {
+    e.preventDefault();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      type: "folder",
+      id: folder.id,
+      folder
+    });
+  }
+  function handleEditFromMenu(pid) {
+    setSelectedProject(pid);
+    setShowEditProject(true);
+    setContextMenu(null);
+  }
+  function handleDeleteFromMenu(pid) {
+    const name = projects[pid]?.name || "este projeto";
+    if (!window.confirm("Eliminar o projeto \"" + name + "\"? Esta ação não pode ser desfeita.")) {
+      setContextMenu(null);
+      return;
+    }
+    handleDeleteProject(pid);
+    setContextMenu(null);
+  }
+  async function handleOpenNotificationTask(taskId) {
+    const {
+      data: t
+    } = await sb.from("tasks").select("project_id").eq("id", taskId).single();
+    if (!t) return;
+    setSelectedProject(t.project_id);
+    setShowDashboard(false);
+    const fresh = tasks[taskId];
+    setModalTask(fresh || {
+      id: taskId,
+      __new: false,
+      title: "",
+      column: "todo",
+      priority: "media",
+      tagIds: []
+    });
+  }
+  const openTask = t => setModalTask(t);
+  return /*#__PURE__*/React.createElement("div", {
+    className: "h-screen w-full flex bg-[#F6F5F1]"
+  }, /*#__PURE__*/React.createElement("aside", {
+    className: "w-60 shrink-0 flex flex-col text-slate-200",
+    style: {
+      backgroundColor: "#1E2A32"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 px-4 py-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-7 h-7 rounded-md flex items-center justify-center",
+    style: {
+      backgroundColor: "#F26641"
+    }
+  }, /*#__PURE__*/React.createElement(IconFolder, {
+    size: 15,
+    style: {
+      color: "#1E2A32"
+    }
+  })), /*#__PURE__*/React.createElement("span", {
+    className: "text-sm font-semibold text-white leading-tight",
+    style: {
+      fontFamily: "'Fraunces', serif"
+    }
+  }, "Vizta", /*#__PURE__*/React.createElement("br", null), "Task Management")), /*#__PURE__*/React.createElement("div", {
+    className: "px-2 mb-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setShowDashboard(true);
+    },
+    className: "w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-sm text-left " + (showDashboard ? "bg-white/10 text-white" : "text-slate-300 hover:bg-white/5")
+  }, /*#__PURE__*/React.createElement(IconLayoutDashboard, {
+    size: 14
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "flex-1"
+  }, "O Meu Dashboard"), myTasks.length > 0 && /*#__PURE__*/React.createElement("span", {
+    className: "text-[11px] text-slate-500"
+  }, myTasks.length))), /*#__PURE__*/React.createElement("div", {
+    className: "px-4 mt-1 mb-1 flex items-center justify-between"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-xs uppercase tracking-wide text-slate-400"
+  }, "Projetos"), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: handleCreateFolder,
+    className: "text-slate-400 hover:text-white",
+    title: "Nova pasta"
+  }, /*#__PURE__*/React.createElement(IconFolderPlus, {
+    size: 14
+  })), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowNewProject(true),
+    className: "text-slate-400 hover:text-white",
+    title: "Novo projeto"
+  }, /*#__PURE__*/React.createElement(IconPlus, {
+    size: 14
+  })))), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 overflow-y-auto px-2 space-y-0.5"
+  }, (() => {
+    const renderProjectButton = pid => {
+      const p = projects[pid];
+      if (!p) return null;
+      const count = Object.values(tasks).filter(t => t.project === pid).length;
+      return /*#__PURE__*/React.createElement("button", {
+        key: pid,
+        onClick: () => {
+          setSelectedProject(pid);
+          setShowDashboard(false);
+        },
+        onContextMenu: e => openProjectContextMenu(e, pid),
+        className: "w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-sm text-left " + (!showDashboard && selectedProject === pid ? "bg-white/10 text-white" : "text-slate-300 hover:bg-white/5")
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "w-2 h-2 rounded-full shrink-0",
+        style: {
+          backgroundColor: p.color
+        }
+      }), /*#__PURE__*/React.createElement("span", {
+        className: "flex-1 truncate"
+      }, p.name), /*#__PURE__*/React.createElement("span", {
+        className: "text-[11px] text-slate-500"
+      }, count));
+    };
+    const unfiled = projectOrder.filter(pid => !folderAssignments[pid]);
+    return /*#__PURE__*/React.createElement(React.Fragment, null, folders.map(f => {
+      const projectIds = projectOrder.filter(pid => folderAssignments[pid] === f.id);
+      const collapsed = collapsedFolders[f.id];
+      return /*#__PURE__*/React.createElement("div", {
+        key: f.id
+      }, /*#__PURE__*/React.createElement("button", {
+        onClick: () => setCollapsedFolders(prev => ({
+          ...prev,
+          [f.id]: !prev[f.id]
+        })),
+        onContextMenu: e => openFolderContextMenu(e, f),
+        className: "w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:bg-white/5"
+      }, /*#__PURE__*/React.createElement(IconChevronDown, {
+        size: 12,
+        className: "transition-transform " + (collapsed ? "-rotate-90" : "")
+      }), /*#__PURE__*/React.createElement(IconFolder, {
+        size: 12
+      }), /*#__PURE__*/React.createElement("span", {
+        className: "flex-1 text-left truncate"
+      }, f.name), /*#__PURE__*/React.createElement("span", {
+        className: "text-[10px]"
+      }, projectIds.length)), !collapsed && /*#__PURE__*/React.createElement("div", {
+        className: "pl-3"
+      }, projectIds.map(renderProjectButton)));
+    }), unfiled.map(renderProjectButton));
+  })()), /*#__PURE__*/React.createElement("div", {
+    className: "px-4 py-3 border-t border-white/10 flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-xs font-medium text-white shrink-0"
+  }, initials(profile.name)), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 min-w-0"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-white truncate"
+  }, profile.name), /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-slate-400 truncate"
+  }, profile.email)), /*#__PURE__*/React.createElement("button", {
+    onClick: () => sb.auth.signOut(),
+    className: "text-slate-400 hover:text-white",
+    title: "Terminar sess\xE3o"
+  }, /*#__PURE__*/React.createElement(IconLogOut, {
+    size: 15
+  })))), /*#__PURE__*/React.createElement("main", {
+    className: "flex-1 flex flex-col overflow-hidden"
+  }, showDashboard ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement(IconLayoutDashboard, {
+    size: 16,
+    className: "text-slate-700"
+  }), /*#__PURE__*/React.createElement("h1", {
+    className: "text-base font-semibold text-slate-900"
+  }, "O Meu Dashboard"))), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 overflow-y-auto"
+  }, /*#__PURE__*/React.createElement(DashboardView, {
+    tasks: myTasks,
+    projects: projects,
+    onOpen: t => {
+      setSelectedProject(t.project);
+      setShowDashboard(false);
+      openTask(t);
+    }
+  }))) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "w-2.5 h-2.5 rounded-full",
+    style: {
+      backgroundColor: project ? project.color : "#ccc"
+    }
+  }), /*#__PURE__*/React.createElement("h1", {
+    className: "text-base font-semibold text-slate-900"
+  }, project ? project.name : "Sem projetos"), project && project.owner_id === session.user.id && /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowEditProject(true),
+    className: "text-slate-300 hover:text-slate-500",
+    title: "Editar projeto"
+  }, /*#__PURE__*/React.createElement(IconEdit, {
+    size: 14
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "relative"
+  }, /*#__PURE__*/React.createElement(IconSearch, {
+    size: 14,
+    className: "absolute left-2.5 top-2.5 text-slate-400"
+  }), /*#__PURE__*/React.createElement("input", {
+    value: search,
+    onChange: e => setSearch(e.target.value),
+    placeholder: "Procurar tarefas",
+    className: "pl-8 pr-3 py-1.5 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-[#F26641]/30 focus:border-[#F26641] w-40"
+  })), /*#__PURE__*/React.createElement("button", {
+    onClick: () => selectedProject && setShowMembers(true),
+    disabled: !selectedProject,
+    className: "flex items-center gap-1.5 text-sm text-slate-600 px-3 py-1.5 rounded-lg font-medium border border-slate-200 hover:bg-slate-50 disabled:opacity-40"
+  }, /*#__PURE__*/React.createElement(IconUsers, {
+    size: 14
+  }), " Equipa"), /*#__PURE__*/React.createElement(NotificationsBell, {
+    userId: session.user.id,
+    onOpenTask: handleOpenNotificationTask
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: () => selectedProject && setModalTask({
+      column: "todo",
+      __new: true
+    }),
+    disabled: !selectedProject,
+    className: "flex items-center gap-1.5 text-sm text-white px-3 py-1.5 rounded-lg font-medium disabled:opacity-40",
+    style: {
+      backgroundColor: "#F26641"
+    }
+  }, /*#__PURE__*/React.createElement(IconPlus, {
+    size: 14
+  }), " Nova tarefa"))), selectedProject && /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between px-6 py-2 border-b border-slate-200 bg-white"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-1 bg-slate-100 rounded-lg p-1"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setView("kanban"),
+    className: "flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md font-medium " + (view === "kanban" ? "bg-white shadow-sm text-slate-900" : "text-slate-500")
+  }, /*#__PURE__*/React.createElement(IconKanban, {
+    size: 13
+  }), " Kanban"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setView("lista"),
+    className: "flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md font-medium " + (view === "lista" ? "bg-white shadow-sm text-slate-900" : "text-slate-500")
+  }, /*#__PURE__*/React.createElement(IconList, {
+    size: 13
+  }), " Lista"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setView("calendario"),
+    className: "flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md font-medium " + (view === "calendario" ? "bg-white shadow-sm text-slate-900" : "text-slate-500")
+  }, /*#__PURE__*/React.createElement(IconCalendar, {
+    size: 13
+  }), " Calend\xE1rio")), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement(IconFilter, {
+    size: 13,
+    className: "text-slate-400"
+  }), /*#__PURE__*/React.createElement("select", {
+    value: filterAssignee,
+    onChange: e => setFilterAssignee(e.target.value),
+    className: "text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none bg-white"
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "Todos os respons\xE1veis"), assigneeOptions.map(m => /*#__PURE__*/React.createElement("option", {
+    key: m.email,
+    value: m.email
+  }, displayName(m)))), /*#__PURE__*/React.createElement("select", {
+    value: filterPriority,
+    onChange: e => setFilterPriority(e.target.value),
+    className: "text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none bg-white"
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "Todas as prioridades"), Object.entries(PRIORITY).map(([k, v]) => /*#__PURE__*/React.createElement("option", {
+    key: k,
+    value: k
+  }, v.label))), /*#__PURE__*/React.createElement("select", {
+    value: filterTagId,
+    onChange: e => setFilterTagId(e.target.value),
+    className: "text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none bg-white"
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "Todas as etiquetas"), tags.map(t => /*#__PURE__*/React.createElement("option", {
+    key: t.id,
+    value: t.id
+  }, t.name))), /*#__PURE__*/React.createElement("select", {
+    value: filterColumn,
+    onChange: e => setFilterColumn(e.target.value),
+    className: "text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none bg-white"
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "Todos os status"), COLUMN_DEFS.map(c => /*#__PURE__*/React.createElement("option", {
+    key: c.id,
+    value: c.id
+  }, c.title))), /*#__PURE__*/React.createElement("select", {
+    value: sortBy,
+    onChange: e => setSortBy(e.target.value),
+    className: "text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none bg-white"
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "Sem ordena\xE7\xE3o"), /*#__PURE__*/React.createElement("option", {
+    value: "due"
+  }, "Prazo (mais pr\xF3ximo)"), /*#__PURE__*/React.createElement("option", {
+    value: "priority"
+  }, "Prioridade (mais alta)"), /*#__PURE__*/React.createElement("option", {
+    value: "title"
+  }, "T\xEDtulo (A-Z)")))), !selectedProject ? /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 flex flex-col items-center justify-center text-center px-6"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-slate-500 text-sm mb-3"
+  }, "Ainda n\xE3o tens projetos."), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowNewProject(true),
+    className: "text-sm text-white px-4 py-2 rounded-lg font-medium",
+    style: {
+      backgroundColor: "#F26641"
+    }
+  }, "Criar o primeiro projeto")) : view === "kanban" ? /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 overflow-x-auto px-6 py-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-3 h-full"
+  }, COLUMN_DEFS.map(col => /*#__PURE__*/React.createElement(Column, {
+    key: col.id,
+    col: col,
+    tasks: projectTasks.filter(t => t.column === col.id),
+    onOpen: openTask,
+    onDragStart: handleDragStart,
+    onDrop: handleDrop,
+    onAddTask: handleAddTaskInColumn
+  })))) : view === "lista" ? /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 overflow-y-auto"
+  }, /*#__PURE__*/React.createElement(ListView, {
+    tasks: projectTasks,
+    onOpen: openTask
+  })) : /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 overflow-y-auto"
+  }, /*#__PURE__*/React.createElement(CalendarView, {
+    tasks: projectTasks,
+    onOpen: openTask
+  })))), modalTask !== undefined && /*#__PURE__*/React.createElement(TaskModal, {
+    initial: modalTask.__new ? null : modalTask,
+    projectId: selectedProject,
+    currentUserId: session.user.id,
+    projectTags: tags,
+    onClose: () => setModalTask(undefined),
+    onSave: handleSaveTask,
+    onDelete: handleDeleteTask,
+    onCreateTag: handleCreateTag
+  }), showNewProject && /*#__PURE__*/React.createElement(NewProjectModal, {
+    onClose: () => setShowNewProject(false),
+    onCreate: handleCreateProject
+  }), showEditProject && project && /*#__PURE__*/React.createElement(EditProjectModal, {
+    project: project,
+    onClose: () => setShowEditProject(false),
+    onSave: handleUpdateProject,
+    onDelete: handleDeleteProject
+  }), showMembers && /*#__PURE__*/React.createElement(MembersModal, {
+    projectId: selectedProject,
+    currentUserId: session.user.id,
+    onClose: () => setShowMembers(false)
+  }), contextMenu && contextMenu.type === "project" && /*#__PURE__*/React.createElement(ContextMenu, {
+    x: contextMenu.x,
+    y: contextMenu.y,
+    onClose: () => setContextMenu(null)
+  }, /*#__PURE__*/React.createElement(ContextMenuItem, {
+    onClick: () => handleEditFromMenu(contextMenu.id)
+  }, "Editar projeto"), /*#__PURE__*/React.createElement(ContextMenuItem, {
+    danger: true,
+    onClick: () => handleDeleteFromMenu(contextMenu.id)
+  }, "Eliminar projeto"), /*#__PURE__*/React.createElement("div", {
+    className: "border-t border-slate-100 my-1"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "px-3 py-1 text-[10px] uppercase tracking-wide text-slate-400"
+  }, "Mover para pasta"), /*#__PURE__*/React.createElement(ContextMenuItem, {
+    onClick: () => handleMoveProjectToFolder(contextMenu.id, null)
+  }, "Sem pasta"), folders.map(f => /*#__PURE__*/React.createElement(ContextMenuItem, {
+    key: f.id,
+    onClick: () => handleMoveProjectToFolder(contextMenu.id, f.id)
+  }, f.name)), /*#__PURE__*/React.createElement(ContextMenuItem, {
+    onClick: async () => {
+      setContextMenu(null);
+      await handleCreateFolder();
+    }
+  }, "+ Nova pasta...")), contextMenu && contextMenu.type === "folder" && /*#__PURE__*/React.createElement(ContextMenu, {
+    x: contextMenu.x,
+    y: contextMenu.y,
+    onClose: () => setContextMenu(null)
+  }, /*#__PURE__*/React.createElement(ContextMenuItem, {
+    onClick: () => {
+      setContextMenu(null);
+      handleRenameFolder(contextMenu.folder);
+    }
+  }, "Renomear pasta"), /*#__PURE__*/React.createElement(ContextMenuItem, {
+    danger: true,
+    onClick: () => handleDeleteFolder(contextMenu.folder)
+  }, "Eliminar pasta")));
+}
+ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(App, null));
+</script>
+</body>
+</html>
