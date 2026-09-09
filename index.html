@@ -1030,7 +1030,7 @@ function TaskModal({ initial, projectId, currentUserId, projectTags, onClose, on
             >
               <option value="">
                 {projectTags.length === 0
-                  ? "Ainda não há etiquetas neste projeto"
+                  ? "Ainda não há etiquetas — cria uma abaixo"
                   : projectTags.every((t) => selectedTagIds.includes(t.id))
                   ? "Todas as etiquetas adicionadas"
                   : "Adicionar etiqueta existente..."}
@@ -2066,8 +2066,9 @@ function App() {
     await handleMoveProjectToFolder(pid, folderId);
   }
 
-  async function loadTags(projectId) {
-    const { data } = await sb.from("tags").select("*").eq("project_id", projectId).order("name");
+  async function loadTags() {
+    // Etiquetas são globais (partilhadas entre todos os projetos)
+    const { data } = await sb.from("tags").select("id, name, color").order("name");
     setTags(data || []);
   }
   async function loadMembers(projectId) {
@@ -2075,10 +2076,10 @@ function App() {
     setMembers((data || []).map((m) => m.profiles).filter(Boolean));
   }
   useEffect(() => {
-    if (selectedProject) {
-      loadTags(selectedProject);
-      loadMembers(selectedProject);
-    }
+    if (session) loadTags();
+  }, [session]);
+  useEffect(() => {
+    if (selectedProject) loadMembers(selectedProject);
   }, [selectedProject]);
 
   if (session === undefined) {
@@ -2163,9 +2164,9 @@ function App() {
     setModalTask(undefined);
   }
   async function handleCreateTag(name) {
-    const { data, error } = await sb.from("tags").insert({ project_id: selectedProject, name, color: "#F26641" }).select().single();
+    const { data, error } = await sb.from("tags").insert({ name, color: "#F26641" }).select().single();
     if (error) return null;
-    await loadTags(selectedProject);
+    await loadTags();
     return data;
   }
   async function handleDeleteTask(id) {
