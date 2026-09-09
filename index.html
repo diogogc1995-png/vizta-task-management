@@ -1011,24 +1011,49 @@ function TaskModal({ initial, projectId, currentUserId, projectTags, onClose, on
             <label className="text-xs font-medium text-slate-600 mb-1 block flex items-center gap-1">
               <IconTag size={12} /> Etiquetas
             </label>
-            <div className="flex flex-wrap gap-1.5 mb-2">
-              {projectTags.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => toggleTag(t.id)}
-                  className="rounded-full"
-                  style={{ opacity: selectedTagIds.includes(t.id) ? 1 : 0.4 }}
-                >
-                  <TagChip tag={t} />
-                </button>
-              ))}
-            </div>
-            <div className="flex gap-2">
+            {selectedTagIds.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {selectedTagIds
+                  .map((id) => projectTags.find((t) => t.id === id))
+                  .filter(Boolean)
+                  .map((t) => (
+                    <TagChip key={t.id} tag={t} onRemove={() => toggleTag(t.id)} />
+                  ))}
+              </div>
+            )}
+            <select
+              value=""
+              onChange={(e) => {
+                if (e.target.value) toggleTag(e.target.value);
+              }}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none bg-white focus:ring-2 focus:ring-[#F26641]/30 focus:border-[#F26641]"
+            >
+              <option value="">
+                {projectTags.length === 0
+                  ? "Ainda não há etiquetas neste projeto"
+                  : projectTags.every((t) => selectedTagIds.includes(t.id))
+                  ? "Todas as etiquetas adicionadas"
+                  : "Adicionar etiqueta existente..."}
+              </option>
+              {projectTags
+                .filter((t) => !selectedTagIds.includes(t.id))
+                .map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+            </select>
+            <div className="flex gap-2 mt-2">
               <input
                 value={newTagName}
                 onChange={(e) => setNewTagName(e.target.value)}
-                placeholder="Nova etiqueta..."
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleCreateTag();
+                  }
+                }}
+                placeholder="Criar nova etiqueta..."
                 className="flex-1 border border-slate-300 rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-[#F26641]/30 focus:border-[#F26641]"
               />
               <button type="button" onClick={handleCreateTag} className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50">
