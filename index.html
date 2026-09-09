@@ -1300,43 +1300,64 @@ function ContextMenuItem({ onClick, danger, children }) {
 }
 
 /* ---------- Dashboard pessoal ---------- */
+function localDateStr(offsetDays = 0) {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
 function DashboardView({ tasks, projects, onOpen }) {
-  const [filterColumn, setFilterColumn] = useState("");
-  const countByColumn = {};
-  tasks.forEach((t) => {
-    countByColumn[t.column] = (countByColumn[t.column] || 0) + 1;
-  });
+  const [fTitle, setFTitle] = useState("");
+  const [fProject, setFProject] = useState("");
+  const [fStatus, setFStatus] = useState("");
+  const [fPriority, setFPriority] = useState("");
+  const [fDue, setFDue] = useState("");
+  const hasFilters = fTitle || fProject || fStatus || fPriority || fDue;
+  function clearFilters() {
+    setFTitle("");
+    setFProject("");
+    setFStatus("");
+    setFPriority("");
+    setFDue("");
+  }
+
+  const projectOpts = Array.from(new Set(tasks.map((t) => t.project)))
+    .map((pid) => ({ id: pid, name: projects[pid]?.name || "—" }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const today = localDateStr(0);
+  const in7 = localDateStr(7);
+  function matchesDue(t) {
+    const due = t.due ? t.due.slice(0, 10) : null;
+    if (fDue === "has") return !!due;
+    if (fDue === "none") return !due;
+    if (fDue === "overdue") return !!due && due < today && t.column !== "done";
+    if (fDue === "today") return due === today;
+    if (fDue === "7days") return !!due && due >= today && due <= in7;
+    return true;
+  }
+
   const sorted = [...tasks]
-    .filter((t) => !filterColumn || t.column === filterColumn)
+    .filter((t) => !fTitle || t.title.toLowerCase().includes(fTitle.toLowerCase()))
+    .filter((t) => !fProject || t.project === fProject)
+    .filter((t) => !fStatus || t.column === fStatus)
+    .filter((t) => !fPriority || t.priority === fPriority)
+    .filter(matchesDue)
     .sort((a, b) => ((a.due || "9999") < (b.due || "9999") ? -1 : 1));
+
+  const selCls =
+    "w-full text-xs border border-slate-200 rounded-md px-1.5 py-1 outline-none bg-white focus:ring-2 focus:ring-[#F26641]/30 focus:border-[#F26641]";
+
   return (
     <div className="px-4 sm:px-6 py-4">
-      <div className="flex flex-wrap items-center gap-1 bg-slate-100 rounded-lg p-1 mb-3 w-fit max-w-full">
-        <button
-          onClick={() => setFilterColumn("")}
-          className={
-            "flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md font-medium " +
-            (filterColumn === "" ? "bg-white shadow-sm text-slate-900" : "text-slate-500")
-          }
-        >
-          Todas <span className="text-[10px] text-slate-400">{tasks.length}</span>
-        </button>
-        {COLUMN_DEFS.map((c) => {
-          const style = COLUMN_STYLES[c.id] || COLUMN_STYLES.todo;
-          return (
-            <button
-              key={c.id}
-              onClick={() => setFilterColumn(c.id)}
-              className={
-                "flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md font-medium " +
-                (filterColumn === c.id ? "bg-white shadow-sm text-slate-900" : "text-slate-500")
-              }
-            >
-              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: style.chip }} />
-              {c.title} <span className="text-[10px] text-slate-400">{countByColumn[c.id] || 0}</span>
-            </button>
-          );
-        })}
+      <div className="flex items-center justify-between mb-2 text-xs text-slate-400">
+        <span>
+          {sorted.length === tasks.length ? tasks.length + " tarefas" : sorted.length + " de " + tasks.length + " tarefas"}
+        </span>
+        {hasFilters && (
+          <button onClick={clearFilters} className="text-[#F26641] hover:underline font-medium">
+            Limpar filtros
+          </button>
+        )}
       </div>
       <div className="overflow-x-auto">
        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden min-w-[620px]">
@@ -1347,11 +1368,51 @@ function DashboardView({ tasks, projects, onOpen }) {
           <span>Prioridade</span>
           <span>Prazo</span>
         </div>
+        <div className="grid grid-cols-[1fr_120px_100px_90px_130px] gap-2 px-4 py-1.5 bg-slate-50 border-t border-slate-100">
+          <input
+            value={fTitle}
+            onChange={(e) => setFTitle(e.target.value)}
+            placeholder="Filtrar..."
+            className={selCls}
+          />
+          <select value={fProject} onChange={(e) => setFProject(e.target.value)} className={selCls}>
+            <option value="">Todos</option>
+            {projectOpts.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+          <select value={fStatus} onChange={(e) => setFStatus(e.target.value)} className={selCls}>
+            <option value="">Todos</option>
+            {COLUMN_DEFS.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.title}
+              </option>
+            ))}
+          </select>
+          <select value={fPriority} onChange={(e) => setFPriority(e.target.value)} className={selCls}>
+            <option value="">Todas</option>
+            {Object.entries(PRIORITY).map(([k, v]) => (
+              <option key={k} value={k}>
+                {v.label}
+              </option>
+            ))}
+          </select>
+          <select value={fDue} onChange={(e) => setFDue(e.target.value)} className={selCls}>
+            <option value="">Qualquer</option>
+            <option value="overdue">Atrasadas</option>
+            <option value="today">Hoje</option>
+            <option value="7days">Próx. 7 dias</option>
+            <option value="has">Com prazo</option>
+            <option value="none">Sem prazo</option>
+          </select>
+        </div>
         {sorted.length === 0 && (
           <p className="text-sm text-slate-400 text-center py-8">
             {tasks.length === 0
               ? "Não tens tarefas atribuídas em nenhum projeto."
-              : "Nenhuma tarefa tua nesta coluna."}
+              : "Nenhuma tarefa corresponde aos filtros."}
           </p>
         )}
         {sorted.map((t) => {
