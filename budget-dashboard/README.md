@@ -2,11 +2,11 @@
 
 App local (corre só no teu PC) que junta os budgets de vários projetos num dashboard, com o formato do quadro de **Project Review**.
 
-- Lê os ficheiros Excel diretamente das pastas do OneDrive. Não há cópias nem base de dados.
+- Lê os ficheiros Excel **diretamente do SharePoint**, a partir dos links de partilha, e/ou das pastas do OneDrive sincronizadas no PC. Não há base de dados.
 - **Não faz cálculos.** Mostra os valores tal como estão guardados no Excel, e a coluna **Δ** também vem da folha. Os valores estão em k€.
-- **Atualiza sozinha.** De 5 em 5 segundos verifica se algum ficheiro mudou. Se mudou, relê-o e o dashboard atualiza sem ser preciso recarregar a página.
+- **Atualiza sozinha.** Os ficheiros locais são verificados de 5 em 5 segundos e os do SharePoint de 60 em 60 segundos (configurável). Quando um ficheiro muda, é relido e o dashboard atualiza sem ser preciso recarregar a página.
 - Exporta para **PDF** (o projeto atual ou todos, um por página) e para **Excel** (formatado como o quadro, um separador por projeto).
-- Nada sai do teu PC: o servidor só aceita ligações de `localhost` e não precisa de internet.
+- O servidor só aceita ligações de `localhost`. A única ligação externa é ao Microsoft Graph, para ler os ficheiros do SharePoint com a tua conta.
 
 ## Como deteta os projetos
 
@@ -46,6 +46,46 @@ As linhas são encontradas pela label e não por posição fixa. Por isso, uma l
    - Nos caminhos usa `/` ou `\\`. Uma `\` sozinha não é válida em JSON.
    - O `config.json` fica fora do Git, porque tem os teus caminhos pessoais.
 
+## Ler diretamente do SharePoint
+
+No `config.json`, cada entrada de `sources` pode ser um **link de partilha do SharePoint** ("Copy link"), de um ficheiro ou de uma pasta. Numa pasta são lidos todos os Excel, incluindo subpastas. A app usa a tua conta Microsoft e só vê o que tu já consegues abrir. A cada `poll_seconds` compara a versão de cada ficheiro e só descarrega os que mudaram.
+
+### 1. Pedido ao IT (uma vez)
+
+A Microsoft exige que a app esteja registada no Azure AD da empresa. Envia isto ao IT:
+
+> Preciso de uma *App registration* no Entra ID (Azure AD) para uma ferramenta local que lê ficheiros Excel do SharePoint com a minha própria conta (permissões delegadas, só leitura):
+> - **Supported account types:** Accounts in this organizational directory only
+> - **Authentication → Add a platform → Mobile and desktop applications**, redirect URI `http://localhost`
+> - **Authentication → Allow public client flows:** Yes
+> - **API permissions:** Microsoft Graph → *Delegated* → `Files.Read.All` (e *Grant admin consent*, se a política da empresa o exigir)
+> - Não é preciso *client secret*.
+>
+> Preciso do **Application (client) ID** e do **Directory (tenant) ID**.
+
+### 2. Configuração
+
+```json
+"sources": [
+  "https://<empresa>.sharepoint.com/:x:/s/<Site>/<codigo-do-link>"
+],
+"sharepoint": {
+  "client_id": "<Application (client) ID>",
+  "tenant": "<Directory (tenant) ID>",
+  "login_hint": "nome@empresa.pt",
+  "auth_flow": "interactive",
+  "poll_seconds": 60
+}
+```
+
+- **Primeiro arranque:** abre o browser para fazeres login na Microsoft. O token fica guardado em `token_cache.json`, fora do Git, e nos arranques seguintes já não pede login. Voltas a fazer login só quando o token expira.
+- **Se o login no browser for bloqueado**, usa `"auth_flow": "device_code"`. A consola mostra um código para introduzires em <https://microsoft.com/devicelogin>.
+- **Parte `?email=...&e=...` do link:** podes deixá-la ou retirá-la, porque a app tenta das duas formas.
+- **Cópias descarregadas:** ficam em `.cache/`, também fora do Git, e são reescritas quando o ficheiro muda.
+- **Erros:** se um link falhar (sem acesso, link expirado, login necessário), aparece um aviso no dashboard e os últimos dados lidos continuam visíveis.
+
+Se o IT não puder criar o registo, a alternativa é sincronizar a biblioteca do SharePoint com o OneDrive ("Sync" ou "Add shortcut to My files") e usar o caminho local.
+
 ## Arrancar
 
 - **Duplo clique em `run.bat`.** Da primeira vez cria o ambiente Python e instala as dependências. Depois abre o browser em <http://localhost:8765>.
@@ -74,12 +114,13 @@ Para parar, fecha a janela ou carrega em Ctrl+C.
 ```
 budget-dashboard/
   app.py              servidor local (Flask), cache e deteção de alterações
+  sharepoint.py       login Microsoft (MSAL) e leitura via Microsoft Graph
   budget_parser.py    leitura das folhas de Project Review
   excel_export.py     exportação para .xlsx
   static/             dashboard (HTML/CSS/JS, sem dependências externas)
-  test_budget_parser.py
+  test_budget_parser.py, test_sharepoint.py
   config.example.json
   run.bat
 ```
 
-Testes: `python -m unittest` (usa um Excel sintético, sem dados reais).
+Testes: `python -m unittest` (usa um Excel sintético e um SharePoint simulado, sem dados reais).

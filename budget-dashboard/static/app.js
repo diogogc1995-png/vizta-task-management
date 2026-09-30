@@ -39,7 +39,7 @@ function fmtTime(ts) {
 // ---------- dados ----------
 function allProjects() {
   if (!data) return [];
-  return data.files.flatMap((f) => f.projects.map((p) => ({ ...p, group: f.group, file: f.file, modified: f.modified })));
+  return data.files.flatMap((f) => f.projects.map((p) => ({ ...p, group: f.group, file: f.file, modified: f.modified, remote: f.remote })));
 }
 function marginPct(p) {
   const r = p.rows.find((r) => r.percent && r.kind === "total" && /^MARGIN/i.test(r.label));
@@ -113,7 +113,7 @@ function renderSidebar() {
     }).join("");
     const err = f.error ? `<span class="err" title="${esc(f.error)}">⚠ read error</span>` : "";
     const none = !f.projects.length && !f.error ? `<div class="proj" style="color:var(--muted)">No review sheet found</div>` : "";
-    return `<div class="group"><div class="group-title"><span>${esc(f.group)}</span>${err}</div>${items}${none}</div>`;
+    return `<div class="group"><div class="group-title"><span title="${esc(f.location || "")}">${f.remote ? "☁ " : ""}${esc(f.group)}</span>${err}</div>${items}${none}</div>`;
   }).join("");
   $("#sidebar").innerHTML = html || `<div class="group-title">No files</div>`;
 }
@@ -121,6 +121,7 @@ function renderSidebar() {
 function banners() {
   const out = [];
   for (const m of data.missing) out.push(`Source not found: <code>${esc(m)}</code> — check <code>config.json</code> (is OneDrive synced?).`);
+  for (const se of data.source_errors || []) out.push(`Could not read SharePoint link <code>${esc(se.source.slice(0, 70))}…</code>: ${esc(se.error)}`);
   for (const f of data.files) if (f.error) out.push(`Could not read <b>${esc(f.file)}</b> (showing last good data, retrying automatically): ${esc(f.error)}`);
   return out.map((b) => `<div class="banner no-print">${b}</div>`).join("");
 }
@@ -168,7 +169,7 @@ function reportHtml(p) {
 
   return `<section class="report">
     <div class="report-head">
-      <div><h1>${esc(p.name)}</h1><div class="src">${esc(p.group)} › ${esc(p.sheet)} · k€</div></div>
+      <div><h1>${esc(p.name)}</h1><div class="src">${p.remote ? "SharePoint · " : ""}${esc(p.group)} › ${esc(p.sheet)} · k€</div></div>
       <div class="dates">Last project review: <b>${fmtDate(p.last_review)}</b><br>
         Next project review: <b>${fmtDate(p.next_review)}</b><br>
         File saved: ${fmtTime(p.modified)}</div>
