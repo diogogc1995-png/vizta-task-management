@@ -1,0 +1,9 @@
+{
+  "sources": [
+    "%OneDriveCommercial%/Projetos/Areeiro/Bugdet_BP_Areeiro - NEW VERSION.xlsx",
+    "%OneDriveCommercial%/Projetos/Picua/V5_BUDGET_FuP_Pícua.xlsx",
+    "%OneDriveCommercial%/Projetos/Budgets"
+  ],
+  "include_hidden_sheets": false,
+  "port": 8765
+}
