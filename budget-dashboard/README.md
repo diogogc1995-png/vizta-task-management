@@ -177,6 +177,10 @@ A página **Financing** de cada projeto mostra os termos do contrato de financia
 - A chave de cada entrada é o **nome do projeto tal como aparece no dashboard** (p.ex. `"PLENO I"`). Se um nome não corresponder a nenhum projeto, aparece um aviso.
 - A maturidade e o fim do período de utilização são calculados a partir de `signed` + `term_months` / `availability_months`.
 - A app relê o ficheiro quando muda, sem ser preciso reiniciar.
+- **Financiamentos em negociação:**
+  - `"status": "Under negotiation"`, com `"stage"` (fase atual) e `"source"` (documento de onde vêm os termos). Os contratos assinados não têm `status` e aparecem como "Signed".
+  - Campos opcionais: `amount_note`, `term_note`, `tranches`, `ltv`, `fees` e `conditions`.
+  - Para comparar propostas de vários bancos, usa `"offers"`: uma lista com `bank`, `structure`, `amount`, `amount_detail`, `tenor`, `pricing`, `fees`, `security`, `conditions`, `equity_recap` e `status`. Aparece como uma tabela, com uma coluna por banco.
 
 ## Arrancar
 

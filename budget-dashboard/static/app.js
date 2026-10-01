@@ -544,29 +544,64 @@ function financingHtml(f) {
   const term = (months, end) => (months ? `${months} months${end ? ` · until ${fmtDate(end)}` : ""}` : "");
   const rate = f.index || f.spread !== undefined
     ? [esc(f.index || ""), f.spread !== undefined ? fmtRate(f.spread) : ""].filter(Boolean).join(" + ") : "";
+  const sub = (t) => (t ? `<div class="sub">${esc(t)}</div>` : "");
   const items = [
     ["Bank", esc(f.bank)],
     ["Borrower", esc(f.borrower)],
     ["Signed", f.signed ? fmtDate(f.signed) : ""],
     ["Maturity", f.maturity ? fmtDate(f.maturity) : ""],
-    ["Amount", f.amount !== undefined ? `<b>${fmtEur(f.amount)}</b>` : ""],
-    ["Term", term(f.term_months, f.maturity)],
+    ["Amount", f.amount !== undefined ? `<b>${fmtEur(f.amount)}</b>${sub(f.amount_note)}` : ""],
+    ["Term", term(f.term_months, f.maturity) + (f.term_months && f.term_note ? sub(f.term_note) : "")],
     ["Availability period", term(f.availability_months, f.availability_end)],
     ["Interest rate", rate ? `<b>${rate}</b>` : ""],
     ["Purpose", esc(f.purpose)],
-    ["Own funds required", f.own_funds !== undefined ? `${fmtEur(f.own_funds)}${f.own_funds_note ? `<div class="sub">${esc(f.own_funds_note)}</div>` : ""}` : ""],
+    ["Own funds required", f.own_funds !== undefined ? `${fmtEur(f.own_funds)}${sub(f.own_funds_note)}` : ""],
+    ["LTV", esc(f.ltv)],
+    ["Fees", esc(f.fees)],
   ].filter(([, v]) => v);
+  const list = (title, arr) => ((arr || []).length
+    ? `<div class="fin-list"><h3>${title}</h3><ul>${arr.map((c) => `<li>${esc(c)}</li>`).join("")}</ul></div>` : "");
   const d = f.distributions;
   const dist = d ? `<div class="fin-dist">
       <h3>Distributions to promoter${typeof d.max === "number" ? ` · up to ${fmtEur(d.max)}` : ""}</h3>
       ${(d.conditions || []).length ? `<ul>${d.conditions.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>` : ""}
       ${d.note ? `<p class="sub">${esc(d.note)}</p>` : ""}
     </div>` : "";
+  // Estado: contratos assinados não têm "status"; negociações mostram a fase e a fonte
+  const negotiating = f.status && !/signed/i.test(f.status);
+  const status = f.status || (f.signed ? "Signed" : "");
+  const statusBox = status ? `<div class="fin-status ${negotiating ? "neg" : "signed"}">
+      <span class="fin-pill">${esc(status)}</span>${f.stage ? `<span>${esc(f.stage)}</span>` : ""}
+      ${f.source ? `<div class="sub">Source: ${esc(f.source)}</div>` : ""}</div>` : "";
   return `<div class="financing">
     <h2>Financing${f.facility ? ` <span>${esc(f.facility)}</span>` : ""}</h2>
-    <dl class="fin-grid">${items.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("")}</dl>
+    ${statusBox}
+    ${items.length ? `<dl class="fin-grid">${items.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("")}</dl>` : ""}
+    ${list("Tranches", f.tranches)}
+    ${list("Key conditions", f.conditions)}
     ${dist}
+    ${(f.offers || []).length ? offersHtml(f.offers) : ""}
   </div>`;
+}
+
+// Comparação de propostas em negociação (uma coluna por banco)
+function offersHtml(offers) {
+  const rows = [
+    ["Structure", (o) => esc(o.structure)],
+    ["Facility amount", (o) => (typeof o.amount === "number" ? `<b>${fmtEur(o.amount)}</b>` : "")
+      + (o.amount_detail ? `<div class="sub">${esc(o.amount_detail)}</div>` : "")],
+    ["Tenor", (o) => esc(o.tenor)],
+    ["Pricing", (o) => `<b>${esc(o.pricing)}</b>`],
+    ["Fees", (o) => esc(o.fees)],
+    ["Security", (o) => esc(o.security)],
+    ["Key conditions for 1st disbursements", (o) => esc(o.conditions)],
+    ["Equity recap conditions", (o) => esc(o.equity_recap)],
+    ["Status", (o) => esc(o.status)],
+  ].filter(([, fn]) => offers.some((o) => fn(o).replace(/<[^>]+>/g, "").trim()));
+  return `<div class="fin-offers"><h3>Offers under negotiation</h3><div class="t-scroll"><table class="offers">
+    <thead><tr><th></th>${offers.map((o) => `<th>${esc(o.bank)}</th>`).join("")}</tr></thead>
+    <tbody>${rows.map(([label, fn]) => `<tr><td class="lbl">${label}</td>${offers.map((o) => `<td>${fn(o)}</td>`).join("")}</tr>`).join("")}</tbody>
+  </table></div></div>`;
 }
 
 // ---------- eventos ----------

@@ -142,6 +142,8 @@ def write_financing(ws, r, f, last):
     rate = " + ".join(x for x in [f.get("index"), f"{f['spread']:.3f}%".replace(".", ",")
                                   if isinstance(f.get("spread"), (int, float)) else None] if x)
     items = [
+        ("Status", " — ".join(x for x in [f.get("status") or ("Signed" if f.get("signed") else None), f.get("stage")] if x) or None, None),
+        ("Source", f.get("source"), None),
         ("Bank", f.get("bank"), None),
         ("Borrower", f.get("borrower"), None),
         ("Signed", _date(f.get("signed")), DATE_FMT),
@@ -153,7 +155,15 @@ def write_financing(ws, r, f, last):
         ("Purpose", f.get("purpose"), None),
         ("Own funds required (€)", f.get("own_funds"), NUM_FMT),
         ("", f.get("own_funds_note"), None),
+        ("LTV", f.get("ltv"), None),
+        ("Fees", f.get("fees"), None),
     ]
+    items += [("Tranche" if i == 0 else "", t, None) for i, t in enumerate(f.get("tranches") or [])]
+    items += [("Key conditions" if i == 0 else "", t, None) for i, t in enumerate(f.get("conditions") or [])]
+    for o in f.get("offers") or []:
+        items.append((f"Offer — {o.get('bank')}", " · ".join(x for x in [
+            f"{o['amount']:,.0f} €".replace(",", " ") if isinstance(o.get("amount"), (int, float)) else None,
+            o.get("pricing"), o.get("tenor"), o.get("status")] if x), None))
     for label, value, fmt in items:
         if value in (None, ""):
             continue
