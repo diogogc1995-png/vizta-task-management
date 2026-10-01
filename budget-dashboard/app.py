@@ -21,7 +21,7 @@ import webbrowser
 from flask import Flask, abort, jsonify, request, send_file, send_from_directory
 
 import financing
-from budget_parser import parse_workbook
+from budget_parser import parse_file
 from excel_export import build_workbook
 from sharepoint import SharePointClient, is_url
 
@@ -76,11 +76,12 @@ def list_files(sources):
 def _parse(path, include_hidden, entry, sig, **extra):
     """Lê o ficheiro; se falhar mantém os últimos dados válidos (tenta de novo no ciclo seguinte)."""
     try:
-        projects = parse_workbook(path, include_hidden)
-        return {**extra, "sig": sig, "projects": projects, "error": None, "loaded_at": time.time()}
-    except Exception as e:  # ficheiro a meio de sincronizar, corrompido, ...
-        old = entry or {"projects": [], "loaded_at": None}
-        return {**extra, "sig": None, "projects": old["projects"],
+        res = parse_file(path, include_hidden)
+        return {**extra, "sig": sig, "projects": res["projects"], "budgets": res["budgets"],
+                "error": None, "loaded_at": time.time()}
+    except Exception as e:  # ficheiro a meio de sincronizar, bloqueado, corrompido, ...
+        old = entry or {"projects": [], "budgets": {}, "loaded_at": None}
+        return {**extra, "sig": None, "projects": old["projects"], "budgets": old.get("budgets", {}),
                 "error": f"{type(e).__name__}: {e}", "loaded_at": old["loaded_at"]}
 
 
@@ -165,9 +166,10 @@ class Store:
                                  name=it["name"], location=it["web_url"], modified=it["modified"],
                                  source=url)
                 except Exception as e:
-                    old = entry or {"projects": [], "loaded_at": None}
+                    old = entry or {"projects": [], "budgets": {}, "loaded_at": None}
                     new = {"name": it["name"], "location": it["web_url"], "modified": it["modified"],
                            "source": url, "sig": None, "projects": old["projects"],
+                           "budgets": old.get("budgets", {}),
                            "error": f"{type(e).__name__}: {e}", "loaded_at": old["loaded_at"]}
                 with self.lock:
                     self.files[it["key"]] = new
@@ -179,17 +181,32 @@ class Store:
                 self._update_version()
 
     def snapshot(self):
+        menu_conf = menu_index(self.cfg.get("menu", []))
         with self.lock:
             files = []
             matched = set()
+            ids = {}  # nome normalizado -> id
             for key, e in sorted(self.files.items(), key=lambda kv: kv[1]["name"].lower()):
                 projects = []
+                budgets = e.get("budgets", {})
                 for p in e["projects"]:
                     pid = hashlib.sha1(f"{key}|{p['sheet']}".encode()).hexdigest()[:10]
-                    fin = self.financing.get(financing.key(p["name"]))
+                    k = financing.key(p["name"])
+                    ids.setdefault(k, pid)
+                    fin = self.financing.get(k)
                     if fin:
-                        matched.add(financing.key(p["name"]))
-                    projects.append({**p, "id": pid, "financing": fin})
+                        matched.add(k)
+                    conf = menu_conf.get(k, {})
+                    sheet = conf.get("budget_sheet")
+                    if sheet:
+                        budget = budgets.get(sheet)
+                    else:  # sem configuração: só se o ficheiro tiver uma única folha de budget
+                        budget = next(iter(budgets.values())) if len(budgets) == 1 else None
+                    projects.append({**p, "id": pid, "financing": fin,
+                                     "label": conf.get("label") or p["name"],
+                                     "menu_group": conf.get("group"),
+                                     "budget": budget,
+                                     "budget_missing": sheet if sheet and not budget else None})
                 files.append({
                     "file": e["name"],
                     "group": os.path.splitext(e["name"])[0],
@@ -206,7 +223,51 @@ class Store:
                                       for s, err in sorted(self.source_errors.items())],
                     "financing_error": self.financing_error,
                     "financing_unmatched": sorted(c["project"] for k, c in self.financing.items()
-                                                  if k not in matched)}
+                                                  if k not in matched),
+                    **build_menu(self.cfg.get("menu", []), ids)}
+
+
+def _menu_items(menu):
+    """Percorre o "menu" do config.json: (grupo ou None, entrada do projeto)."""
+    for entry in menu:
+        if isinstance(entry, dict) and isinstance(entry.get("items"), list):
+            for item in entry["items"]:
+                if isinstance(item, dict) and item.get("project"):
+                    yield entry.get("group"), item
+        elif isinstance(entry, dict) and entry.get("project"):
+            yield None, entry
+
+
+def menu_index(menu):
+    return {financing.key(item["project"]): {**item, "group": group} for group, item in _menu_items(menu)}
+
+
+def build_menu(menu, ids):
+    """Menu lateral com ids de projeto; projetos fora do menu vão para o fim, pela ordem dos ficheiros."""
+    out, used, unmatched = [], set(), []
+    for entry in menu:
+        if not isinstance(entry, dict):
+            continue
+        if isinstance(entry.get("items"), list):
+            items = []
+            for item in entry["items"]:
+                k = financing.key(item.get("project", ""))
+                if k in ids:
+                    items.append(ids[k])
+                    used.add(k)
+                elif item.get("project"):
+                    unmatched.append(item["project"])
+            if items:
+                out.append({"group": entry.get("group") or "", "items": items})
+        elif entry.get("project"):
+            k = financing.key(entry["project"])
+            if k in ids:
+                out.append({"item": ids[k]})
+                used.add(k)
+            else:
+                unmatched.append(entry["project"])
+    out += [{"item": pid} for k, pid in ids.items() if k not in used]
+    return {"menu": out, "menu_unmatched": unmatched}
 
 
 def sharepoint_loop(client, interval):
@@ -257,8 +318,9 @@ def api_export():
     store.refresh()
     snap = store.snapshot()
     wanted = request.args.get("id")
-    projects = [(f["group"], p) for f in snap["files"] for p in f["projects"]
-                if not wanted or p["id"] == wanted]
+    by_id = {p["id"]: (f["group"], p) for f in snap["files"] for p in f["projects"]}
+    order = [pid for m in snap["menu"] for pid in ([m["item"]] if "item" in m else m["items"])]
+    projects = [by_id[pid] for pid in order if pid in by_id and (not wanted or pid == wanted)]
     if not projects:
         abort(404)
     buf = io.BytesIO()
@@ -266,7 +328,7 @@ def api_export():
     buf.seek(0)
     if wanted:
         group, p = projects[0]
-        name = f"Project Review - {group} - {p['name']}.xlsx"
+        name = f"Project Review - {p['label']}.xlsx"
     else:
         name = f"Project Review - All projects - {time.strftime('%Y-%m-%d')}.xlsx"
     name = "".join(ch for ch in name if ch not in '\\/:*?"<>|')
@@ -293,7 +355,14 @@ if __name__ == "__main__":
         print(f"  NÃO ENCONTRADO: {m}")
     for se in snap["source_errors"]:
         print(f"  SHAREPOINT ERRO: {se['source'][:80]}...\n    {se['error']}")
-    n_fin = sum(1 for f in snap["files"] for p in f["projects"] if p["financing"])
+    all_p = [p for f in snap["files"] for p in f["projects"]]
+    print(f"  Budget detalhado: {sum(1 for p in all_p if p['budget'])} de {len(all_p)} projetos")
+    for p in all_p:
+        if p["budget_missing"]:
+            print(f"  BUDGET: folha \"{p['budget_missing']}\" não encontrada para {p['name']}")
+    for name in snap["menu_unmatched"]:
+        print(f"  MENU: projeto \"{name}\" não encontrado (o nome tem de ser igual ao do quadro)")
+    n_fin = sum(1 for p in all_p if p["financing"])
     if snap["financing_error"]:
         print(f"  FINANCIAMENTO: {snap['financing_error']}")
     elif n_fin or snap["financing_unmatched"]:

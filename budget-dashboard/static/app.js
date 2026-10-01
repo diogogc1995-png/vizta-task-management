@@ -5,6 +5,17 @@ let data = null;
 let version = null;
 let selectedId = decodeURIComponent(location.hash.slice(1)) || null;
 
+// Preferências do utilizador (só neste browser): separador ativo e grupos do menu abertos.
+function loadPref(k, def) {
+  try { const v = localStorage.getItem("bd." + k); return v === null ? def : JSON.parse(v); } catch (e) { return def; }
+}
+function savePref(k, v) {
+  try { localStorage.setItem("bd." + k, JSON.stringify(v)); } catch (e) { /* sem storage */ }
+}
+let view = loadPref("view", "pr");          // "pr" | "budget"
+const openGroups = new Set(loadPref("openGroups", []));
+const openRubrics = new Set();               // `${projectId}|${índice da rubrica}`
+
 const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
@@ -44,11 +55,17 @@ function allProjects() {
   return data.files.flatMap((f) => f.projects.map((p) => ({ ...p, group: f.group, file: f.file, modified: f.modified, remote: f.remote })));
 }
 
+function orderedProjects() {
+  // Pela ordem do menu (config.json); o servidor já acrescenta no fim os que não estão no menu.
+  const byId = Object.fromEntries(allProjects().map((p) => [p.id, p]));
+  return (data.menu || []).flatMap((m) => (m.item ? [m.item] : m.items)).map((id) => byId[id]).filter(Boolean);
+}
+
 async function load() {
   const res = await fetch("/api/projects", { cache: "no-store" });
   data = await res.json();
   version = data.version;
-  const ids = allProjects().map((p) => p.id);
+  const ids = orderedProjects().map((p) => p.id);
   if (!ids.includes(selectedId)) selectedId = ids[0] || null;
   render();
 }
@@ -96,11 +113,22 @@ function render() {
 }
 
 function renderSidebar() {
-  // Só os nomes dos projetos; erros de leitura aparecem como avisos na área principal.
-  const items = allProjects().map((p) =>
-    `<button type="button" class="proj ${p.id === selectedId ? "active" : ""}" data-id="${p.id}" title="${esc(p.file)} › ${esc(p.sheet)}">${esc(p.name)}</button>`
-  ).join("");
-  $("#sidebar").innerHTML = `<div class="side-title">Projects</div>` + (items || `<div class="proj">No projects</div>`);
+  // Menu do config.json ("menu"): grupos com dropdown e nomes a mostrar.
+  // Erros de leitura aparecem como avisos na área principal.
+  const byId = Object.fromEntries(allProjects().map((p) => [p.id, p]));
+  const btn = (p, sub) => `<button type="button" class="proj ${sub ? "sub" : ""} ${p.id === selectedId ? "active" : ""}"
+      data-id="${p.id}" title="${esc(p.file)} › ${esc(p.sheet)}">${esc(p.label || p.name)}</button>`;
+  const html = (data.menu || []).map((m) => {
+    if (m.item) return byId[m.item] ? btn(byId[m.item], false) : "";
+    const items = m.items.map((id) => byId[id]).filter(Boolean);
+    const open = openGroups.has(m.group) || items.some((p) => p.id === selectedId);
+    return `<div class="mgroup ${open ? "open" : ""}">
+      <button type="button" class="mgroup-head ${items.some((p) => p.id === selectedId) ? "has-active" : ""}" data-group="${esc(m.group)}">
+        <span>${esc(m.group)}</span><span class="chev" aria-hidden="true"></span></button>
+      <div class="mgroup-items">${items.map((p) => btn(p, true)).join("")}</div>
+    </div>`;
+  }).join("");
+  $("#sidebar").innerHTML = `<div class="side-title">Projects</div>` + (html || `<div class="proj">No projects</div>`);
 }
 
 function banners() {
@@ -111,6 +139,7 @@ function banners() {
   for (const f of data.files) if (!f.error && !f.projects.length) out.push(`No Project Review sheet found in <b>${esc(f.file)}</b>.`);
   if (data.financing_error) out.push(esc(data.financing_error));
   for (const n of data.financing_unmatched || []) out.push(`Financing entry <b>${esc(n)}</b> in <code>financing.json</code> does not match any project name.`);
+  for (const n of data.menu_unmatched || []) out.push(`Menu entry <b>${esc(n)}</b> in <code>config.json</code> does not match any loaded project (check the name, or whether its file could be read).`);
   return out.map((b) => `<div class="banner no-print">${b}</div>`).join("");
 }
 
@@ -122,7 +151,81 @@ function renderMain() {
       Each file is scanned for sheets that contain the Project Review table (a <code>Δ</code> column header and a <code>TOTAL COST</code> row).</p></div>`;
     return;
   }
-  $("#main").innerHTML = banners() + reportHtml(p);
+  const extra = p.budget_missing
+    ? `<div class="banner no-print">Budget sheet <b>${esc(p.budget_missing)}</b> (config.json) was not found in <b>${esc(p.file)}</b>.</div>` : "";
+  const tabs = `<div class="tabs no-print" role="tablist">
+      <button type="button" role="tab" data-view="pr" class="${view !== "budget" ? "active" : ""}">Project Review</button>
+      <button type="button" role="tab" data-view="budget" class="${view === "budget" ? "active" : ""}" ${p.budget ? "" : "disabled title=\"No detailed budget sheet for this project\""}>Budget</button>
+    </div>`;
+  $("#main").innerHTML = banners() + extra + tabs + pageHtml(p);
+}
+
+const pageHtml = (p) => (view === "budget" && p.budget ? budgetReportHtml(p) : reportHtml(p));
+
+function headHtml(p, source) {
+  return `<div class="report-head">
+      <div>${p.menu_group ? `<div class="kicker">${esc(p.menu_group)}</div>` : ""}<h1>${esc(p.label || p.name)}</h1>
+        <div class="src">${p.remote ? "SharePoint · " : ""}${esc(p.group)} › ${esc(source)} · k€</div></div>
+      <div class="dates">Last project review: <b>${fmtDate(p.last_review)}</b><br>
+        Next project review: <b>${fmtDate(p.next_review)}</b><br>
+        File saved: ${fmtTime(p.modified)}</div>
+    </div>`;
+}
+
+function budgetReportHtml(p) {
+  const b = p.budget;
+  const cols = b.columns;
+  // Faixa de grupos (BUDGET / COST OF THE PROJECT / VARIATION ...)
+  const bands = [];
+  cols.forEach((c, i) => {
+    const last = bands[bands.length - 1];
+    if (last && last.group === c.group) last.span++;
+    else bands.push({ group: c.group, span: 1, start: i });
+  });
+  const single = (bd) => bd.span === 1 && cols[bd.start].lines.join(" ") === bd.group;
+  const hasSub = cols.some((c) => c.sub);
+  const bandCls = (g) => (/^COST/i.test(g) ? "g-cost" : /^VARIATION/i.test(g) ? "g-var" : /^TOTAL INVOICED/i.test(g) ? "g-inv" : "g-budget");
+  const colCls = cols.map((c) => bandCls(c.group));
+  const head = `<tr><th class="lbl" rowspan="${hasSub ? 3 : 2}">${esc(b.title || p.name)}</th>${bands
+      .map((bd) => `<th class="band ${bandCls(bd.group)}" colspan="${bd.span}" ${single(bd) ? `rowspan="${hasSub ? 2 : 2}"` : ""}>${esc(bd.group)}</th>`).join("")}</tr>
+    <tr>${cols.map((c, i) => (single(bands.find((bd) => bd.start <= i && i < bd.start + bd.span)) ? ""
+      : `<th class="${colCls[i]}">${c.lines.map(esc).join("<br>")}</th>`)).join("")}</tr>
+    ${hasSub ? `<tr class="subhead">${cols.map((c, i) => `<th class="${colCls[i]}">${esc(c.sub || "")}</th>`).join("")}</tr>` : ""}`;
+
+  const cells = (r) => r.values.map((v, i) => {
+    const pct = r.percent || cols[i].percent;
+    const neg = typeof v === "number" && v < -0.5 && colCls[i] === "g-var" ? " neg" : "";
+    return `<td class="${colCls[i]}${neg}">${fmt(v, pct)}</td>`;
+  }).join("");
+  let body = "";
+  b.rows.forEach((r, idx) => {
+    if (r.kind === "rubric") {
+      const key = `${p.id}|${idx}`;
+      const open = openRubrics.has(key);
+      const n = r.children.length;
+      body += `<tr class="b-rubric ${open ? "open" : ""} ${n ? "has-children" : ""}" data-key="${key}" ${n ? `tabindex="0" aria-expanded="${open}"` : ""}>
+        <td class="lbl"><span class="chev" aria-hidden="true"></span>${esc(r.label)}${n ? ` <span class="count">${n}</span>` : ""}</td>${cells(r)}</tr>`;
+      for (const c of r.children) {
+        body += `<tr class="b-sub" data-parent="${key}" ${open ? "" : "hidden"}><td class="lbl">${c.code !== null && c.code !== undefined ? `<span class="code">${esc(typeof c.code === "number" ? +c.code.toFixed(2) : c.code)}</span>` : ""}${esc(c.label)}</td>${cells(c)}</tr>`;
+      }
+    } else {
+      body += `<tr class="b-${r.kind}"><td class="lbl">${esc(r.label)}</td>${cells(r)}</tr>`;
+    }
+  });
+  return `<section class="report budget">
+    ${headHtml(p, b.sheet)}
+    <div class="b-tools no-print"><button type="button" data-expand="all">Expand all</button><button type="button" data-expand="none">Collapse all</button></div>
+    <div class="b-scroll"><table class="bt"><thead>${head}</thead><tbody>${body}</tbody></table></div>
+  </section>`;
+}
+
+function toggleRubric(tr, force) {
+  const key = tr.dataset.key;
+  const open = force === undefined ? !openRubrics.has(key) : force;
+  if (open) openRubrics.add(key); else openRubrics.delete(key);
+  tr.classList.toggle("open", open);
+  if (tr.hasAttribute("aria-expanded")) tr.setAttribute("aria-expanded", open);
+  document.querySelectorAll(`tr.b-sub[data-parent="${CSS.escape(key)}"]`).forEach((s) => (s.hidden = !open));
 }
 
 function reportHtml(p) {
@@ -157,12 +260,7 @@ function reportHtml(p) {
   const fin = p.financing ? financingHtml(p.financing) : "";
 
   return `<section class="report">
-    <div class="report-head">
-      <div><h1>${esc(p.name)}</h1><div class="src">${p.remote ? "SharePoint · " : ""}${esc(p.group)} › ${esc(p.sheet)} · k€</div></div>
-      <div class="dates">Last project review: <b>${fmtDate(p.last_review)}</b><br>
-        Next project review: <b>${fmtDate(p.next_review)}</b><br>
-        File saved: ${fmtTime(p.modified)}</div>
-    </div>
+    ${headHtml(p, p.sheet)}
     <table class="pr"><thead>${head}</thead><tbody>${body}</tbody></table>
     ${notes}${kpis}${after}${fin}
   </section>`;
@@ -199,11 +297,45 @@ function financingHtml(f) {
 
 // ---------- eventos ----------
 $("#sidebar").addEventListener("click", (e) => {
+  const g = e.target.closest(".mgroup-head");
+  if (g) {
+    const wrap = g.parentElement;
+    const open = !wrap.classList.contains("open");
+    wrap.classList.toggle("open", open);
+    if (open) openGroups.add(g.dataset.group); else openGroups.delete(g.dataset.group);
+    savePref("openGroups", [...openGroups]);
+    return;
+  }
   const b = e.target.closest(".proj[data-id]");
   if (!b) return;
   selectedId = b.dataset.id;
   history.replaceState(null, "", "#" + encodeURIComponent(selectedId));
   render();
+});
+
+$("#main").addEventListener("click", (e) => {
+  const tab = e.target.closest(".tabs [data-view]");
+  if (tab && !tab.disabled) {
+    view = tab.dataset.view;
+    savePref("view", view);
+    renderMain();
+    return;
+  }
+  const ex = e.target.closest("[data-expand]");
+  if (ex) {
+    document.querySelectorAll("tr.b-rubric.has-children").forEach((tr) => toggleRubric(tr, ex.dataset.expand === "all"));
+    return;
+  }
+  const tr = e.target.closest("tr.b-rubric.has-children");
+  if (tr) toggleRubric(tr);
+});
+
+$("#main").addEventListener("keydown", (e) => {
+  const tr = e.target.closest("tr.b-rubric.has-children");
+  if (tr && (e.key === "Enter" || e.key === " ")) {
+    e.preventDefault();
+    toggleRubric(tr);
+  }
 });
 
 document.addEventListener("click", (e) => {
@@ -214,7 +346,7 @@ document.addEventListener("click", (e) => {
   const pdf = e.target.closest("[data-pdf]");
   if (pdf) {
     if (pdf.dataset.pdf === "all") {
-      $("#print-area").innerHTML = allProjects().map(reportHtml).join("");
+      $("#print-area").innerHTML = orderedProjects().map(pageHtml).join("");
       document.body.classList.add("print-all");
     }
     window.print();

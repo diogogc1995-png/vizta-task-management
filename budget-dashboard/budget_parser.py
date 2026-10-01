@@ -189,6 +189,140 @@ def parse_sheet(grid, sheet_name):
     }
 
 
+# ---------- Budget detalhado (folhas "BUDGET ...": rubricas e subrubricas) ----------
+
+BUDGET_ROWS = 320
+BUDGET_COLS = 120
+RUBRIC_1 = re.compile(r"^\s*1\s*-\s*Land costs", re.I)
+RUBRIC = re.compile(r"^\s*\d{1,2}\s*-")
+BUDGET_GROUPS = re.compile(r"^\s*(BUDGET|COST OF THE PROJECT|VARIATION|TOTAL INVOICED)", re.I)
+BUDGET_END = re.compile(r"^(Unlevered|Levered|IRR\b|Project KPI|Orions? View KPI)", re.I)
+
+
+def _find_budget_layout(grid):
+    """(linha da 1.ª rubrica, coluna das labels, linha dos grupos) ou None."""
+    for r, row in enumerate(grid[:60]):
+        for c, v in enumerate(row[:8]):
+            if isinstance(v, str) and RUBRIC_1.match(v):
+                for g in range(r - 1, max(-1, r - 12), -1):
+                    if any(isinstance(x, str) and x.strip().upper().startswith("BUDGET")
+                           for x in grid[g][c + 1:]):
+                        return r, c, g
+                return None
+    return None
+
+
+def parse_budget_sheet(grid, sheet_name, hidden_cols=()):
+    """Quadro de budget completo (grid e hidden_cols 0-based).
+
+    As colunas escondidas no Excel (revisões antigas) ficam de fora. As linhas
+    escondidas não: normalmente são subrubricas agrupadas e recolhidas.
+    """
+    layout = _find_budget_layout(grid)
+    if not layout:
+        return None
+    first_r, label_c, group_r = layout
+    head_r = group_r + 1
+    get = lambda r, c: grid[r][c] if r < len(grid) and c < len(grid[r]) else None
+    width = max(len(row) for row in grid)
+
+    # Colunas: grupos BUDGET / COST OF THE PROJECT / VARIATION / INVOICED, sem as escondidas.
+    columns, col_idx, group = [], [], None
+    for c in range(label_c + 1, width):
+        g = get(group_r, c)
+        if isinstance(g, str) and g.strip():
+            if not BUDGET_GROUPS.search(g):
+                break
+            group = _norm(g.replace("\n", " "))
+        if group is None or c in hidden_cols:
+            continue
+        head = get(head_r, c)
+        has_data = any(_is_number(get(r, c)) for r in range(first_r, min(first_r + 120, len(grid))))
+        if not (isinstance(head, str) and head.strip()) and not has_data:
+            continue
+        lines = _header_lines(head) if isinstance(head, str) and head.strip() else []
+        sub = get(head_r + 1, c)
+        columns.append({
+            "group": group,
+            "lines": lines or [group],
+            "sub": _norm(str(sub)) if sub not in (None, "") and not _is_number(sub) else None,
+            "percent": bool(lines) and lines[0].startswith("%"),
+        })
+        col_idx.append(c)
+    if not columns:
+        return None
+
+    items, current, blanks = [], None, 0
+    for r in range(first_r, len(grid)):
+        label = get(r, label_c)
+        if not (isinstance(label, str) and label.strip()):
+            blanks += 1
+            if blanks > 8:
+                break
+            continue
+        blanks = 0
+        lab = _norm(label)
+        if BUDGET_END.match(lab):
+            break
+        values = [_cell_value(get(r, c)) for c in col_idx]
+        if not any(v is not None for v in values):
+            continue
+        code = get(r, label_c - 1) if label_c > 0 else None
+        up = lab.upper()
+        row = {"label": lab, "code": _cell_value(code), "values": values,
+               "percent": "%" in lab and up.startswith("MARGIN")}
+        if up.startswith("TOTAL") or up.startswith("MARGIN"):
+            items.append({**row, "kind": "orion" if "ORION" in up else "total"})
+            current = None
+        elif RUBRIC.match(lab):
+            current = {**row, "kind": "rubric", "children": []}
+            items.append(current)
+        elif current is not None:
+            current["children"].append({**row, "kind": "sub"})
+        else:
+            items.append({**row, "kind": "line"})
+
+    return {"sheet": sheet_name, "title": _norm(str(get(head_r - 1, label_c) or "")) or None,
+            "columns": columns, "rows": items}
+
+
+def _hidden_cols(path, sheet_names):
+    """{folha: colunas escondidas (0-based)}, lido diretamente do XML (o modo read-only não as expõe)."""
+    out = {}
+    try:
+        with zipfile.ZipFile(path) as z:
+            wb_xml = z.read("xl/workbook.xml").decode("utf-8", "replace")
+            rels = z.read("xl/_rels/workbook.xml.rels").decode("utf-8", "replace")
+            targets = {m.group(1): m.group(2) for m in re.finditer(
+                r'<Relationship[^>]*?Id="([^"]+)"[^>]*?Target="([^"]+)"', rels)}
+            targets.update({m.group(2): m.group(1) for m in re.finditer(
+                r'<Relationship[^>]*?Target="([^"]+)"[^>]*?Id="([^"]+)"', rels)})
+            for m in re.finditer(r"<sheet\b[^>]*>", wb_xml):
+                tag = m.group(0)
+                name = re.search(r'name="([^"]*)"', tag)
+                rid = re.search(r'r:id="([^"]*)"', tag)
+                if not name or not rid:
+                    continue
+                name = (name.group(1).replace("&amp;", "&").replace("&apos;", "'")
+                        .replace("&quot;", '"').replace("&lt;", "<").replace("&gt;", ">"))
+                if name not in sheet_names:
+                    continue
+                target = targets.get(rid.group(1), "").lstrip("/")
+                target = target if target.startswith("xl/") else "xl/" + target
+                xml = z.read(target).decode("utf-8", "replace")
+                cols = set()
+                for col in re.finditer(r"<col\b[^>]*>", xml):
+                    t = col.group(0)
+                    if re.search(r'\bhidden="(1|true)"', t):
+                        lo = int(re.search(r'\bmin="(\d+)"', t).group(1))
+                        hi = int(re.search(r'\bmax="(\d+)"', t).group(1))
+                        cols.update(range(lo - 1, min(hi, BUDGET_COLS)))
+                out[name] = cols
+    except (KeyError, zipfile.BadZipFile, AttributeError, ValueError):
+        pass
+    return out
+
+
 def _strip_defined_names(path):
     """Remove os nomes definidos do workbook.xml (reescreve o ficheiro).
 
@@ -218,6 +352,11 @@ def _load(tmp):
 
 def parse_workbook(path, include_hidden=False):
     """Devolve a lista de projetos encontrados no ficheiro."""
+    return parse_file(path, include_hidden)["projects"]
+
+
+def parse_file(path, include_hidden=False):
+    """{"projects": [...quadros de Project Review], "budgets": {folha: budget detalhado}}."""
     # Copia para um ficheiro temporário: evita problemas com ficheiros abertos
     # no Excel ou a meio de uma sincronização do OneDrive.
     fd, tmp = tempfile.mkstemp(suffix=os.path.splitext(path)[1])
@@ -226,7 +365,7 @@ def parse_workbook(path, include_hidden=False):
         shutil.copyfile(path, tmp)
         wb = _load(tmp)
         try:
-            projects = []
+            projects, budget_sheets = [], []
             for ws in wb.worksheets:
                 if ws.sheet_state != "visible" and not include_hidden:
                     continue
@@ -235,7 +374,17 @@ def parse_workbook(path, include_hidden=False):
                 p = parse_sheet(grid, ws.title)
                 if p:
                     projects.append(p)
-            return projects
+                elif _find_budget_layout(grid):
+                    budget_sheets.append(ws)
+            budgets = {}
+            hidden = _hidden_cols(tmp, {ws.title for ws in budget_sheets}) if budget_sheets else {}
+            for ws in budget_sheets:
+                grid = [tuple(row) for row in ws.iter_rows(
+                    min_row=1, max_row=BUDGET_ROWS, max_col=BUDGET_COLS, values_only=True)]
+                b = parse_budget_sheet(grid, ws.title, hidden.get(ws.title, set()))
+                if b:
+                    budgets[ws.title] = b
+            return {"projects": projects, "budgets": budgets}
         finally:
             wb.close()
     finally:

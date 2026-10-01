@@ -12,5 +12,12 @@
     "login_hint": "nome@empresa.pt",
     "auth_flow": "interactive",
     "poll_seconds": 60
-  }
+  },
+  "menu": [
+    {"group": "Projeto com fases", "items": [
+      {"project": "NOME NO QUADRO FASE I", "label": "Fase 1 - Lote X", "budget_sheet": "BUDGET FASE 1"},
+      {"project": "NOME NO QUADRO FASE II", "label": "Fase 2 - Lote Y", "budget_sheet": "BUDGET FASE 2"}
+    ]},
+    {"project": "NOME NO QUADRO", "label": "Nome a mostrar", "budget_sheet": "BUDGET"}
+  ]
 }

@@ -9,7 +9,7 @@ import zipfile
 
 from openpyxl import Workbook
 
-from budget_parser import parse_workbook
+from budget_parser import parse_file, parse_workbook
 from excel_export import build_workbook
 
 LINES = ["1- Land costs", "2- Charges", "4- Construction", "12-Other Adjustments"]
@@ -43,6 +43,31 @@ def make_review_sheet(ws, name):
     ws.cell(38, 5, 0.17); ws.cell(38, 6, "Margin post tax")
 
 
+def make_budget_sheet(ws):
+    ws["A3"], ws["B3"], ws["C3"] = "Code", "TEST\n(€, taxes included)", "BUDGET € + VAT (23%)"
+    ws["F3"], ws["I3"], ws["J3"] = "COST OF THE PROJECT € + VAT", "VARIATION", "COMMENTS (required for each variation)"
+    ws["C4"], ws["D4"], ws["E4"] = "Investment Comittee", "Project Review 01/01/2026", "Project Review 16/07/2026 Orion"
+    ws["F4"], ws["G4"], ws["H4"] = "Signed commitments", "Forecasted commitments", "TOTAL"
+    ws["F5"], ws["H5"], ws["I5"] = "(3)", "(5)=(3)+(4)", "(6)=(5)-(2)"
+    rows = [
+        (None, "1- Land costs / Terrain", 100), (111, "Plot / Terreno", 90), (112, "Notary fees", 10),
+        (None, "2- Charges", 20), (151, "License fees", 20),
+        (None, "TOTAL COST", 120), (None, "MARGIN (%)", 0.25),
+        (None, "Unlevered", None), (None, "IRR ANNUAL", 0.3),
+    ]
+    for i, (code, label, v) in enumerate(rows):
+        r = 7 + i
+        ws.cell(r, 1, code)
+        ws.cell(r, 2, label)
+        if v is not None:
+            for c in range(3, 10):
+                ws.cell(r, c, v)
+        ws.cell(r, 10, "comentário")
+    ws.column_dimensions["D"].hidden = True  # revisão antiga escondida no Excel
+    for r in (8, 9):  # subrubricas agrupadas e recolhidas: continuam a ser lidas
+        ws.row_dimensions[r].hidden = True
+
+
 class ParserTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -57,6 +82,7 @@ class ParserTest(unittest.TestCase):
         hidden = wb.create_sheet("PR HIDDEN")
         make_review_sheet(hidden, "HIDDEN")
         hidden.sheet_state = "hidden"
+        make_budget_sheet(wb.create_sheet("BUDGET FASE 1"))
         fd, cls.path = tempfile.mkstemp(suffix=".xlsx")
         os.close(fd)
         wb.save(cls.path)
@@ -97,6 +123,22 @@ class ParserTest(unittest.TestCase):
         self.assertEqual(p["kpis"][0]["label"], "Unlevered")
         self.assertEqual(p["kpis"][0]["values"][0], ["16,5% / 1,3x", "12.0M€ / -42.4M€"])
 
+    def test_budget_detail(self):
+        b = parse_file(self.path)["budgets"]["BUDGET FASE 1"]
+        # Coluna D escondida fica de fora; COMMENTS também.
+        self.assertEqual([c["lines"][0] for c in b["columns"]],
+                         ["Investment Comittee", "Project Review", "Signed commitments",
+                          "Forecasted commitments", "TOTAL", "VARIATION"])
+        self.assertEqual([c["group"] for c in b["columns"]][-1], "VARIATION")
+        self.assertEqual(b["columns"][2]["sub"], "(3)")
+        land = b["rows"][0]
+        self.assertEqual((land["kind"], land["label"]), ("rubric", "1- Land costs / Terrain"))
+        self.assertEqual([(c["code"], c["label"]) for c in land["children"]],
+                         [(111.0, "Plot / Terreno"), (112.0, "Notary fees")])
+        self.assertEqual([r["label"] for r in b["rows"]],
+                         ["1- Land costs / Terrain", "2- Charges", "TOTAL COST", "MARGIN (%)"])  # pára nos KPIs
+        self.assertTrue(b["rows"][-1]["percent"])
+
     def test_invalid_defined_names(self):
         # Print_Titles = #N/A faz o openpyxl recusar o ficheiro; a app ignora os nomes.
         fd, path = tempfile.mkstemp(suffix=".xlsx")
@@ -119,6 +161,16 @@ class ParserTest(unittest.TestCase):
         wb = build_workbook([("File", p) for p in self.projects])
         self.assertEqual(wb.sheetnames, ["NOLA", "OTHER"])
         self.assertEqual(wb["NOLA"]["A3"].value, "NOLA")
+
+    def test_excel_export_budget(self):
+        budget = parse_file(self.path)["budgets"]["BUDGET FASE 1"]
+        p = {**self.projects[0], "label": "Nola - Lote 1", "budget": budget}
+        wb = build_workbook([("File", p)])
+        self.assertEqual(wb.sheetnames, ["Nola - Lote 1", "Nola - Lote 1 Budget"])
+        ws = wb["Nola - Lote 1 Budget"]
+        labels = [ws.cell(r, 1).value for r in range(6, 12)]
+        self.assertEqual(labels[:3], ["1- Land costs / Terrain", "    111  Plot / Terreno", "    112  Notary fees"])
+        self.assertEqual(ws.row_dimensions[7].outlineLevel, 1)
 
 
 if __name__ == "__main__":
