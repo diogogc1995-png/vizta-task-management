@@ -469,11 +469,26 @@ table.sl-kpi td.lbl { text-align: left; font-weight: 700; background: var(--orio
 .sl-box dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; }
 .sl-box dt { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; padding-top: 2px; }
 .sl-box dd { margin: 0; font-weight: 600; }
+/* Slides sem texto das fontes */
+.slide .sl-src, .slide .sm-foot, .slide .ov-src, .slide .report-head .src { display: none; }
+/* Roadmap: vendas (RM) e KPIs Orion */
+table.rm th.rm-grp { font-weight: 400; font-size: 14px; background: #eee; padding: 6px; border-bottom: 0; }
+table.rm th.rm-grp.orion { background: #fde9dc; font-weight: 700; }
+table.rm th.rm-grp small { display: block; font-weight: 400; font-size: 11px; }
+table.rm th.rm-k { font-size: 11.5px; font-weight: 700; text-align: center; vertical-align: bottom; padding: 0 6px 6px; border-bottom: 2px solid var(--ink); line-height: 1.2; min-width: 62px; }
+table.rm th.rm-k.orion, table.rm td.rm-o { background: #fde9dc; }
+table.rm td.rm-units, table.rm td.rm-units ~ td { text-align: center; font-size: 12.5px; padding: 0 6px; border-bottom: 1px dotted var(--grid); white-space: nowrap; }
+table.rm td.rm-units { border-left: 1px solid var(--grid); }
+table.rm td.rm-units small { display: block; font-size: 10.5px; color: var(--muted); }
+table.rm td.rm-mkt { background: #ececec; }
+table.rm td.rm-hatch { background: repeating-linear-gradient(135deg, #f4f4f4 0 6px, #e6e6e6 6px 8px); }
+table.rm .rm-grp-row th { padding-bottom: 0; }
+
 /* Slide 6: pesos por fase e regiões */
 .sl-sc { --lis: #b5543a; --por: #fcc0a2; }
 .sc-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 300px minmax(0, 1fr) 360px; gap: 26px; }
-.sc-phases { display: flex; flex-direction: column; gap: 6px; }
-.sc-ph { display: grid; grid-template-columns: 30px 1fr; gap: 0 10px; padding: 8px 10px; font-size: 13.5px; }
+.sc-phases { display: flex; flex-direction: column; gap: 2px; padding: 54px 0 46px; }
+.sc-ph { display: grid; grid-template-columns: 30px 1fr; align-content: center; gap: 0 10px; padding: 6px 10px; font-size: 13.5px; min-height: 0; }
 .sc-ph b { grid-row: span 2; font-size: 26px; font-style: italic; }
 .sc-ph span { font-weight: 700; font-size: 15px; }
 .sc-ph ul { margin: 2px 0 0; padding: 0; list-style: none; line-height: 1.45; }
@@ -485,7 +500,7 @@ table.sl-kpi td.lbl { text-align: left; font-weight: 700; background: var(--orio
 .sc-bar { flex: 1; display: flex; flex-direction: column; }
 .sc-bar > div { display: flex; align-items: center; justify-content: center; min-height: 0; overflow: hidden; border-bottom: 2px solid #fff; }
 .sc-bar span { font-weight: 700; font-size: 15px; }
-.sc-cap { margin-top: 10px; text-align: center; font-size: 13px; color: var(--muted); border-top: 1px solid var(--ink); padding-top: 8px; }
+.sc-cap { height: 46px; box-sizing: border-box; margin-top: 0; padding-top: 12px !important; text-align: center; font-size: 13px; color: var(--muted); border-top: 1px solid var(--ink); padding-top: 8px; }
 .sc-regions h3 { margin: 0 0 6px; text-align: center; font-weight: 400; font-size: 20px; }
 .sc-pies { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
 .sc-pie-h { text-align: center; font-weight: 700; font-size: 14px; text-decoration: underline; margin-bottom: 8px; }

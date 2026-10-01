@@ -22,12 +22,17 @@ def make_sheet(ws):
         ("Zona A", "Torre I", 100, None, D(2019, 3), D(2020, 7), D(2021, 4), D(2023, 4), D(2023, 9)),
         (None, "Torre II", 120, None, D(2019, 3), D(2022, 9), D(2023, 7), D(2026, 5), D(2026, 6)),
         ("Zona B", "A", 80, D(2023, 11), D(2024, 3), D(2025, 2), D(2025, 7), D(2027, 3), D(2027, 9)),
+        (None, "Donation", 42, None, None, None, None, None, None),
         ("Vila", None, 159, None, D(2022, 9), D(2022, 1), D(2022, 11), D(2026, 7), D(2026, 7)),
         (None, "Info changes since PR", None, None, None, None, None, None, None),
     ]
     for i, (area, name, apts, pspa, acq, launch, cs, ce, eod) in enumerate(rows, start=8):
         ws[f"B{i}"], ws[f"C{i}"], ws[f"F{i}"], ws[f"J{i}"], ws[f"L{i}"] = area, name, apts, pspa, acq
         ws[f"P{i}"], ws[f"Q{i}"], ws[f"R{i}"], ws[f"S{i}"] = launch, cs, ce, eod
+    # vendas, muito à direita (colunas ES-EZ)
+    ws["ES6"], ws["EW6"], ws["EZ6"] = "% PSPA", "% Total sold ", "Units in the market"
+    ws["ES10"], ws["EW10"], ws["EZ10"] = 0.73, 0.73, 15
+    ws["ES12"], ws["EZ12"] = "n/a", "-"
 
 
 class RoadmapTest(unittest.TestCase):
@@ -43,7 +48,7 @@ class RoadmapTest(unittest.TestCase):
         os.remove(self.path)
 
     def test_load(self):
-        conf = [{"group": "B", "label": "Projeto B", "area_match": "Zona B", "name_match": "A", "project": "P"},
+        conf = [{"group": "B", "label": "Projeto B", "area_match": "Zona B", "name_match": "A", "project": "P", "plus_match": "Donation"},
                 {"group": "A", "label": "T1", "area_match": "Zona A", "name_match": "Torre I"},
                 {"group": "A", "label": "T2", "area_match": "Zona A", "name_match": "Torre II"},
                 {"label": "Domitys", "area_match": "Vila", "name_match": "Vila"},
@@ -59,6 +64,9 @@ class RoadmapTest(unittest.TestCase):
         self.assertEqual(t1["name"], "Torre I")      # nome exato: não apanha "Torre II"
         self.assertEqual(t2["area"], "Zona A")       # zona herdada da linha anterior
         self.assertEqual(vila["name"], "Vila")       # sem nome próprio: usa a zona
+        self.assertEqual((b["pct_pspa"], b["pct_sold"], b["units_market"], b["extra_units"]), (0.73, 0.73, 15, 42))
+        self.assertEqual((vila["pct_pspa"], vila["units_market"], vila["pct_deeds"]), ("n/a", "-", None))
+        self.assertIsNone(t1["extra_units"])
 
     def test_missing_sheet(self):
         with self.assertRaises(ValueError):

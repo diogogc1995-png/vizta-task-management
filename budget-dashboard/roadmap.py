@@ -25,11 +25,25 @@ HEADERS = {
     "end_deliveries": r"^End of deliveries",
     "apartments": r"^Nb\.? Apartments",
     "name": r"^BUILDING NAMES",
+    # vendas (residential units), mais à direita na folha
+    "pct_pspa": r"^% PSPA",
+    "pct_deeds": r"^% Final deeds",
+    "pct_sold": r"^% Total sold",
+    "pct_reserved": r"^% Units reserved",
+    "units_market": r"^Units in the market",
 }
 
 
 def _norm(v):
     return " ".join(str(v).split()) if v is not None else ""
+
+
+def _val(v):
+    """Número, ou o texto da célula ("n/a", "-"); vazio -> None."""
+    if isinstance(v, (int, float)) and not isinstance(v, bool):
+        return v
+    t = _norm(v)
+    return t or None
 
 
 def _date(v):
@@ -83,6 +97,7 @@ def parse_sheet(grid):
             "launch": _date(c("launch")),
             "construction_start": _date(c("construction")), "construction_end": _date(c("construction", 1)),
             "end_deliveries": _date(c("end_deliveries")),
+            **{k: _val(c(k)) for k in ("pct_pspa", "pct_deeds", "pct_sold", "pct_reserved", "units_market")},
         })
     return out
 
@@ -101,7 +116,7 @@ def load(path, sheet, rows_conf):
         try:
             if sheet not in wb.sheetnames:
                 raise ValueError(f"folha '{sheet}' não encontrada")
-            grid = [tuple(r) for r in wb[sheet].iter_rows(max_row=120, max_col=40, values_only=True)]
+            grid = [tuple(r) for r in wb[sheet].iter_rows(max_row=120, max_col=170, values_only=True)]
         finally:
             wb.close()
     finally:
@@ -120,6 +135,8 @@ def load(path, sheet, rows_conf):
         if not hit:
             unmatched.append(conf.get("label") or conf.get("name_match"))
             continue
+        # unidades de outra linha da mesma zona a somar à parte (p.ex. NOLA "111 (+42)": Donation)
+        plus = next((r for r in in_area if conf.get("plus_match") and _key(r["name"]) == _key(conf["plus_match"])), None)
         out.append({**hit, "group": conf.get("group") or hit["area"], "label": conf.get("label") or hit["name"],
-                    "project": conf.get("project")})
+                    "project": conf.get("project"), "extra_units": plus["apartments"] if plus else None})
     return out, unmatched

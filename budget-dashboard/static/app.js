@@ -393,7 +393,7 @@ function summaryChartsHtml(title) {
   const legend = `<div class="sc-leg"><span><i style="background:var(--lis)"></i>Lisbon</span><span><i style="background:var(--por)"></i>Porto</span></div>`;
   const names = PHASES.map(([ph, cls], i) => {
     const rs = rows.filter((r) => r.phase === ph);
-    return rs.length ? `<div class="sc-ph sm-${cls}"><b>${i + 1}</b><span>${ph}</span><ul>${rs.map((r) => `<li>${esc(r.name)}</li>`).join("")}</ul></div>` : "";
+    return rs.length ? `<div class="sc-ph sm-${cls}" style="flex:${rs.length + 1}"><b>${i + 1}</b><span>${ph}</span><ul>${rs.map((r) => `<li>${esc(r.name)}</li>`).join("")}</ul></div>` : "";
   }).join("");
   return `<div class="sl sl-sc"><div class="sl-head"><h1>${esc(title)}</h1></div>
     <div class="sc-body">
@@ -641,15 +641,19 @@ function roadmapHtml(title) {
       ? `<button type="button" class="rm-link" data-id="${r.project_id}">${esc(r.label)}</button>` : esc(r.label);
     return `<tr>${i === 0 ? `<th class="rm-area" rowspan="${g.rows.length}">${esc(g.name)}</th>` : ""}
       <td class="rm-name" title="${esc(r.area)} · ${esc(r.name)}">${label}</td>
-      <td class="rm-track">${bars}</td></tr>`;
+      <td class="rm-track">${bars}</td>${rmKpiCells(r)}</tr>`;
   }).join("")).join("");
 
   const todayLeft = pos(today);
   return `<section class="report portfolio roadmap">${head}${notes}
     <div class="rm-scroll"><table class="rm">
-      <thead><tr><th class="rm-hcorner" colspan="2">Area &amp; Projects</th>
+      <thead><tr class="rm-grp-row"><th colspan="3"></th><th class="rm-grp" colspan="${RM_SALES.length + 1}">Residential Units</th>
+        <th class="rm-grp orion" colspan="3">Orion's view<small>(Levered post-tax)</small></th></tr>
+        <tr><th class="rm-hcorner" colspan="2">Area &amp; Projects</th>
         <th class="rm-years"><div class="rm-yearrow">${years.map((y) => `<span>${y}</span>`).join("")}</div>
-          <span class="rm-today-lbl" style="left:${todayLeft}%">Today</span></th></tr></thead>
+          <span class="rm-today-lbl" style="left:${todayLeft}%">Today</span></th>
+        <th class="rm-k">Total units</th>${RM_SALES.map(([, l]) => `<th class="rm-k">${l}</th>`).join("")}
+        <th class="rm-k orion">IRR</th><th class="rm-k orion">EM</th><th class="rm-k orion">€ / %<br>Margin</th></tr></thead>
       <tbody style="--years:${years.length}">${body}</tbody>
     </table></div>
     <div class="rm-legend">
@@ -659,6 +663,32 @@ function roadmapHtml(title) {
       <span class="rm-endkey">Q3 2028 = end of deliveries</span>
     </div>
   </section>`;
+}
+
+// Vendas (ficheiro RM, colunas % PSPA ... Units in the market) e KPIs atuais do Project Review
+const RM_SALES = [["pct_pspa", "PSPA"], ["pct_deeds", "Final deeds"], ["pct_sold", "Total sold"], ["pct_reserved", "Units reserved"],
+  ["units_market", "Units on market"]];
+
+function rmKpiCells(r) {
+  const p = r.project_id ? allProjects().find((x) => x.id === r.project_id) : null;
+  const info = p ? p.info || {} : (data.info_extra || []).find((x) => x.summary_name === r.label) || {};
+  const pct = (v) => (typeof v === "number" ? `${Math.round(v * 100)}%` : v ? esc(v) : "");
+  const units = `${typeof r.apartments === "number" ? fmtNum(r.apartments) : ""}${r.extra_units ? `<small>(+${fmtNum(r.extra_units)})</small>` : ""}`;
+  // sem vendas (tudo a zero ou n/a): células tracejadas, como no PPT
+  const noSales = ["pct_pspa", "pct_deeds", "pct_sold", "pct_reserved"].every((k) => !(typeof r[k] === "number" && r[k] > 0));
+  const sales = noSales ? `<td class="rm-hatch" colspan="${RM_SALES.length}"></td>`
+    : RM_SALES.map(([k]) => (k === "units_market"
+      ? `<td class="rm-mkt">${r[k] === 0 ? "-" : typeof r[k] === "number" ? fmtNum(r[k]) : esc(r[k] || "")}</td>`
+      : `<td>${pct(r[k])}</td>`)).join("");
+  // KPIs: levered post-tax da coluna mais recente; margem % = lucro / receita total
+  const km = info.kpis_manual;
+  const lpt = km ? { irr: km.irr, em: null, profit: km.margin } : p ? leveredPostTax(p) : {};
+  const rev = km ? km.revenue : p ? lastValue(p, /^TOTAL REVENUE/i) : null;
+  const profit = lpt.profit ? parseFloat(lpt.profit.replace(",", ".")) * (/k€/i.test(lpt.profit) ? 0.001 : 1) : null;
+  const mPct = profit !== null && typeof rev === "number" && rev ? `${((profit * 1000) / rev * 100).toFixed(1).replace(".", ",")}%` : "";
+  const margin = lpt.profit ? `${esc(lpt.profit.replace(/\s*€$/, ""))}${mPct ? ` / ${mPct}` : ""}` : "";
+  return `<td class="rm-units">${units}</td>${sales}
+    <td class="rm-o">${esc((lpt.irr || "").replace(" %", "%"))}</td><td class="rm-o">${esc(lpt.em || "")}</td><td class="rm-o">${margin}</td>`;
 }
 
 // ---------- Resumo do projeto (overview) ----------
@@ -686,9 +716,11 @@ function leveredPostTax(p) {
   if (!k) return {};
   const txt = (k.values[k.values.length - 1] || []).join(" | ");
   const irr = txt.match(/(-?[\d.,]+)\s*%/);
+  const em = txt.match(/(-?[\d.,]+)\s*x/i);
   const rest = txt.split("|").slice(1).join("|");
   const profit = rest.match(/(-?[\d.,]+)\s*(M|k)?\s*€/i);
-  return { irr: irr ? `${irr[1]} %` : null, profit: profit ? `${profit[1].replace(".", ",")} ${(profit[2] || "").toUpperCase()}€` : null };
+  return { irr: irr ? `${irr[1]} %` : null, em: em ? `${em[1]}x` : null,
+    profit: profit ? `${profit[1].replace(".", ",")} ${(profit[2] || "").toUpperCase()}€` : null };
 }
 
 function overviewHtml(p) {
@@ -754,7 +786,7 @@ function overviewHtml(p) {
       </div>
       <div class="ov-facts">${facts}</div>
     </div>
-    <div class="ov-foot"><span>Costs, revenue, IRR and margin: ${km ? esc(km.source || "") : `${esc(p.sheet)}${lastCol ? ` · ${esc(lastCol)}` : ""}`} · ${notes}</span>
+    <div class="ov-foot"><span><span class="ov-src">Costs, revenue, IRR and margin: ${km ? esc(km.source || "") : `${esc(p.sheet)}${lastCol ? ` · ${esc(lastCol)}` : ""}`} · </span>${notes}</span>
       ${info.website ? `<a href="${esc(info.website)}" target="_blank" rel="noopener noreferrer">vizta.pt ↗</a>` : ""}</div>
   </section>`;
 }

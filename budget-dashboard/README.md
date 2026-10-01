@@ -152,6 +152,9 @@ Gráfico de Gantt com os projetos agrupados por zona, feito a partir do ficheiro
 - As linhas a mostrar, a ordem, a zona e o nome configuram-se em `config.json` → `"roadmap"` → `"rows"` (ver `config.example.json`). Cada linha é encontrada pela zona (coluna B, `area_match`) e pelo nome (coluna C, `name_match`; o nome exato tem prioridade).
 - `"project"` liga a linha ao projeto do dashboard: clicar no nome abre o resumo.
 - Datas anteriores a `from_year` ficam encostadas ao início do gráfico. Passar o rato por uma barra mostra as datas.
+- À direita do gráfico:
+  - **Residential Units**, da mesma folha: Nb. Apartments, % PSPA, % Final deeds, % Total sold, % Units reserved e Units in the market. Projetos sem vendas ficam tracejados. `"plus_match"` (p.ex. `"Donation"`) junta entre parênteses as unidades de outra linha da mesma zona.
+  - **Orion's view**, levered post-tax da coluna mais recente do Project Review: IRR, EM e margem (€ e % sobre a receita total).
 
 ### Escolher as versões do budget (Project KPIs)
 
