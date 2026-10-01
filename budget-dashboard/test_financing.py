@@ -48,6 +48,14 @@ class FinancingTest(unittest.TestCase):
         self.assertEqual(data, {})
         self.assertIn("financing.json inválido", err)
 
+    def test_load_map(self):
+        self.write({"_info": "x", "Projeto A": {"apartments": 10, "gpa": None}})
+        data, err = financing.load_map(self.path)
+        self.assertIsNone(err)
+        self.assertEqual(data, {"projeto a": {"apartments": 10, "gpa": None, "project": "Projeto A"}})
+        self.write("[1, 2]")
+        self.assertIn("inválido", financing.load_map(self.path)[1])
+
     def test_excel_block(self):
         self.write(SAMPLE)
         c = next(iter(financing.load(self.path)[0].values()))

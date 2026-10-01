@@ -29,6 +29,8 @@ from sharepoint import SharePointClient, is_url
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.environ.get("BUDGET_DASHBOARD_CONFIG") or os.path.join(BASE_DIR, "config.json")
 FINANCING_PATH = os.environ.get("BUDGET_DASHBOARD_FINANCING") or os.path.join(BASE_DIR, "financing.json")
+INFO_PATH = os.environ.get("BUDGET_DASHBOARD_INFO") or os.path.join(BASE_DIR, "project_info.json")
+IMAGES_DIR = os.path.join(BASE_DIR, "project_images")
 CACHE_DIR = os.path.join(BASE_DIR, ".cache")
 TOKEN_CACHE = os.path.join(BASE_DIR, "token_cache.json")
 EXCEL_EXT = (".xlsx", ".xlsm")
@@ -101,13 +103,14 @@ class Store:
         self.missing = []
         self.source_errors = {}  # link SharePoint -> erro
         self.financing, self.financing_error, self.financing_sig = {}, None, None
+        self.info, self.info_error, self.info_sig = {}, None, None
         self.version = ""
 
     def _update_version(self):
         state = json.dumps(
             [(k, e["sig"], e["error"]) for k, e in sorted(self.files.items())]
             + self.missing + sorted(self.source_errors.items())
-            + [self.financing_sig, self.financing_error], default=str)
+            + [self.financing_sig, self.financing_error, self.info_sig, self.info_error], default=str)
         self.version = hashlib.sha1(state.encode()).hexdigest()[:12]
 
     def _refresh_financing(self):
@@ -119,6 +122,14 @@ class Store:
         if sig != self.financing_sig:
             self.financing, self.financing_error = financing.load(FINANCING_PATH)
             self.financing_sig = sig
+        try:
+            st = os.stat(INFO_PATH)
+            sig = (st.st_mtime, st.st_size)
+        except OSError:
+            sig = None
+        if sig != self.info_sig:
+            self.info, self.info_error = financing.load_map(INFO_PATH)
+            self.info_sig = sig
 
     def refresh(self):
         """Ficheiros locais (OneDrive sincronizado): verifica mtime/tamanho."""
@@ -210,7 +221,7 @@ class Store:
                     detailed = attach_budget_details(p, budget) if budget else p
                     # Vendas (Power BI): nome do projeto no Power BI; "sales_project": null = sem vendas
                     sales_name = conf.get("sales_project", p["name"]) if conf else p["name"]
-                    projects.append({**detailed, "id": pid, "financing": fin,
+                    projects.append({**detailed, "id": pid, "financing": fin, "info": self.info.get(k),
                                      "label": conf.get("label") or p["name"],
                                      "menu_group": conf.get("group"),
                                      "budget_missing": sheet if sheet and not budget else None,
@@ -233,6 +244,7 @@ class Store:
                     "sales_status": {"configured": sales_store is not None, "error": sales["error"] or sales_init_error,
                                      "updated": sales["updated"]},
                     "financing_error": self.financing_error,
+                    "info_error": self.info_error,
                     "financing_unmatched": sorted(c["project"] for k, c in self.financing.items()
                                                   if k not in matched),
                     **build_menu(self.cfg.get("menu", []), ids)}
@@ -320,6 +332,11 @@ def index():
 @app.get("/static/<path:name>")
 def static_files(name):
     return send_from_directory(os.path.join(BASE_DIR, "static"), name)
+
+
+@app.get("/project-images/<path:name>")
+def project_images(name):
+    return send_from_directory(IMAGES_DIR, name)
 
 
 def full_version():

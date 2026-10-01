@@ -1,0 +1,11 @@
+{
+  "_info": "Copia para project_info.json (fora do Git). A chave é o nome do projeto no quadro de Project Review. Valores fictícios.",
+  "_campos": "segment, location, status, commercial, image (ficheiro em project_images/), website, apartments, retail, parking, gpa, gca_above, floors_above, gca_below, floors_below",
+
+  "NOME DO PROJETO": {
+    "segment": "Residential", "location": "Bairro | Cidade", "status": "Under Construction", "commercial": "Commercialization",
+    "image": "nome-do-projeto.jpg", "website": "https://www.exemplo.pt/projeto",
+    "apartments": 100, "retail": 0, "parking": 120, "gpa": 9000,
+    "gca_above": 10000, "floors_above": 7, "gca_below": 3500, "floors_below": 2
+  }
+}

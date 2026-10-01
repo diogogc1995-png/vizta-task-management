@@ -35,6 +35,21 @@ def _enrich(name, c):
     return c
 
 
+def load_map(path):
+    """JSON {"Projeto": {...}} -> (dados por nome normalizado, erro). Usado p.ex. no project_info.json."""
+    if not os.path.exists(path):
+        return {}, None
+    try:
+        with open(path, encoding="utf-8-sig") as f:
+            raw = json.load(f)
+        if not isinstance(raw, dict):
+            raise ValueError("o ficheiro deve ser um objeto { \"Projeto\": {...} }")
+    except (OSError, ValueError) as e:
+        return {}, f"{os.path.basename(path)} inválido: {e}"
+    return {key(n): {**c, "project": n} for n, c in raw.items()
+            if not n.startswith("_") and isinstance(c, dict)}, None
+
+
 def load(path):
     """Devolve (contratos por nome normalizado, erro). Chaves começadas por "_" são comentários."""
     if not os.path.exists(path):

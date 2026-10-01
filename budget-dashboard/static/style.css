@@ -103,6 +103,36 @@ code { font-family: Consolas, monospace; font-size: 12px; }
 .ppage.active::before { background: var(--orange); }
 .pitem.open > .proj.active { background: none; border-left-color: var(--orange); }
 
+/* Resumo do projeto (overview) */
+.proj.current { color: var(--orange); }
+.overview { max-width: 1180px; }
+.ov-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; margin-bottom: 22px; }
+.ov-head h1 { margin: 0; font-size: 32px; font-weight: 700; color: var(--orange); letter-spacing: -.01em; line-height: 1.1; }
+.ov-loc { font-weight: 300; color: var(--orange); }
+.ov-seg { margin-top: 6px; font-size: 16px; color: #f2a07f; font-weight: 400; }
+.ov-status { text-align: right; font-size: 22px; color: var(--orange); font-weight: 300; }
+.ov-status span { font-weight: 700; }
+.ov-pill { display: inline-block; margin-top: 8px; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--orange); border: 1px solid var(--orange); border-radius: 999px; padding: 4px 12px; }
+.ov-body { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(320px, 1fr); background: var(--peach); }
+.ov-media { position: relative; min-height: 400px; background: #e9e4df; }
+.ov-media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.ov-noimg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #b9b0a8;
+  font-size: 13px; letter-spacing: .14em; text-transform: uppercase; background: repeating-linear-gradient(135deg, #efe9e3 0 14px, #e9e2db 14px 28px); }
+.ov-gcas { position: absolute; left: 0; bottom: 0; display: flex; flex-direction: column; gap: 6px; padding: 14px; }
+.ov-gca { background: rgba(255, 255, 255, .92); padding: 8px 14px; font-size: 13px; color: var(--ink); min-width: 210px; border-left: 3px solid var(--orange); }
+.ov-gca b { color: var(--orange); font-weight: 700; }
+.ov-gca span { color: var(--muted); }
+.ov-facts { background: var(--orange); color: #fff; padding: 18px 22px; display: flex; flex-direction: column; justify-content: center; }
+.ov-facts hr { border: 0; border-top: 1px solid rgba(255, 255, 255, .45); margin: 8px 0; }
+.ov-fact { display: flex; align-items: center; gap: 12px; padding: 9px 0; font-size: 15px; }
+.ov-ico { width: 28px; height: 28px; flex-shrink: 0; opacity: .95; }
+.ov-l { font-weight: 600; flex: 1; }
+.ov-v { font-weight: 700; white-space: nowrap; }
+.ov-foot { display: flex; justify-content: space-between; gap: 16px; margin-top: 10px; font-size: 11px; color: var(--muted); }
+.ov-foot a { color: var(--orange); text-decoration: none; font-weight: 700; }
+@media (max-width: 1000px) { .ov-body { grid-template-columns: 1fr; } .ov-media { min-height: 260px; } .ov-head { flex-direction: column; align-items: flex-start; } .ov-status { text-align: left; } }
+
 /* Sales: Typology Report */
 .page-sales, .page-financing { width: auto; max-width: 1100px; }
 .page-financing .financing { margin-top: 8px; border-top: 0; padding-top: 0; width: auto; min-width: 0; }

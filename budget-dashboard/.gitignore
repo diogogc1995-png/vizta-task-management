@@ -2,6 +2,9 @@
 config.json
 # Contratos de financiamento (dados confidenciais)
 financing.json
+# Resumo dos projetos e imagens descarregadas do site
+project_info.json
+project_images/
 # Nunca versionar os ficheiros de budget (dados confidenciais)
 *.xlsx
 *.xlsm

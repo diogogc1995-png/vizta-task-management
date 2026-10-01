@@ -88,11 +88,18 @@ Se o IT não puder criar o registo, a alternativa é sincronizar a biblioteca do
 
 ## Páginas de cada projeto
 
-No menu, cada projeto abre um dropdown com as suas páginas:
+No menu, clicar num projeto abre o **resumo do projeto** e um dropdown com as restantes páginas:
 
+- **Resumo** — imagem, estado, localização, apartamentos, retalho, estacionamentos, GPA, GCA acima/abaixo do solo e pisos (de `project_info.json`), mais custos, receita, preço médio residencial (receita ÷ GPA), IRR e margem. Custos e receita são o TOTAL COST e o TOTAL REVENUE da última coluna do quadro. IRR e margem são o IRR e o Profit do KPI "Levered post tax" da última coluna.
 - **Project KPIs** — o quadro de Project Review, com as subrubricas e os KPIs da Orion.
 - **Financing** — os termos do contrato de financiamento (`financing.json`). Só aparece nos projetos com contrato.
 - **Sales** — o *Typology Report* do Power BI "vizta - sales dashboards": unidades e valores por tipologia e estado (PSPA, Reserved, Off-market, Available), com €/m².
+
+### Resumo do projeto (`project_info.json`)
+
+- Dados físicos e de estado por projeto, num ficheiro local fora do Git. O formato está em `project_info.example.json`. A chave é o nome do projeto no quadro.
+- `image` é um ficheiro na pasta `project_images/` (também fora do Git), p.ex. uma imagem do projeto descarregada do site.
+- Campos vazios (`null`) aparecem como "—". A app relê o ficheiro quando muda.
 
 ### Vendas (Power BI)
 

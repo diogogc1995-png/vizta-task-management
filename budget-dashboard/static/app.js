@@ -3,13 +3,14 @@
 const POLL_MS = 5000;
 let data = null;
 let version = null;
-// Seleção: "#<projeto>/<página>" (páginas: kpis | financing | sales)
+// Seleção: "#<projeto>/<página>" (páginas: overview — o resumo, ao clicar no projeto — | kpis | financing | sales)
 let [selectedId, page] = (() => {
   const [id, pg] = decodeURIComponent(location.hash.slice(1)).split("/");
-  return [id || null, pg || "kpis"];
+  return [id || null, pg || "overview"];
 })();
 const PAGES = [["kpis", "Project KPIs"], ["financing", "Financing"], ["sales", "Sales"]];
 const pagesOf = (p) => PAGES.filter(([k]) => k === "kpis" || (k === "financing" && p.financing) || (k === "sales" && p.sales_name));
+const validPage = (p, pg) => pg === "overview" || pagesOf(p).some(([k]) => k === pg);
 
 // Preferências do utilizador (só neste browser): grupos do menu abertos.
 function loadPref(k, def) {
@@ -126,7 +127,7 @@ function renderSidebar() {
     const sel = p.id === selectedId;
     const pages = sel ? `<div class="proj-pages">${pagesOf(p).map(([k, label]) =>
       `<button type="button" class="ppage ${sub ? "sub" : ""} ${k === page ? "active" : ""}" data-id="${p.id}" data-page="${k}">${label}</button>`).join("")}</div>` : "";
-    return `<div class="pitem ${sel ? "open" : ""}"><button type="button" class="proj ${sub ? "sub" : ""} ${sel ? "active" : ""}"
+    return `<div class="pitem ${sel ? "open" : ""}"><button type="button" class="proj ${sub ? "sub" : ""} ${sel ? "active" : ""} ${sel && page === "overview" ? "current" : ""}"
       data-id="${p.id}" title="${esc(p.file)} › ${esc(p.sheet)}"><span>${esc(p.label || p.name)}</span><span class="chev" aria-hidden="true"></span></button>${pages}</div>`;
   };
   const html = (data.menu || []).map((m) => {
@@ -149,6 +150,7 @@ function banners() {
   for (const f of data.files) if (f.error) out.push(`Could not read <b>${esc(f.file)}</b> (showing last good data, retrying automatically): ${esc(f.error)}`);
   for (const f of data.files) if (!f.error && !f.projects.length) out.push(`No Project Review sheet found in <b>${esc(f.file)}</b>.`);
   if (data.financing_error) out.push(esc(data.financing_error));
+  if (data.info_error) out.push(esc(data.info_error));
   for (const n of data.financing_unmatched || []) out.push(`Financing entry <b>${esc(n)}</b> in <code>financing.json</code> does not match any project name.`);
   for (const n of data.menu_unmatched || []) out.push(`Menu entry <b>${esc(n)}</b> in <code>config.json</code> does not match any loaded project (check the name, or whether its file could be read).`);
   return out.map((b) => `<div class="banner no-print">${b}</div>`).join("");
@@ -162,18 +164,94 @@ function renderMain() {
       Each file is scanned for sheets that contain the Project Review table (a <code>Δ</code> column header and a <code>TOTAL COST</code> row).</p></div>`;
     return;
   }
-  if (!pagesOf(p).some(([k]) => k === page)) page = "kpis";
+  if (!validPage(p, page)) page = "overview";
   const extra = p.budget_missing
     ? `<div class="banner no-print">Budget sheet <b>${esc(p.budget_missing)}</b> (config.json) was not found in <b>${esc(p.file)}</b>.</div>` : "";
-  const body = page === "financing" ? financingPageHtml(p) : page === "sales" ? salesPageHtml(p) : reportHtml(p);
+  const body = page === "financing" ? financingPageHtml(p) : page === "sales" ? salesPageHtml(p)
+    : page === "kpis" ? reportHtml(p) : overviewHtml(p);
   $("#main").innerHTML = banners() + extra + body;
 }
 
 function select(id, pg) {
   selectedId = id;
-  page = pg || "kpis";
+  page = pg || "overview";
   history.replaceState(null, "", "#" + encodeURIComponent(selectedId) + "/" + page);
   render();
+}
+
+// ---------- Resumo do projeto (overview) ----------
+const ICONS = {
+  home: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>',
+  store: '<path d="M4 9l1.5-5h13L20 9"/><path d="M4 9a2.7 2.7 0 0 0 5.3 0 2.7 2.7 0 0 0 5.4 0 2.7 2.7 0 0 0 5.3 0"/><path d="M5 11v9h14v-9"/><path d="M10 20v-5h4v5"/>',
+  car: '<path d="M3 15l2-5.5A2 2 0 0 1 6.9 8h10.2a2 2 0 0 1 1.9 1.5L21 15"/><rect x="2.5" y="15" width="19" height="4" rx="1.5"/><circle cx="7" cy="19" r="1.5"/><circle cx="17" cy="19" r="1.5"/>',
+  coins: '<ellipse cx="12" cy="6" rx="7" ry="2.5"/><path d="M5 6v4c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5V6"/><path d="M5 10v4c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5v-4"/><path d="M5 14v4c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5v-4"/>',
+  chart: '<path d="M4 20V4"/><path d="M4 20h16"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="5" width="3" height="13"/>',
+  curve: '<path d="M3 20h18"/><path d="M4 19c3 0 4-13 8-13s5 13 8 13"/><path d="M12 6v13" stroke-dasharray="2 2"/>',
+  pct: '<circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/><path d="M19 5L5 19"/>',
+  margin: '<rect x="4" y="3" width="16" height="12" rx="1"/><path d="M8 11l3-3 2 2 3-3"/><path d="M12 15v4"/><path d="M8 21l4-2 4 2"/>',
+};
+const icon = (k) => `<svg class="ov-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[k]}</svg>`;
+
+function lastValue(p, re) {
+  const r = p.rows.find((x) => re.test(x.label));
+  return r ? r.values[r.values.length - 1] : null;
+}
+
+function leveredPostTax(p) {
+  // KPI "Levered post tax", última coluna: "47,8% / 4,4x | 8.2M€ / -2.4M€" -> IRR e Profit
+  const k = p.kpis.find((x) => /levered\s+post\s+tax/i.test(x.label));
+  if (!k) return {};
+  const txt = (k.values[k.values.length - 1] || []).join(" | ");
+  const irr = txt.match(/(-?[\d.,]+)\s*%/);
+  const rest = txt.split("|").slice(1).join("|");
+  const profit = rest.match(/(-?[\d.,]+)\s*(M|k)?\s*€/i);
+  return { irr: irr ? `${irr[1]} %` : null, profit: profit ? `${profit[1].replace(".", ",")} ${(profit[2] || "").toUpperCase()}€` : null };
+}
+
+function overviewHtml(p) {
+  const info = p.info || {};
+  const [place, city] = (info.location || "").split("|").map((s) => s.trim());
+  const meur =(k) => (typeof k === "number" ? `${(k / 1000).toFixed(1).replace(".", ",")} M€` : "—");
+  const num = (v, unit) => (typeof v === "number" ? `${fmtNum(v)}${unit ? ` ${unit}` : ""}` : "—");
+  const cost = lastValue(p, /^TOTAL COST/i);
+  const rev = lastValue(p, /^TOTAL REVENUE/i);
+  const lpt = leveredPostTax(p);
+  const avg = typeof rev === "number" && typeof info.gpa === "number" && info.gpa > 0 ? (rev * 1000) / info.gpa : null;
+  const lastCol = p.columns.length ? p.columns[p.columns.length - 1].lines.join(" ") : "";
+  const fact = (ico, label, value, extra = "") => `<div class="ov-fact">${icon(ico)}<span class="ov-l">${label}</span>${extra}<span class="ov-v">${value}</span></div>`;
+  const facts = `
+    ${fact("home", `${num(info.apartments)} Apartments`, typeof info.gpa === "number" ? `GPA ${fmtNum(info.gpa)} sqm` : "GPA —")}
+    ${fact("store", `${num(info.retail)} Retail`, "")}
+    ${fact("car", `${num(info.parking)} Parking Spaces`, "")}
+    <hr>
+    ${fact("coins", "Costs", meur(cost))}
+    ${fact("chart", "Revenue", meur(rev))}
+    ${fact("curve", "Avg. Residential Sales Price", avg ? `${fmtNum(avg)} €/sqm` : "—")}
+    <hr>
+    ${fact("pct", "IRR*", esc(lpt.irr || "—"))}
+    ${fact("margin", "Margin*", esc(lpt.profit || "—"))}`;
+  const gca = (label, area, floors) => `<div class="ov-gca"><div><span>${label}</span> <b>${num(area, "sqm")}</b></div>
+      <div><b>${num(floors)}</b> <span>Floors</span></div></div>`;
+  const media = info.image
+    ? `<img src="/project-images/${encodeURIComponent(info.image)}" alt="${esc(p.label || p.name)}">`
+    : `<div class="ov-noimg">${esc(p.label || p.name)}</div>`;
+  return `<section class="overview">
+    <div class="ov-head">
+      <div>${p.menu_group ? `<div class="kicker">${esc(p.menu_group)}</div>` : ""}
+        <h1>${esc(p.label || p.name)}${place ? ` <span class="ov-loc">| ${esc(place)}</span>` : ""}</h1>
+        <div class="ov-seg">${[info.segment, city].filter(Boolean).map(esc).join(" · ")}</div></div>
+      <div class="ov-status">${info.status ? `<span>Status:</span> ${esc(info.status)}` : ""}
+        ${info.commercial ? `<div class="ov-pill">${esc(info.commercial)}</div>` : ""}</div>
+    </div>
+    <div class="ov-body">
+      <div class="ov-media">${media}
+        <div class="ov-gcas">${gca("GCA Above G.", info.gca_above, info.floors_above)}${gca("GCA Below G.", info.gca_below, info.floors_below)}</div>
+      </div>
+      <div class="ov-facts">${facts}</div>
+    </div>
+    <div class="ov-foot"><span>Costs, revenue, IRR and margin: ${esc(p.sheet)}${lastCol ? ` · ${esc(lastCol)}` : ""} · *Levered post-tax</span>
+      ${info.website ? `<a href="${esc(info.website)}" target="_blank" rel="noopener noreferrer">vizta.pt ↗</a>` : ""}</div>
+  </section>`;
 }
 
 function simpleHead(p, title, sub) {
@@ -364,8 +442,8 @@ $("#sidebar").addEventListener("click", (e) => {
   }
   const b = e.target.closest(".proj[data-id]");
   if (!b) return;
-  // Projeto: abre o dropdown das páginas e mostra os Project KPIs
-  select(b.dataset.id, b.dataset.id === selectedId ? page : "kpis");
+  // Projeto: abre o dropdown das páginas e mostra o resumo do projeto
+  select(b.dataset.id, "overview");
 });
 
 $("#main").addEventListener("click", (e) => {
