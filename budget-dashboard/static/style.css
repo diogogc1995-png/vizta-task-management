@@ -147,17 +147,17 @@ code { font-family: Consolas, monospace; font-size: 12px; }
 .portfolio { width: auto; min-width: min(100%, 720px); }
 
 /* Summary of all projects */
-.summary { width: auto; max-width: 1300px; }
+.summary { width: 100%; max-width: 1800px; }
 .sm-sub { margin-top: 8px; font-size: 18px; color: #f2a07f; font-weight: 400; }
-table.sm { border-collapse: separate; border-spacing: 6px 4px; width: 100%; min-width: 1000px; font-size: 13.5px; font-variant-numeric: tabular-nums; }
-table.sm thead th { font-weight: 700; font-size: 13px; color: var(--ink); text-align: center; vertical-align: bottom; padding: 0 4px 8px;
+table.sm { border-collapse: separate; border-spacing: 8px 4px; width: 100%; min-width: 1300px; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+table.sm thead th { font-weight: 700; font-size: 13px; color: var(--ink); text-align: center; vertical-align: bottom; padding: 0 10px 8px;
   border-bottom: 2px solid var(--ink); line-height: 1.3; }
 table.sm thead th small { display: block; font-weight: 400; font-size: 10.5px; color: var(--muted); }
 table.sm thead th .ov-ico { width: 34px; height: 34px; display: block; margin: 0 auto 6px; color: var(--ink); }
 .sm-split { display: flex; justify-content: space-around; }
 table.sm thead th.sm-h-phase, table.sm thead th.sm-h-name { vertical-align: bottom; }
-table.sm tbody td { text-align: center; padding: 6px 8px; }
-th.sm-phase { color: #fff; font-size: 15px; font-weight: 700; text-align: left; padding: 6px 12px; width: 140px; position: relative; }
+table.sm tbody td { text-align: center; padding: 7px 14px; }
+th.sm-phase { color: #fff; font-size: 15px; font-weight: 700; text-align: left; padding: 6px 12px; width: 170px; position: relative; }
 .sm-num { display: inline-block; font-style: italic; font-size: 20px; margin-right: 10px; background: #fff; color: var(--ink);
   padding: 4px 6px; line-height: 1; }
 td.sm-name { text-align: left !important; white-space: nowrap; }
@@ -177,21 +177,21 @@ td.sm-tot-l { text-align: right !important; }
 .sm-foot { margin-top: 12px; font-size: 11px; color: var(--muted); }
 
 /* Roadmap (Gantt) */
-.roadmap { width: auto; max-width: 1300px; }
+.roadmap { width: 100%; max-width: 1800px; }
 .rm-scroll { overflow-x: auto; }
-table.rm { border-collapse: separate; border-spacing: 0 4px; width: 100%; min-width: 900px; font-size: 13px; }
+table.rm { border-collapse: separate; border-spacing: 0 4px; width: 100%; min-width: 1300px; font-size: 13px; }
 table.rm thead th { font-weight: 700; padding: 0 0 6px; }
-.rm-hcorner { text-align: left; font-size: 15px; color: var(--ink); vertical-align: bottom; border-bottom: 2px solid var(--ink); width: 300px; }
+.rm-hcorner { text-align: left; font-size: 15px; color: var(--ink); vertical-align: bottom; border-bottom: 2px solid var(--ink); width: 370px; }
 .rm-years { position: relative; vertical-align: bottom; }
 .rm-yearrow { display: flex; }
 .rm-yearrow span { flex: 1; text-align: left; padding-left: 6px; color: var(--muted); font-size: 13px; font-weight: 600; border-left: 1px solid var(--grid); }
 .rm-today-lbl { position: absolute; top: -18px; transform: translateX(-50%); font-size: 11px; font-weight: 700; color: var(--ink); }
 th.rm-area { background: var(--orange); color: #fff; text-align: left; padding: 8px 12px; font-size: 14px; font-weight: 700;
-  width: 130px; border-right: 4px solid var(--panel); vertical-align: middle; }
-td.rm-name { background: #e6e6e6; padding: 0 10px; width: 170px; height: 32px; white-space: nowrap; }
+  width: 160px; border-right: 4px solid var(--panel); vertical-align: middle; }
+td.rm-name { background: #e6e6e6; padding: 0 14px; width: 210px; height: 34px; white-space: nowrap; }
 .rm-link { border: 0; background: none; padding: 0; font: inherit; color: var(--ink); cursor: pointer; text-align: left; }
 .rm-link:hover { color: var(--orange); text-decoration: underline; }
-td.rm-track { position: relative; height: 32px; padding: 0;
+td.rm-track { position: relative; height: 34px; padding: 0;
   background-image: linear-gradient(to right, var(--grid) 1px, transparent 1px);
   background-size: calc(100% / var(--years)) 100%; }
 .rm-bar { position: absolute; top: 3px; bottom: 3px; }
