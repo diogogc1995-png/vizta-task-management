@@ -234,7 +234,7 @@ function orionSlides() {
     S("cover", "Cover", orionCoverHtml),
     S("agenda", "Agenda", orionAgendaHtml, true),
     S("s-roadmap", "01 · Road Map", () => dividerHtml("01", "Road Map"), true),
-    S("roadmap", pf("roadmap"), () => roadmapHtml(pf("roadmap"))),
+    S("roadmap", pf("roadmap"), () => roadmapHtml(pf("roadmap"), true)),
     S("summary", pf("summary"), () => summaryHtml(pf("summary"))),
     S("summary-phases", `${pf("summary")} · phases & regions`, () => summaryChartsHtml(pf("summary"))),
     S("financing", "Projects financing overview", ph("Projects financing overview", "Local banking financing conditions & outstanding amounts",
@@ -593,7 +593,8 @@ function summaryHtml(title) {
 }
 
 // ---------- Roadmap (ficheiro "RM mensuelle Portugal") ----------
-function roadmapHtml(title) {
+function roadmapHtml(title, withKpis = false) {
+  // withKpis: vendas (RM) e KPIs Orion à direita — só no slide do Project Review - Orion
   const rm = data.roadmap || {};
   const rows = rm.rows || [];
   const head = `<div class="report-head"><div><div class="kicker">Vizta Portfolio</div><h1>${esc(title)}</h1>
@@ -645,19 +646,19 @@ function roadmapHtml(title) {
       ? `<button type="button" class="rm-link" data-id="${r.project_id}">${esc(r.label)}</button>` : esc(r.label);
     return `<tr>${i === 0 ? `<th class="rm-area" rowspan="${g.rows.length}">${esc(g.name)}</th>` : ""}
       <td class="rm-name" title="${esc(r.area)} · ${esc(r.name)}">${label}</td>
-      <td class="rm-track">${bars}</td>${rmKpiCells(r)}</tr>`;
+      <td class="rm-track">${bars}</td>${withKpis ? rmKpiCells(r) : ""}</tr>`;
   }).join("")).join("");
 
   const todayLeft = pos(today);
   return `<section class="report portfolio roadmap">${head}${notes}
     <div class="rm-scroll"><table class="rm">
-      <thead><tr class="rm-grp-row"><th colspan="3"></th><th class="rm-grp" colspan="${RM_SALES.length + 1}">Residential Units</th>
-        <th class="rm-grp orion" colspan="3">Orion's view<small>(Levered post-tax)</small></th></tr>
+      <thead>${withKpis ? `<tr class="rm-grp-row"><th colspan="3"></th><th class="rm-grp" colspan="${RM_SALES.length + 1}">Residential Units</th>
+        <th class="rm-grp orion" colspan="3">Orion's view<small>(Levered post-tax)</small></th></tr>` : ""}
         <tr><th class="rm-hcorner" colspan="2">Area &amp; Projects</th>
         <th class="rm-years"><div class="rm-yearrow">${years.map((y) => `<span>${y}</span>`).join("")}</div>
           <span class="rm-today-lbl" style="left:${todayLeft}%">Today</span></th>
-        <th class="rm-k">Total units</th>${RM_SALES.map(([, l]) => `<th class="rm-k">${l}</th>`).join("")}
-        <th class="rm-k orion">IRR</th><th class="rm-k orion">EM</th><th class="rm-k orion">€ / %<br>Margin</th></tr></thead>
+        ${withKpis ? `<th class="rm-k">Total units</th>${RM_SALES.map(([, l]) => `<th class="rm-k">${l}</th>`).join("")}
+        <th class="rm-k orion">IRR</th><th class="rm-k orion">EM</th><th class="rm-k orion">€ / %<br>Margin</th>` : ""}</tr></thead>
       <tbody style="--years:${years.length}">${body}</tbody>
     </table></div>
     <div class="rm-legend">
