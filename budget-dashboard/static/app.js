@@ -212,17 +212,32 @@ function overviewHtml(p) {
   const info = p.info || {};
   const [place, city] = (info.location || "").split("|").map((s) => s.trim());
   const meur =(k) => (typeof k === "number" ? `${(k / 1000).toFixed(1).replace(".", ",")} M€` : "—");
-  const num = (v, unit) => (typeof v === "number" ? `${fmtNum(v)}${unit ? ` ${unit}` : ""}` : "—");
+  // números com separador de milhares; texto (p.ex. "TBD", "3/4") tal como está no project_info.json
+  const num = (v, unit) => (typeof v === "number" ? `${fmtNum(v)}${unit ? ` ${unit}` : ""}`
+    : typeof v === "string" && v.trim() ? esc(v) : "—");
   const cost = lastValue(p, /^TOTAL COST/i);
   const rev = lastValue(p, /^TOTAL REVENUE/i);
   const lpt = leveredPostTax(p);
   const avg = typeof rev === "number" && typeof info.gpa === "number" && info.gpa > 0 ? (rev * 1000) / info.gpa : null;
   const lastCol = p.columns.length ? p.columns[p.columns.length - 1].lines.join(" ") : "";
   const fact = (ico, label, value, extra = "") => `<div class="ov-fact">${icon(ico)}<span class="ov-l">${label}</span>${extra}<span class="ov-v">${value}</span></div>`;
+  const gpaTxt = (v, note) => (v === null || v === undefined ? "" : `GPA ${num(v, "sqm")}${note ? `*` : ""}`);
+  const retailLabel = info.retail_label || "Retail";
+  const tot = info.total;
+  // Com "total" (p.ex. NOLA): duas colunas, VIZTA e TOTAL
+  const twoCol = (ico, label, a, b) => `<div class="ov-fact ov-2">${icon(ico)}<span class="ov-l">${label}</span>
+      <span class="ov-v">${a}</span><span class="ov-v ov-tot">${b}</span></div>`;
+  const units = (n, gpa) => [num(n), gpa !== null && gpa !== undefined ? `<small>${num(gpa, "sqm")}*</small>` : ""].join("");
+  const top = tot
+    ? `<div class="ov-fact ov-2 ov-colhead"><span class="ov-l"></span><span class="ov-v">VIZTA</span><span class="ov-v ov-tot">TOTAL</span></div>
+       ${twoCol("home", "Apartments", units(info.apartments, info.gpa), units(tot.apartments, tot.gpa))}
+       ${twoCol("store", esc(retailLabel), units(info.retail, info.retail_gpa), units(tot.retail, tot.retail_gpa))}
+       ${twoCol("car", "Parking Spaces", num(info.parking), num(tot.parking))}`
+    : `${fact("home", `${num(info.apartments)} Apartments`, gpaTxt(info.gpa, info.gpa_note) || "GPA —")}
+       ${fact("store", info.retail === null || info.retail === undefined ? esc(retailLabel) : `${num(info.retail)} ${esc(retailLabel)}`, gpaTxt(info.retail_gpa))}
+       ${fact("car", `${num(info.parking)} Parking Spaces`, "")}`;
   const facts = `
-    ${fact("home", `${num(info.apartments)} Apartments`, typeof info.gpa === "number" ? `GPA ${fmtNum(info.gpa)} sqm` : "GPA —")}
-    ${fact("store", `${num(info.retail)} Retail`, "")}
-    ${fact("car", `${num(info.parking)} Parking Spaces`, "")}
+    ${top}
     <hr>
     ${fact("coins", "Costs", meur(cost))}
     ${fact("chart", "Revenue", meur(rev))}
@@ -230,8 +245,13 @@ function overviewHtml(p) {
     <hr>
     ${fact("pct", "IRR*", esc(lpt.irr || "—"))}
     ${fact("margin", "Margin*", esc(lpt.profit || "—"))}`;
-  const gca = (label, area, floors) => `<div class="ov-gca"><div><span>${label}</span> <b>${num(area, "sqm")}</b></div>
+  const gca = (label, area, floors, note) => `<div class="ov-gca"><div><span>${label}</span> <b>${num(area, "sqm")}</b>${note ? ` <span>(${esc(note)})</span>` : ""}</div>
       <div><b>${num(floors)}</b> <span>Floors</span></div></div>`;
+  const gcas = tot
+    ? gca("Total GCA Above G.", tot.gca_above, tot.floors_above) + gca("VIZTA GCA Above G.", info.gca_above, info.floors_above)
+      + gca("Total GCA Below G.", tot.gca_below, tot.floors_below) + gca("VIZTA GCA Below G.", info.gca_below, info.floors_below)
+    : gca("GCA Above G.", info.gca_above, info.floors_above) + gca("GCA Below G.", info.gca_below, info.floors_below, info.gca_below_note);
+  const notes = [tot || info.gpa_note ? `*GPA${info.gpa_note ? ` ${esc(info.gpa_note)}` : ""}` : "", "*Levered post-tax (IRR, Margin)"].filter(Boolean).join(" · ");
   const media = info.image
     ? `<img src="/project-images/${encodeURIComponent(info.image)}" alt="${esc(p.label || p.name)}">`
     : `<div class="ov-noimg">${esc(p.label || p.name)}</div>`;
@@ -240,16 +260,16 @@ function overviewHtml(p) {
       <div>${p.menu_group ? `<div class="kicker">${esc(p.menu_group)}</div>` : ""}
         <h1>${esc(p.label || p.name)}${place ? ` <span class="ov-loc">| ${esc(place)}</span>` : ""}</h1>
         <div class="ov-seg">${[info.segment, city].filter(Boolean).map(esc).join(" · ")}</div></div>
-      <div class="ov-status">${info.status ? `<span>Status:</span> ${esc(info.status)}` : ""}
+      <div class="ov-status">${info.status ? `<span>Status:</span> ${esc(info.status)}${info.status_note ? ` <small>(${esc(info.status_note)})</small>` : ""}` : ""}
         ${info.commercial ? `<div class="ov-pill">${esc(info.commercial)}</div>` : ""}</div>
     </div>
     <div class="ov-body">
       <div class="ov-media">${media}
-        <div class="ov-gcas">${gca("GCA Above G.", info.gca_above, info.floors_above)}${gca("GCA Below G.", info.gca_below, info.floors_below)}</div>
+        <div class="ov-gcas">${gcas}</div>
       </div>
       <div class="ov-facts">${facts}</div>
     </div>
-    <div class="ov-foot"><span>Costs, revenue, IRR and margin: ${esc(p.sheet)}${lastCol ? ` · ${esc(lastCol)}` : ""} · *Levered post-tax</span>
+    <div class="ov-foot"><span>Costs, revenue, IRR and margin: ${esc(p.sheet)}${lastCol ? ` · ${esc(lastCol)}` : ""} · ${notes}</span>
       ${info.website ? `<a href="${esc(info.website)}" target="_blank" rel="noopener noreferrer">vizta.pt ↗</a>` : ""}</div>
   </section>`;
 }
