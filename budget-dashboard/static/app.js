@@ -10,6 +10,8 @@ let [selectedId, page] = (() => {
 })();
 const PAGES = [["kpis", "Project KPIs"], ["financing", "Financing"], ["sales", "Sales"]];
 const pagesOf = (p) => PAGES.filter(([k]) => k === "kpis" || (k === "financing" && p.financing) || (k === "sales" && p.sales_name));
+const PORTFOLIO = "portfolio";
+const PORTFOLIO_PAGES = [["summary", "Summary of all projects"], ["roadmap", "Roadmap"], ["financing", "Projects financing overview"]];
 const validPage = (p, pg) => pg === "overview" || pagesOf(p).some(([k]) => k === pg);
 
 // Preferências do utilizador (só neste browser): grupos do menu abertos.
@@ -72,7 +74,9 @@ async function load() {
   data = await res.json();
   version = data.version;
   const ids = orderedProjects().map((p) => p.id);
-  if (!ids.includes(selectedId)) selectedId = ids[0] || null;
+  if (selectedId === PORTFOLIO) {
+    if (!PORTFOLIO_PAGES.some(([k]) => k === page)) page = PORTFOLIO_PAGES[0][0];
+  } else if (!ids.includes(selectedId)) selectedId = ids[0] || null;
   render();
 }
 
@@ -140,7 +144,12 @@ function renderSidebar() {
       <div class="mgroup-items">${items.map((p) => btn(p, true)).join("")}</div>
     </div>`;
   }).join("");
-  $("#sidebar").innerHTML = `<div class="side-title">Projects</div>` + (html || `<div class="proj">No projects</div>`);
+  // "Vizta Portfolio": páginas transversais a todos os projetos
+  const inPf = selectedId === PORTFOLIO;
+  const portfolio = `<div class="side-title">Vizta Portfolio</div>
+    <div class="pitem open">${PORTFOLIO_PAGES.map(([k, label]) =>
+      `<button type="button" class="ppage pf ${inPf && k === page ? "active" : ""}" data-id="${PORTFOLIO}" data-page="${k}">${label}</button>`).join("")}</div>`;
+  $("#sidebar").innerHTML = portfolio + `<div class="side-title side-sep">Projects</div>` + (html || `<div class="proj">No projects</div>`);
 }
 
 function banners() {
@@ -157,6 +166,10 @@ function banners() {
 }
 
 function renderMain() {
+  if (selectedId === PORTFOLIO) {
+    $("#main").innerHTML = banners() + portfolioHtml(page);
+    return;
+  }
   const p = allProjects().find((x) => x.id === selectedId);
   if (!p) {
     $("#main").innerHTML = banners() + `<div class="empty"><h2>No projects found</h2>
@@ -177,6 +190,15 @@ function select(id, pg) {
   page = pg || "overview";
   history.replaceState(null, "", "#" + encodeURIComponent(selectedId) + "/" + page);
   render();
+}
+
+// ---------- Vizta Portfolio (conteúdo a definir) ----------
+function portfolioHtml(pg) {
+  const [, title] = PORTFOLIO_PAGES.find(([k]) => k === pg) || PORTFOLIO_PAGES[0];
+  return `<section class="report portfolio">
+    <div class="report-head"><div><div class="kicker">Vizta Portfolio</div><h1>${esc(title)}</h1></div></div>
+    <div class="empty"><p>Content to be defined.</p></div>
+  </section>`;
 }
 
 // ---------- Resumo do projeto (overview) ----------
@@ -274,6 +296,25 @@ function overviewHtml(p) {
   </section>`;
 }
 
+// Typology Report já no formato do Power BI (valores, totais, % e €/m² tal como lá aparecem)
+function typologyDisplayHtml(s) {
+  const T = s.typologies;
+  const cell = (v, cls = "") => `<td class="${cls}">${v === null || v === undefined ? "" : fmtNum(v)}</td>`;
+  const pct = (v) => `<td>${v === null || v === undefined ? "" : `${fmtNum(v)}%`}</td>`;
+  const eur = (v, cls = "") => `<td class="${cls}">${v === null || v === undefined ? "" : fmtEur(v)}</td>`;
+  const unitsRows = s.units_rows.map((r) => `<tr class="t-${r.kind}"><td class="lbl">${esc(r.label)}</td>
+      ${T.map((t) => cell(r.units[t])).join("")}${cell(r.total, "sum")}${pct(r.pct)}${cell(r.retail)}${cell(r.resi_retail, "sum")}</tr>`).join("");
+  const amountRows = s.amount_rows.map((r) => `<tr class="t-${r.kind}"><td class="lbl">${esc(r.label)}</td>
+      ${eur(r.residential)}${eur(r.price_sqm)}${pct(r.pct)}${eur(r.retail)}${eur(r.resi_retail, "sum")}</tr>`).join("");
+  return `<h2 class="sec">Typology</h2>
+    <div class="t-scroll"><table class="typo">
+      <thead><tr><th class="lbl">Units</th>${T.map((t) => `<th>${esc(t)}</th>`).join("")}<th># Total</th><th>%</th><th># Retail</th><th># Resi+Retail</th></tr></thead>
+      <tbody>${unitsRows}</tbody></table></div>
+    <div class="t-scroll"><table class="typo amounts">
+      <thead><tr><th class="lbl">Amounts</th><th>€ Residential</th><th>€/sqm</th><th>%</th><th>€ Retail</th><th>€ Resi+Retail</th></tr></thead>
+      <tbody>${amountRows}</tbody></table></div>`;
+}
+
 function simpleHead(p, title, sub) {
   return `<div class="report-head"><div>
       <div class="kicker">${p.menu_group ? `${esc(p.menu_group)} · ` : ""}${esc(p.label || p.name)}</div>
@@ -287,7 +328,16 @@ function financingPageHtml(p) {
 // ---------- Sales (Power BI: Typology Report) ----------
 function salesPageHtml(p) {
   const st = data.sales_status || {};
-  const head = simpleHead(p, "Sales", `Power BI · ${esc(p.sales_name)}${st.updated ? ` · updated ${fmtTime(st.updated)}` : ""}`);
+  const asOf = st.snapshot_as_of ? st.snapshot_as_of.replace(/^(\d{4})-(\d{2})-(\d{2})/, "$3/$2/$1") : "";
+  const when = p.sales_source === "snapshot" ? ` · as of ${esc(asOf)}` : st.updated ? ` · updated ${fmtTime(st.updated)}` : "";
+  const head = simpleHead(p, "Sales", `Power BI · ${esc(p.sales_name)}${when}`);
+  if (p.sales && p.sales_source === "snapshot") {
+    // Valores transcritos do Power BI (sales_snapshot.json) até haver leitura automática
+    return `<section class="report page-sales">${head}
+      <div class="banner snap">Position as of <b>${esc(asOf)}</b>, taken from the Power BI report <b>vizta - sales dashboards</b>.
+        It will update automatically once IT grants access to Power BI.</div>
+      ${typologyHtml(p.sales)}</section>`;
+  }
   let note = "";
   if (!st.configured) {
     note = `<div class="empty"><p>Sales data comes from the Power BI report <b>vizta - sales dashboards</b>.
@@ -304,6 +354,7 @@ function salesPageHtml(p) {
 }
 
 function typologyHtml(s) {
+  if (s.units_rows) return typologyDisplayHtml(s);
   const T = s.typologies;
   const byStatus = Object.fromEntries(s.rows.map((r) => [r.status, r]));
   const zero = { units: {}, retail_units: 0, amount: 0, area: 0, retail_amount: 0 };

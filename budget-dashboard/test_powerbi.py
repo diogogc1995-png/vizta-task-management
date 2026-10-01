@@ -51,6 +51,25 @@ class TypologyTest(unittest.TestCase):
         self.assertEqual(calls[1][2]["queries"][0]["query"], "EVALUATE X")
         auth.token.assert_called_with(powerbi.SCOPES)
 
+    def test_load_snapshot(self):
+        import json, os, tempfile
+        snap = {"_as_of": "2026-10-01 13:02", "_typologies": ["T1", "T2"],
+                "Projeto  A": {"units": [["PSPA", "line", [1, None], 1, 50, None, 1]],
+                               "amounts": [["PSPA", "line", 100, 10, 50, None, 100]]}}
+        fd, path = tempfile.mkstemp(suffix=".json")
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(snap, f)
+        try:
+            data, as_of, err = powerbi.load_snapshot(path)
+        finally:
+            os.remove(path)
+        self.assertIsNone(err)
+        self.assertEqual(as_of, "2026-10-01 13:02")
+        a = data["projeto a"]
+        self.assertEqual(a["units_rows"][0]["units"], {"T1": 1, "T2": None})
+        self.assertEqual((a["amount_rows"][0]["price_sqm"], a["amount_rows"][0]["pct"]), (10, 50))
+        self.assertEqual(powerbi.load_snapshot(path + ".x"), ({}, None, None))
+
     def test_missing_query_is_explained(self):
         client = powerbi.PowerBIClient(mock.Mock(), {"app_id": "a", "report_id": "r"})
         with self.assertRaises(powerbi.PowerBIError) as ctx:

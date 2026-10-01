@@ -5,6 +5,8 @@ financing.json
 # Resumo dos projetos e imagens descarregadas do site
 project_info.json
 project_images/
+# Vendas transcritas do Power BI
+sales_snapshot.json
 # Nunca versionar os ficheiros de budget (dados confidenciais)
 *.xlsx
 *.xlsm

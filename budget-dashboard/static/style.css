@@ -139,9 +139,17 @@ code { font-family: Consolas, monospace; font-size: 12px; }
 .ov-foot a { color: var(--orange); text-decoration: none; font-weight: 700; }
 @media (max-width: 1000px) { .ov-body { grid-template-columns: 1fr; } .ov-media { min-height: 260px; } .ov-head { flex-direction: column; align-items: flex-start; } .ov-status { text-align: left; } }
 
+/* Vizta Portfolio */
+.side-sep { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--grid); }
+.ppage.pf { padding-left: 37px; font-size: 13.5px; color: var(--ink); }
+.ppage.pf::before { left: 24px; }
+.ppage.pf.active { color: var(--orange); }
+.portfolio { width: auto; min-width: min(100%, 720px); }
+
 /* Sales: Typology Report */
 .page-sales, .page-financing { width: auto; max-width: 1100px; }
 .page-financing .financing { margin-top: 8px; border-top: 0; padding-top: 0; width: auto; min-width: 0; }
+.banner.snap { background: #f4f6f8; border-left-color: var(--muted); }
 h2.sec { font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 8px 0 10px; }
 .t-scroll { overflow-x: auto; margin-bottom: 22px; }
 table.typo { border-collapse: separate; border-spacing: 3px; font-size: 13px; font-variant-numeric: tabular-nums; background: #fde3cc; padding: 6px; min-width: 100%; }

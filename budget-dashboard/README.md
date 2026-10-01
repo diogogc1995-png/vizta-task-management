@@ -119,6 +119,11 @@ Os dados de vendas vêm do CRM através do Power BI. A app usa a mesma conta Mic
 - No menu, `"sales_project"` indica o nome do projeto no Power BI (p.ex. `"Core Leça"`). `null` significa que o projeto não tem página Sales. Sem esta chave, usa-se o nome do quadro.
 - Os totais e as % do Typology Report são somas e divisões dos valores do Power BI, como no relatório.
 - O Power BI é lido a cada `poll_seconds`, por omissão 15 minutos.
+- **Enquanto não houver acesso automático**, a página Sales usa o `sales_snapshot.json`, um ficheiro local fora do Git. Tem o Typology Report transcrito do Power BI tal como lá aparece (unidades, totais, %, €/m²) e a data/hora em `_as_of`, que a página mostra como "Position as of …". Quando o Power BI estiver ligado, os dados automáticos têm prioridade.
+
+## Vizta Portfolio
+
+No topo do menu, o item "Vizta Portfolio" tem as páginas *Summary of all projects*, *Roadmap* e *Projects financing overview*. O conteúdo está por definir.
 
 ## Subrubricas e menu
 

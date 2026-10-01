@@ -97,6 +97,36 @@ def build_typology(rows, columns=None):
     return out
 
 
+def load_snapshot(path):
+    """sales_snapshot.json (Typology Report transcrito do Power BI) -> (dados, data/hora, erro).
+
+    Cada projeto fica já no formato de apresentação ("units"/"amounts" com os
+    valores tal como aparecem no Power BI, incluindo totais, % e €/m²).
+    """
+    import json
+    import os
+    if not os.path.exists(path):
+        return {}, None, None
+    try:
+        with open(path, encoding="utf-8-sig") as f:
+            raw = json.load(f)
+        typ = raw.get("_typologies") or []
+        out = {}
+        for name, s in raw.items():
+            if name.startswith("_") or not isinstance(s, dict):
+                continue
+            out[" ".join(name.split()).casefold()] = {
+                "project": name, "typologies": typ,
+                "units_rows": [{"label": r[0], "kind": r[1], "units": dict(zip(typ, r[2])), "total": r[3],
+                                "pct": r[4], "retail": r[5], "resi_retail": r[6]} for r in s.get("units", [])],
+                "amount_rows": [{"label": r[0], "kind": r[1], "residential": r[2], "price_sqm": r[3],
+                                 "pct": r[4], "retail": r[5], "resi_retail": r[6]} for r in s.get("amounts", [])],
+            }
+        return out, raw.get("_as_of"), None
+    except (OSError, ValueError, IndexError, TypeError) as e:
+        return {}, None, f"sales_snapshot.json inválido: {e}"
+
+
 class PowerBIClient:
     def __init__(self, auth, pbi_cfg):
         """auth: objeto com token(scopes) (o SharePointClient)."""
