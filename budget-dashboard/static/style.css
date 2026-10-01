@@ -457,6 +457,10 @@ table.sl-prt tr.total td, table.sl-prt tr.grand td { font-weight: 700; backgroun
 table.sl-prt tr.total td.gap, table.sl-prt tr.grand td.gap, table.sl-prt tr.orion td.gap { background: none; }
 table.sl-prt tr.orion td { background: var(--orion); font-weight: 700; }
 table.sl-prt tr.first-total td { border-top: 1px solid var(--ink); }
+table.sl-prt tbody.sl-kpis td { white-space: normal; text-align: center; font-size: 12.5px; line-height: 1.3; padding: 5px 8px; }
+table.sl-prt tbody.sl-kpis td.lbl { text-align: left; font-weight: 700; background: var(--orion); }
+table.sl-prt tbody.sl-kpis tr.sl-kpi-h td { background: none; padding: 22px 0 4px; font-size: 14px; border-bottom: 1px solid var(--ink); }
+table.sl-prt tbody.sl-kpis td.delta, table.sl-prt tbody.sl-kpis td.gap, table.sl-prt tbody.sl-kpis td.gap ~ td { border-bottom: 0; background: none; }
 table.sl-kpi { margin-top: 16px; font-size: 13px; }
 table.sl-kpi th { text-align: left; font-size: 14px; padding: 4px 8px; border-bottom: 1px solid var(--ink); }
 table.sl-kpi td { padding: 4px 8px; text-align: center; border-bottom: 1px dotted var(--grid); line-height: 1.3; }

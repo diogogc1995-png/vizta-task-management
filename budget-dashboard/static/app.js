@@ -338,12 +338,16 @@ function prSlideHtml(p, name, t = p, sub = "") {
       `<td class="${i === n - 1 ? "latest" : ""}">${fmt(v, r.percent)}</td>`).join("")}<td class="delta">${fmt(r.delta, r.percent)}</td>
       ${sq.length ? `<td class="gap"></td>${sq.map((c) => `<td class="sq">${sqv(r, c)}</td>`).join("")}` : ""}</tr>`;
   }).join("");
-  const kpis = t.kpis.length ? `<table class="sl-kpi"><thead><tr><th colspan="${n + 1}">${esc(t.kpi_title || "KPIs")}</th></tr></thead>
-    <tbody>${t.kpis.map((k) => `<tr><td class="lbl">${esc(k.label)}</td>${k.values.map((l) =>
-      `<td>${l.length ? l.map(esc).join("<br>") : "—"}</td>`).join("")}</tr>`).join("")}</tbody></table>` : "";
+  // KPIs Orion no mesmo quadro, cada valor por baixo da coluna a que pertence
+  const tail = `<td class="delta"></td>${sq.length ? `<td class="gap"></td>${"<td></td>".repeat(sq.length)}` : ""}`;
+  const kpis = t.kpis.length ? `<tbody class="sl-kpis"><tr class="sl-kpi-h"><td class="lbl" colspan="${n + 2 + (sq.length ? sq.length + 1 : 0)}">${esc(t.kpi_title || "KPIs")}</td></tr>
+    ${t.kpis.map((k) => `<tr><td class="lbl">${esc(k.label)}</td>${t.columns.map((c, i) => {
+      const l = k.values[i] || [];
+      return `<td class="${i === n - 1 ? "latest" : ""}">${l.length ? l.map(esc).join("<br>") : "—"}</td>`;
+    }).join("")}${tail}</tr>`).join("")}</tbody>` : "";
   return `<div class="sl sl-pr"><div class="sl-head"><h1>${esc(name)}${sub ? ` <small>${esc(sub)}</small>` : ""}</h1></div>
     <div class="sl-pr-body">
-      <div class="sl-pr-main"><table class="sl-prt"><thead>${head}</thead><tbody>${body}</tbody></table>${kpis}
+      <div class="sl-pr-main"><table class="sl-prt"><thead>${head}</thead><tbody>${body}</tbody>${kpis}</table>
         <div class="sl-src">Source: ${esc(p.file || "")} › ${esc(p.sheet)}${t.footnote ? ` · ${esc(t.footnote)}` : ""}</div></div>
       <div class="sl-pr-side">${phBox("Key Variations")}${slideFinancingHtml(p.financing)}${phBox("Opportunities / Risks")}${phBox("Sources & Uses", "small")}</div>
     </div></div>`;
