@@ -103,51 +103,7 @@ code { font-family: Consolas, monospace; font-size: 12px; }
 
 .main { flex: 1; padding: 32px 36px 56px; min-width: 0; }
 
-/* Separadores Project Review / Budget */
-.tabs { display: flex; gap: 4px; margin-bottom: -1px; position: relative; }
-.tabs button {
-  border: 1px solid transparent; border-bottom: 0; background: none; padding: 10px 20px;
-  font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
-}
-.tabs button:hover:not(:disabled) { color: var(--orange); }
-.tabs button.active { background: var(--panel); border-color: var(--grid); color: var(--orange); box-shadow: inset 0 3px 0 var(--orange); }
-.tabs button:disabled { opacity: .45; cursor: not-allowed; }
-.kicker { font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--orange); margin-bottom: 6px; }
 
-/* Budget detalhado */
-.report.budget { width: auto; }
-.b-tools { display: flex; gap: 8px; margin-bottom: 10px; }
-.b-tools button { border: 1px solid var(--grid); background: var(--panel); padding: 5px 12px; font-size: 12px; font-weight: 600; }
-.b-tools button:hover { border-color: var(--orange); color: var(--orange); }
-.b-scroll { overflow-x: auto; }
-table.bt { border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; min-width: 100%; }
-table.bt th, table.bt td { border-left: 1px solid var(--grid); border-right: 1px solid var(--grid); }
-table.bt thead th { padding: 8px 10px; text-align: center; line-height: 1.35; font-weight: 600; min-width: 108px; }
-table.bt thead th.lbl { min-width: 300px; text-align: left; vertical-align: bottom; background: var(--orange); color: #fff;
-  font-weight: 700; letter-spacing: .04em; text-transform: uppercase; position: sticky; left: 0; z-index: 2; }
-table.bt thead th.band { font-weight: 700; letter-spacing: .04em; text-transform: uppercase; font-size: 12px; }
-table.bt thead .g-budget { background: var(--orange); color: #fff; border-color: var(--orange); }
-table.bt thead .g-cost { background: var(--peach); color: var(--ink); border-color: #f1b37e; }
-table.bt thead .g-var, table.bt thead .g-inv { background: var(--ink); color: #fff; border-color: var(--ink); }
-table.bt thead tr.subhead th { font-size: 11px; font-weight: 400; padding: 3px 8px; }
-table.bt tbody td { padding: 4px 10px; text-align: right; border-bottom: 1px solid #ededed; white-space: nowrap; }
-table.bt tbody td.lbl { text-align: left; padding-left: 10px; position: sticky; left: 0; background: var(--panel); z-index: 1; white-space: normal; }
-table.bt tbody td.g-cost { background: #fffaf6; }
-table.bt td.neg { color: var(--neg); }
-tr.b-rubric td { font-weight: 700; background: var(--peach-pale); }
-tr.b-rubric td.lbl { background: var(--peach-pale); }
-tr.b-rubric.has-children { cursor: pointer; }
-tr.b-rubric.has-children:hover td, tr.b-rubric.has-children:focus td { background: var(--peach-light); outline: none; }
-tr.b-rubric .chev { margin: 0 10px 2px 0; color: var(--orange); }
-tr.b-rubric:not(.has-children) .chev { visibility: hidden; }
-tr.b-rubric.open .chev { transform: rotate(45deg); }
-tr.b-rubric .count { font-size: 11px; font-weight: 600; color: var(--muted); margin-left: 4px; }
-tr.b-sub td { font-size: 12.5px; color: #555; }
-tr.b-sub td.lbl { padding-left: 34px; }
-tr.b-sub .code { display: inline-block; min-width: 46px; color: var(--muted); font-size: 11px; }
-tr.b-total td, tr.b-total td.lbl { background: var(--peach-light); font-weight: 700; border-top: 1px solid var(--grid); }
-tr.b-orion td, tr.b-orion td.lbl { background: var(--orion); font-weight: 700; }
-tr.b-line td { font-weight: 600; }
 .empty { max-width: 640px; color: var(--muted); line-height: 1.6; }
 .empty h2 { color: var(--ink); font-weight: 300; font-size: 28px; }
 .empty code { background: #ececec; padding: 1px 5px; }
@@ -186,6 +142,23 @@ table.pr td.delta.neg { color: var(--neg); }
 table.pr td.delta.pos { color: var(--pos); }
 table.pr tr.total td.delta, table.pr tr.orion td.delta { color: inherit; }
 table.pr tr.gap td { height: 8px; padding: 0; background: none !important; }
+
+/* Rubricas com subrubricas (da folha de budget): dropdown no próprio quadro */
+table.pr tr.rubric { cursor: pointer; }
+table.pr tr.rubric:hover td, table.pr tr.rubric:focus td { background: var(--peach-pale); outline: none; }
+table.pr tr.rubric:hover td.latest, table.pr tr.rubric:focus td.latest { background: var(--peach-light); }
+table.pr tr.rubric .chev { margin: 0 9px 2px 0; color: var(--orange); }
+table.pr tr.rubric.open .chev { transform: rotate(45deg); }
+table.pr tr.rubric.open td { font-weight: 700; }
+table.pr tr.subrow td { font-size: 12.5px; color: #555; background: #fcfcfc; border-bottom: 1px solid #f3f3f3; }
+table.pr tr.subrow td.latest { background: var(--peach-pale); }
+table.pr tr.subrow td.lbl { padding-left: 30px; }
+table.pr tr.subrow .code { display: inline-block; min-width: 50px; color: var(--muted); font-size: 11px; }
+.kicker { font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--orange); margin-bottom: 6px; }
+.b-tools { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.b-tools button { border: 1px solid var(--grid); background: var(--panel); padding: 5px 12px; font-size: 12px; font-weight: 600; }
+.b-tools button:hover { border-color: var(--orange); color: var(--orange); }
+.b-src { font-size: 11px; color: var(--muted); margin-left: 6px; }
 
 .notes { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 12px; gap: 16px; }
 .notes .fn { color: var(--muted); }
@@ -242,16 +215,8 @@ table.kpi td.lbl { text-align: left; font-weight: 700; padding-left: 8px; }
   table.pr thead th { min-width: 110px; padding: 6px 8px; }
   table.pr thead th.lbl { min-width: 200px; }
   .financing { break-inside: avoid; page-break-inside: avoid; }
-  @page budget { size: A4 landscape; margin: 10mm; }
-  .report.budget { page: budget; }
-  .b-scroll { overflow: visible; }
-  table.bt { font-size: 9px; min-width: 0; }
-  table.bt thead th { min-width: 0; padding: 4px 5px; }
-  table.bt thead th.lbl { min-width: 180px; }
-  table.bt tbody td { padding: 2px 5px; }
-  table.bt th, table.bt td { position: static !important; }
-  tr.b-sub[hidden] { display: table-row; }
-  tr.b-rubric .chev { display: none; }
   .fin-grid { grid-template-columns: repeat(3, 1fr); }
   .fin-grid dd, .fin-dist { font-size: 11px; }
+  table.pr tr.subrow td { font-size: 10px; }
+  table.pr tr.rubric .chev { display: none; }
 }

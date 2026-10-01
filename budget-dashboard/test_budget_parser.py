@@ -9,7 +9,7 @@ import zipfile
 
 from openpyxl import Workbook
 
-from budget_parser import parse_file, parse_workbook
+from budget_parser import attach_budget_details, parse_file, parse_workbook
 from excel_export import build_workbook
 
 LINES = ["1- Land costs", "2- Charges", "4- Construction", "12-Other Adjustments"]
@@ -125,12 +125,13 @@ class ParserTest(unittest.TestCase):
 
     def test_budget_detail(self):
         b = parse_file(self.path)["budgets"]["BUDGET FASE 1"]
-        # Coluna D escondida fica de fora; COMMENTS também.
+        # Coluna D escondida é lida mas marcada; COMMENTS fica de fora.
         self.assertEqual([c["lines"][0] for c in b["columns"]],
-                         ["Investment Comittee", "Project Review", "Signed commitments",
+                         ["Investment Comittee", "Project Review", "Project Review", "Signed commitments",
                           "Forecasted commitments", "TOTAL", "VARIATION"])
+        self.assertEqual([c["hidden"] for c in b["columns"]], [False, True] + [False] * 5)
         self.assertEqual([c["group"] for c in b["columns"]][-1], "VARIATION")
-        self.assertEqual(b["columns"][2]["sub"], "(3)")
+        self.assertEqual(b["columns"][3]["sub"], "(3)")
         land = b["rows"][0]
         self.assertEqual((land["kind"], land["label"]), ("rubric", "1- Land costs / Terrain"))
         self.assertEqual([(c["code"], c["label"]) for c in land["children"]],
@@ -162,15 +163,44 @@ class ParserTest(unittest.TestCase):
         self.assertEqual(wb.sheetnames, ["NOLA", "OTHER"])
         self.assertEqual(wb["NOLA"]["A3"].value, "NOLA")
 
-    def test_excel_export_budget(self):
-        budget = parse_file(self.path)["budgets"]["BUDGET FASE 1"]
-        p = {**self.projects[0], "label": "Nola - Lote 1", "budget": budget}
-        wb = build_workbook([("File", p)])
-        self.assertEqual(wb.sheetnames, ["Nola - Lote 1", "Nola - Lote 1 Budget"])
-        ws = wb["Nola - Lote 1 Budget"]
-        labels = [ws.cell(r, 1).value for r in range(6, 12)]
-        self.assertEqual(labels[:3], ["1- Land costs / Terrain", "    111  Plot / Terreno", "    112  Notary fees"])
-        self.assertEqual(ws.row_dimensions[7].outlineLevel, 1)
+    def test_attach_budget_details(self):
+        # Quadro: IC | PR jul | PR out | Δ (= out − jul). Budget: colunas por outra ordem, uma escondida.
+        rows = [("1- Land costs", [100, 110, 120], 10), ("2- Charges", [20, 25, 30], 5),
+                ("4- Construction", [500, 520, 540], 20), ("TOTAL COST (PROJECT)", [620, 655, 690], 35)]
+        project = {"name": "X", "columns": [{"lines": ["Investment Committee"]},
+                                            {"lines": ["Project Review", "16/07/2026"]},
+                                            {"lines": ["Project Review", "21/10/2026"]}],
+                   "rows": [{"label": l, "kind": "total" if l.startswith("TOTAL") else "line",
+                             "percent": False, "values": v, "delta": d} for l, v, d in rows]}
+        col = lambda *lines, hidden=False: {"group": "BUDGET", "lines": list(lines), "hidden": hidden, "percent": False}
+        # colunas do budget: [PR 2026-07-16 (escondida), TOTAL, IC, PR 16/07/2026 duplicada visível]
+        budget = {"sheet": "BUDGET FASE 1", "columns": [col("Project Review 2026-07-16", hidden=True), col("TOTAL"),
+                                                         col("Investment Comittee"), col("Project Review", "16/07/2026")],
+                  "rows": [
+                      {"label": "1- Land costs / Terrain", "kind": "rubric", "values": [110, 120, 100, 110], "children": [
+                          {"label": "Plot", "code": 111.0, "values": [100, 105, 90, 100]},
+                          {"label": "Notary", "code": 112.0, "values": [10, 15, 10, 10]}]},
+                      {"label": "2- Charges", "kind": "rubric", "values": [25, 30, 20, 25], "children": []},
+                      {"label": "4- Construction", "kind": "rubric", "values": [520, 540, 500, 520], "children": [
+                          {"label": "Gal Contractor", "code": 321.1, "values": [520, 540, 500, 520]}]},
+                  ]}
+        q = attach_budget_details(project, budget)
+        self.assertEqual(q["budget_link"]["delta"], "difference")
+        # PR jul -> coluna visível com a mesma data (não a escondida); PR out -> TOTAL
+        self.assertEqual(q["budget_link"]["columns"], [["Investment Comittee"], ["Project Review", "16/07/2026"], ["TOTAL"]])
+        land = q["rows"][0]["children"]
+        self.assertEqual([(c["code"], c["values"], c["delta"]) for c in land],
+                         [("111", [90, 100, 105], 5), ("112", [10, 10, 15], 5)])
+        self.assertNotIn("children", q["rows"][1])  # rubrica sem subrubricas
+        self.assertEqual(q["rows"][2]["children"][0]["code"], "321.1")
+        self.assertNotIn("children", project["rows"][0])  # o original não é alterado
+
+        wb = build_workbook([("File", {**self.projects[0], **q, "footnote": None, "notes": [], "kpis": []})])
+        ws = wb.active
+        labels = [ws.cell(r, 1).value for r in range(5, 9)]
+        self.assertEqual(labels, ["1- Land costs", "    111  Plot", "    112  Notary", "2- Charges"])
+        self.assertEqual(ws.row_dimensions[6].outlineLevel, 1)
+        self.assertTrue(ws.row_dimensions[6].hidden)
 
 
 if __name__ == "__main__":

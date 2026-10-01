@@ -86,13 +86,15 @@ A Microsoft exige que a app esteja registada no Azure AD da empresa. Envia isto 
 
 Se o IT não puder criar o registo, a alternativa é sincronizar a biblioteca do SharePoint com o OneDrive ("Sync" ou "Add shortcut to My files") e usar o caminho local.
 
-## Budget detalhado e menu
+## Subrubricas e menu
 
-Cada projeto tem dois separadores: **Project Review** (o quadro resumo) e **Budget** (a folha de budget completa, p.ex. `BUDGET FASE 1`). No Budget, clicar numa rubrica (p.ex. "1- Land costs") abre as subrubricas dessa rubrica, e "Expand all" / "Collapse all" abre ou fecha todas.
+No quadro do Project Review, as rubricas (p.ex. "1- Land costs") abrem um dropdown com as subrubricas, lidas da folha de budget do projeto (p.ex. `BUDGET FASE 1`). "Expand all" / "Collapse all" abre ou fecha todas.
 
-- A app deteta as folhas de budget pela linha "1- Land costs" e pelo cabeçalho "BUDGET € + VAT". Mostra os grupos BUDGET, COST OF THE PROJECT, VARIATION e TOTAL INVOICED AMOUNT.
-- As **colunas escondidas no Excel** (p.ex. revisões antigas) ficam de fora, para o quadro ser igual ao que se vê no Excel. As linhas escondidas (subrubricas agrupadas e recolhidas) são lidas na mesma.
-- No PDF, a página de budget sai em A4 horizontal, com todas as subrubricas abertas. No Excel exportado, cada projeto tem uma folha "… Budget" com as subrubricas agrupadas (botões +/− do Excel).
+- A app deteta as folhas de budget pela linha "1- Land costs" e pelo cabeçalho "BUDGET € + VAT".
+- **Correspondência de colunas:** cada coluna do quadro é associada à coluna da folha de budget cujos valores das rubricas são iguais. Assim, "Project Review 21/10/2026" pode corresponder à coluna TOTAL, mesmo com nomes diferentes. Em caso de empate, ganha a coluna com a mesma data no cabeçalho, depois uma coluna visível. As colunas escondidas no Excel também contam.
+- **Δ das subrubricas:** se o Δ do quadro for a última coluna menos a penúltima, as subrubricas seguem a mesma regra. Se não, usa-se a coluna do budget que corresponde ao Δ (p.ex. VARIATION).
+- As subrubricas aparecem numa lista simples, como no Excel. Algumas contêm outras (p.ex. 321 e 321.1), por isso nem sempre somam exatamente o valor da rubrica.
+- No PDF saem as rubricas que estiverem abertas. No Excel exportado, as subrubricas ficam agrupadas por baixo de cada rubrica (botões +/− do Excel).
 
 O menu lateral e a folha de budget de cada projeto configuram-se em `config.json`, na secção `"menu"` (ver `config.example.json`):
 

@@ -21,7 +21,7 @@ import webbrowser
 from flask import Flask, abort, jsonify, request, send_file, send_from_directory
 
 import financing
-from budget_parser import parse_file
+from budget_parser import attach_budget_details, parse_file
 from excel_export import build_workbook
 from sharepoint import SharePointClient, is_url
 
@@ -202,10 +202,11 @@ class Store:
                         budget = budgets.get(sheet)
                     else:  # sem configuração: só se o ficheiro tiver uma única folha de budget
                         budget = next(iter(budgets.values())) if len(budgets) == 1 else None
-                    projects.append({**p, "id": pid, "financing": fin,
+                    # Subrubricas da folha de budget dentro das rubricas do Project Review
+                    detailed = attach_budget_details(p, budget) if budget else p
+                    projects.append({**detailed, "id": pid, "financing": fin,
                                      "label": conf.get("label") or p["name"],
                                      "menu_group": conf.get("group"),
-                                     "budget": budget,
                                      "budget_missing": sheet if sheet and not budget else None})
                 files.append({
                     "file": e["name"],
@@ -356,7 +357,7 @@ if __name__ == "__main__":
     for se in snap["source_errors"]:
         print(f"  SHAREPOINT ERRO: {se['source'][:80]}...\n    {se['error']}")
     all_p = [p for f in snap["files"] for p in f["projects"]]
-    print(f"  Budget detalhado: {sum(1 for p in all_p if p['budget'])} de {len(all_p)} projetos")
+    print(f"  Subrubricas do budget: {sum(1 for p in all_p if p.get('budget_link'))} de {len(all_p)} projetos")
     for p in all_p:
         if p["budget_missing"]:
             print(f"  BUDGET: folha \"{p['budget_missing']}\" não encontrada para {p['name']}")

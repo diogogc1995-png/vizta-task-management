@@ -215,8 +215,9 @@ def _find_budget_layout(grid):
 def parse_budget_sheet(grid, sheet_name, hidden_cols=()):
     """Quadro de budget completo (grid e hidden_cols 0-based).
 
-    As colunas escondidas no Excel (revisões antigas) ficam de fora. As linhas
-    escondidas não: normalmente são subrubricas agrupadas e recolhidas.
+    Todas as colunas são lidas (as escondidas no Excel ficam marcadas com
+    "hidden"), porque o Project Review pode usar uma revisão que está escondida.
+    As linhas escondidas também: normalmente são subrubricas agrupadas e recolhidas.
     """
     layout = _find_budget_layout(grid)
     if not layout:
@@ -234,7 +235,7 @@ def parse_budget_sheet(grid, sheet_name, hidden_cols=()):
             if not BUDGET_GROUPS.search(g):
                 break
             group = _norm(g.replace("\n", " "))
-        if group is None or c in hidden_cols:
+        if group is None:
             continue
         head = get(head_r, c)
         has_data = any(_is_number(get(r, c)) for r in range(first_r, min(first_r + 120, len(grid))))
@@ -247,6 +248,7 @@ def parse_budget_sheet(grid, sheet_name, hidden_cols=()):
             "lines": lines or [group],
             "sub": _norm(str(sub)) if sub not in (None, "") and not _is_number(sub) else None,
             "percent": bool(lines) and lines[0].startswith("%"),
+            "hidden": c in hidden_cols,
         })
         col_idx.append(c)
     if not columns:
@@ -284,6 +286,111 @@ def parse_budget_sheet(grid, sheet_name, hidden_cols=()):
 
     return {"sheet": sheet_name, "title": _norm(str(get(head_r - 1, label_c) or "")) or None,
             "columns": columns, "rows": items}
+
+
+RUBRIC_NUM = re.compile(r"^\s*(\d{1,2})\s*-")
+DATE_TOKEN = re.compile(r"(\d{1,2})\s*[/.-]\s*(\d{1,2})\s*[/.-]\s*(\d{2,4})|(\d{4})-(\d{2})-(\d{2})")
+
+
+def _rubric_num(label):
+    m = RUBRIC_NUM.match(label or "")
+    return int(m.group(1)) if m else None
+
+
+def _dates(lines):
+    """Datas de um cabeçalho, normalizadas para (ano, mês, dia)."""
+    out = set()
+    for m in DATE_TOKEN.finditer(" ".join(lines or [])):
+        if m.group(4):
+            out.add((int(m.group(4)), int(m.group(5)), int(m.group(6))))
+        else:
+            y = int(m.group(3))
+            out.add((y + 2000 if y < 100 else y, int(m.group(2)), int(m.group(1))))
+    return out
+
+
+def _code_str(code):
+    """111.0 -> "111", 321.1 -> "321.1", 464.01 -> "464.01"."""
+    if code is None:
+        return None
+    if _is_number(code):
+        return f"{code:g}"
+    return str(code).strip() or None
+
+
+def _close(a, b):
+    return _is_number(a) and _is_number(b) and abs(a - b) <= max(0.5, abs(b) * 0.0005)
+
+
+def attach_budget_details(project, budget):
+    """Junta às rubricas do Project Review as subrubricas da folha de budget.
+
+    Não há correspondência fixa entre colunas: cada coluna do quadro (e o Δ) é
+    associada à coluna do budget cujos valores das rubricas são iguais aos do
+    quadro. Em caso de empate, ganha a que tem a mesma data no cabeçalho, depois
+    uma coluna visível, depois a mais recente. Devolve uma cópia do projeto.
+    """
+    pr_rub = {}
+    for r in project["rows"]:
+        n = _rubric_num(r["label"])
+        if n is not None and n not in pr_rub:
+            pr_rub[n] = r
+    b_rub = {}
+    for r in budget["rows"]:
+        n = _rubric_num(r["label"]) if r["kind"] == "rubric" else None
+        if n is not None and n not in b_rub:
+            b_rub[n] = r
+    common = [n for n in pr_rub if n in b_rub]
+    if not common:
+        return project
+
+    bcols = budget["columns"]
+
+    def best(get_pr, header_lines):
+        wanted = _dates(header_lines)
+        cands = []
+        for k, col in enumerate(bcols):
+            pairs = [(get_pr(pr_rub[n]), b_rub[n]["values"][k]) for n in common]
+            pairs = [(a, b) for a, b in pairs if _is_number(a)]
+            if not pairs:
+                continue
+            hits = sum(1 for a, b in pairs if _close(b, a))
+            if hits < max(2, 0.8 * len(pairs)):
+                continue
+            nonzero = sum(1 for a, b in pairs if _close(b, a) and abs(a) > 0.5)
+            cands.append((hits, nonzero, bool(wanted & _dates(col["lines"])), not col.get("hidden"), k))
+        return max(cands)[-1] if cands else None
+
+    ncol = len(project["columns"])
+    mapping = [best(lambda r, j=j: r["values"][j], project["columns"][j]["lines"]) for j in range(ncol)]
+    # Δ do quadro = última coluna − penúltima? Então nas subrubricas faz-se a mesma diferença
+    # (é a regra do próprio quadro). Senão, procura uma coluna do budget (p.ex. VARIATION).
+    checks = [n for n in common
+              if all(_is_number(v) for v in (pr_rub[n]["delta"], *pr_rub[n]["values"][-2:]))]
+    delta_is_diff = ncol >= 2 and bool(checks) and all(
+        _close(pr_rub[n]["delta"], pr_rub[n]["values"][-1] - pr_rub[n]["values"][-2]) for n in checks)
+    delta_k = None if delta_is_diff else best(lambda r: r["delta"], ["VARIATION"])
+
+    def sub_row(c):
+        vals = [c["values"][k] if k is not None else None for k in mapping]
+        if delta_is_diff:
+            delta = vals[-1] - vals[-2] if _is_number(vals[-1]) and _is_number(vals[-2]) else None
+        else:
+            delta = c["values"][delta_k] if delta_k is not None else None
+        return {"label": c["label"], "code": _code_str(c["code"]), "values": vals, "delta": delta}
+
+    # Subrubricas numa lista simples, como no Excel (o Excel não indica se umas
+    # estão contidas noutras, p.ex. 321 / 321.1, por isso não se assume nada).
+    rows = []
+    for r in project["rows"]:
+        n = _rubric_num(r["label"])
+        if n in b_rub and r is pr_rub.get(n) and b_rub[n]["children"]:
+            r = {**r, "children": [sub_row(c) for c in b_rub[n]["children"]]}
+        rows.append(r)
+    return {**project, "rows": rows,
+            "budget_link": {"sheet": budget["sheet"],
+                            "columns": [bcols[k]["lines"] if k is not None else None for k in mapping],
+                            "delta": ("column" if delta_k is not None else "difference" if delta_is_diff else None)}}
 
 
 def _hidden_cols(path, sheet_names):

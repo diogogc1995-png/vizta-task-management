@@ -70,6 +70,23 @@ def write_project(ws, group, p):
             elif c == last - 1:
                 cell.fill = PEACH_PALE
             cell.border = Border(left=GRID, right=GRID, bottom=DOTTED)
+        # Subrubricas (da folha de budget) agrupadas por baixo da rubrica: botões +/− do Excel
+        for child in row.get("children", []):
+            r += 1
+            ws.cell(r, 1, f"    {child['code']}  {child['label']}" if child.get("code") else f"    {child['label']}")
+            for i, v in enumerate(child["values"] + [child["delta"]]):
+                ws.cell(r, 2 + i, v)
+            for c in range(1, last + 1):
+                cell = ws.cell(r, c)
+                cell.font = Font(size=9, color="555555")
+                if c > 1:
+                    cell.alignment = RIGHT
+                    cell.number_format = NUM_FMT
+                if c == last - 1:
+                    cell.fill = PEACH_PALE
+                cell.border = Border(left=GRID, right=GRID, bottom=DOTTED)
+            ws.row_dimensions[r].outlineLevel = 1
+            ws.row_dimensions[r].hidden = True
 
     if p["footnote"] or p["notes"]:
         r += 2
@@ -100,6 +117,7 @@ def write_project(ws, group, p):
     if p.get("financing"):
         write_financing(ws, r + 2, p["financing"], last)
 
+    ws.sheet_properties.outlinePr.summaryBelow = False  # o "+" fica na linha da rubrica
     ws.sheet_view.showGridLines = False
 
 
@@ -161,92 +179,12 @@ def write_financing(ws, r, f, last):
             ws.row_dimensions[r].height = 30
 
 
-ORANGE = PatternFill("solid", fgColor="F26641")
-DARK = PatternFill("solid", fgColor="333333")
-WHITE_BOLD = Font(bold=True, color="FFFFFF")
-
-
-def write_budget(ws, group, p):
-    """Budget detalhado: rubricas com as subrubricas agrupadas (outline) por baixo."""
-    b = p["budget"]
-    cols = b["columns"]
-    last = 1 + len(cols)
-    ws.column_dimensions["A"].width = 46
-    for c in range(2, last + 1):
-        ws.column_dimensions[ws.cell(1, c).column_letter].width = 16
-    ws.cell(1, 1, f"{group} — {b['sheet']}").font = Font(italic=True, color="7F7F7F")
-
-    # Cabeçalho: faixa de grupos + títulos das colunas (+ fórmulas tipo "(5)=(3)+(4)")
-    ws.cell(3, 1, b.get("title") or p["name"])
-    prev = None
-    for i, col in enumerate(cols):
-        c = 2 + i
-        if col["group"] != prev:
-            ws.cell(3, c, col["group"])
-            prev = col["group"]
-        ws.cell(4, c, "\n".join(col["lines"]))
-        if col.get("sub"):
-            ws.cell(5, c, col["sub"])
-    for r in (3, 4, 5):
-        for c in range(1, last + 1):
-            cell = ws.cell(r, c)
-            g = cols[c - 2]["group"].upper() if c > 1 else "BUDGET"
-            cell.fill = PEACH if g.startswith("COST") else DARK if g.startswith(("VARIATION", "TOTAL INV")) else ORANGE
-            cell.font = BOLD if g.startswith("COST") else WHITE_BOLD
-            cell.alignment = CENTER if c > 1 else Alignment(vertical="bottom", wrap_text=True)
-            cell.border = Border(left=GRID, right=GRID)
-    ws.row_dimensions[4].height = 44
-    ws.freeze_panes = "B6"
-
-    r = 5
-    def put(row, fill=None, font=None, level=0):
-        nonlocal r
-        r += 1
-        label = row["label"]
-        if row.get("code") not in (None, ""):
-            code = row["code"]
-            label = f"{code:g}  {label}" if isinstance(code, float) else f"{code}  {label}"
-        ws.cell(r, 1, ("    " if level else "") + label)
-        for i, v in enumerate(row["values"]):
-            cell = ws.cell(r, 2 + i, v)
-            cell.alignment = RIGHT
-            cell.number_format = PCT_FMT if (row.get("percent") or cols[i]["percent"]) else NUM_FMT
-        for c in range(1, last + 1):
-            cell = ws.cell(r, c)
-            if fill:
-                cell.fill = fill
-            if font:
-                cell.font = font
-            cell.border = Border(left=GRID, right=GRID, bottom=DOTTED)
-        if level:
-            ws.row_dimensions[r].outlineLevel = 1
-            ws.row_dimensions[r].hidden = True
-
-    for row in b["rows"]:
-        if row["kind"] == "rubric":
-            put(row, PEACH_PALE, BOLD)
-            for child in row["children"]:
-                put(child, font=Font(color="555555"), level=1)
-        elif row["kind"] in ("total", "orion"):
-            put(row, BLUE if row["kind"] == "orion" else PEACH_LIGHT, BOLD)
-        else:
-            put(row, font=BOLD)
-    ws.sheet_properties.outlinePr.summaryBelow = False
-    ws.sheet_view.showGridLines = False
-
-
 def build_workbook(projects):
-    """projects: lista de (grupo/ficheiro, projeto). Com budget detalhado, acrescenta uma folha "… Budget"."""
+    """projects: lista de (grupo/ficheiro, projeto)."""
     wb = Workbook()
     wb.remove(wb.active)
     used = set()
     for group, p in projects:
-        name = p.get("label") or p["name"]
-        ws = wb.create_sheet(_sheet_title(name, used))
+        ws = wb.create_sheet(_sheet_title(p.get("label") or p["name"], used))
         write_project(ws, group, p)
-        if p.get("budget"):
-            short = name
-            while len(short) > 24 and " " in short:  # corta numa palavra inteira (máx. 31 caracteres)
-                short = short.rsplit(" ", 1)[0].rstrip(" -|")
-            write_budget(wb.create_sheet(_sheet_title(f"{short} Budget", used)), group, p)
     return wb

@@ -5,16 +5,15 @@ let data = null;
 let version = null;
 let selectedId = decodeURIComponent(location.hash.slice(1)) || null;
 
-// Preferências do utilizador (só neste browser): separador ativo e grupos do menu abertos.
+// Preferências do utilizador (só neste browser): grupos do menu abertos.
 function loadPref(k, def) {
   try { const v = localStorage.getItem("bd." + k); return v === null ? def : JSON.parse(v); } catch (e) { return def; }
 }
 function savePref(k, v) {
   try { localStorage.setItem("bd." + k, JSON.stringify(v)); } catch (e) { /* sem storage */ }
 }
-let view = loadPref("view", "pr");          // "pr" | "budget"
 const openGroups = new Set(loadPref("openGroups", []));
-const openRubrics = new Set();               // `${projectId}|${índice da rubrica}`
+const openRubrics = new Set();               // rubricas abertas: `${projectId}|${índice da linha}`
 
 const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -153,14 +152,8 @@ function renderMain() {
   }
   const extra = p.budget_missing
     ? `<div class="banner no-print">Budget sheet <b>${esc(p.budget_missing)}</b> (config.json) was not found in <b>${esc(p.file)}</b>.</div>` : "";
-  const tabs = `<div class="tabs no-print" role="tablist">
-      <button type="button" role="tab" data-view="pr" class="${view !== "budget" ? "active" : ""}">Project Review</button>
-      <button type="button" role="tab" data-view="budget" class="${view === "budget" ? "active" : ""}" ${p.budget ? "" : "disabled title=\"No detailed budget sheet for this project\""}>Budget</button>
-    </div>`;
-  $("#main").innerHTML = banners() + extra + tabs + pageHtml(p);
+  $("#main").innerHTML = banners() + extra + reportHtml(p);
 }
-
-const pageHtml = (p) => (view === "budget" && p.budget ? budgetReportHtml(p) : reportHtml(p));
 
 function headHtml(p, source) {
   return `<div class="report-head">
@@ -172,60 +165,13 @@ function headHtml(p, source) {
     </div>`;
 }
 
-function budgetReportHtml(p) {
-  const b = p.budget;
-  const cols = b.columns;
-  // Faixa de grupos (BUDGET / COST OF THE PROJECT / VARIATION ...)
-  const bands = [];
-  cols.forEach((c, i) => {
-    const last = bands[bands.length - 1];
-    if (last && last.group === c.group) last.span++;
-    else bands.push({ group: c.group, span: 1, start: i });
-  });
-  const single = (bd) => bd.span === 1 && cols[bd.start].lines.join(" ") === bd.group;
-  const hasSub = cols.some((c) => c.sub);
-  const bandCls = (g) => (/^COST/i.test(g) ? "g-cost" : /^VARIATION/i.test(g) ? "g-var" : /^TOTAL INVOICED/i.test(g) ? "g-inv" : "g-budget");
-  const colCls = cols.map((c) => bandCls(c.group));
-  const head = `<tr><th class="lbl" rowspan="${hasSub ? 3 : 2}">${esc(b.title || p.name)}</th>${bands
-      .map((bd) => `<th class="band ${bandCls(bd.group)}" colspan="${bd.span}" ${single(bd) ? `rowspan="${hasSub ? 2 : 2}"` : ""}>${esc(bd.group)}</th>`).join("")}</tr>
-    <tr>${cols.map((c, i) => (single(bands.find((bd) => bd.start <= i && i < bd.start + bd.span)) ? ""
-      : `<th class="${colCls[i]}">${c.lines.map(esc).join("<br>")}</th>`)).join("")}</tr>
-    ${hasSub ? `<tr class="subhead">${cols.map((c, i) => `<th class="${colCls[i]}">${esc(c.sub || "")}</th>`).join("")}</tr>` : ""}`;
-
-  const cells = (r) => r.values.map((v, i) => {
-    const pct = r.percent || cols[i].percent;
-    const neg = typeof v === "number" && v < -0.5 && colCls[i] === "g-var" ? " neg" : "";
-    return `<td class="${colCls[i]}${neg}">${fmt(v, pct)}</td>`;
-  }).join("");
-  let body = "";
-  b.rows.forEach((r, idx) => {
-    if (r.kind === "rubric") {
-      const key = `${p.id}|${idx}`;
-      const open = openRubrics.has(key);
-      const n = r.children.length;
-      body += `<tr class="b-rubric ${open ? "open" : ""} ${n ? "has-children" : ""}" data-key="${key}" ${n ? `tabindex="0" aria-expanded="${open}"` : ""}>
-        <td class="lbl"><span class="chev" aria-hidden="true"></span>${esc(r.label)}${n ? ` <span class="count">${n}</span>` : ""}</td>${cells(r)}</tr>`;
-      for (const c of r.children) {
-        body += `<tr class="b-sub" data-parent="${key}" ${open ? "" : "hidden"}><td class="lbl">${c.code !== null && c.code !== undefined ? `<span class="code">${esc(typeof c.code === "number" ? +c.code.toFixed(2) : c.code)}</span>` : ""}${esc(c.label)}</td>${cells(c)}</tr>`;
-      }
-    } else {
-      body += `<tr class="b-${r.kind}"><td class="lbl">${esc(r.label)}</td>${cells(r)}</tr>`;
-    }
-  });
-  return `<section class="report budget">
-    ${headHtml(p, b.sheet)}
-    <div class="b-tools no-print"><button type="button" data-expand="all">Expand all</button><button type="button" data-expand="none">Collapse all</button></div>
-    <div class="b-scroll"><table class="bt"><thead>${head}</thead><tbody>${body}</tbody></table></div>
-  </section>`;
-}
-
 function toggleRubric(tr, force) {
   const key = tr.dataset.key;
   const open = force === undefined ? !openRubrics.has(key) : force;
   if (open) openRubrics.add(key); else openRubrics.delete(key);
   tr.classList.toggle("open", open);
   if (tr.hasAttribute("aria-expanded")) tr.setAttribute("aria-expanded", open);
-  document.querySelectorAll(`tr.b-sub[data-parent="${CSS.escape(key)}"]`).forEach((s) => (s.hidden = !open));
+  document.querySelectorAll(`tr.subrow[data-parent="${CSS.escape(key)}"]`).forEach((s) => (s.hidden = !open));
 }
 
 function reportHtml(p) {
@@ -235,15 +181,33 @@ function reportHtml(p) {
     .map((c, i) => `<th class="${i === latest ? "latest" : ""}">${c.lines.map(esc).join("<br>")}</th>`)
     .join("")}<th class="delta">Δ</th></tr>`;
 
+  const cells = (r) => r.values
+    .map((v, i) => `<td class="${i === latest ? "latest" : ""}">${fmt(v, r.percent)}</td>`)
+    .join("") + `<td class="delta">${fmt(r.delta, r.percent)}</td>`;
   let body = `<tr class="spacer"><td></td>${"<td></td>".repeat(n)}<td></td></tr>`;
   let prevKind = null;
-  for (const r of p.rows) {
-    const cls = [r.kind === "line" ? "" : r.kind, r.kind !== "line" && prevKind === "line" ? "first-total" : ""].join(" ").trim();
-    body += `<tr class="${cls}"><td class="lbl">${esc(r.label)}</td>${r.values
-      .map((v, i) => `<td class="${i === latest ? "latest" : ""}">${fmt(v, r.percent)}</td>`)
-      .join("")}<td class="delta">${fmt(r.delta, r.percent)}</td></tr>`;
+  p.rows.forEach((r, idx) => {
+    const cls = [r.kind === "line" ? "" : r.kind, r.kind !== "line" && prevKind === "line" ? "first-total" : ""];
+    const kids = r.children || [];
+    if (kids.length) {
+      // Rubrica com subrubricas (lidas da folha de budget): clicar abre/fecha
+      const key = `${p.id}|${idx}`;
+      const open = openRubrics.has(key);
+      body += `<tr class="${cls.join(" ")} rubric ${open ? "open" : ""}" data-key="${key}" tabindex="0" aria-expanded="${open}">
+        <td class="lbl"><span class="chev" aria-hidden="true"></span>${esc(r.label)}</td>${cells(r)}</tr>`;
+      for (const c of kids) {
+        body += `<tr class="subrow" data-parent="${key}" ${open ? "" : "hidden"}><td class="lbl">${
+          c.code ? `<span class="code">${esc(c.code)}</span>` : ""}${esc(c.label)}</td>${cells(c)}</tr>`;
+      }
+    } else {
+      body += `<tr class="${cls.join(" ").trim()}"><td class="lbl">${esc(r.label)}</td>${cells(r)}</tr>`;
+    }
     prevKind = r.kind;
-  }
+  });
+  const hasKids = p.rows.some((r) => (r.children || []).length);
+  const tools = hasKids
+    ? `<div class="b-tools no-print"><button type="button" data-expand="all">Expand all</button><button type="button" data-expand="none">Collapse all</button>
+       <span class="b-src">Sub-items from <b>${esc(p.budget_link.sheet)}</b></span></div>` : "";
 
   const topNotes = p.notes.filter((x) => !x.below_kpis);
   const bottomNotes = p.notes.filter((x) => x.below_kpis);
@@ -261,6 +225,7 @@ function reportHtml(p) {
 
   return `<section class="report">
     ${headHtml(p, p.sheet)}
+    ${tools}
     <table class="pr"><thead>${head}</thead><tbody>${body}</tbody></table>
     ${notes}${kpis}${after}${fin}
   </section>`;
@@ -314,24 +279,17 @@ $("#sidebar").addEventListener("click", (e) => {
 });
 
 $("#main").addEventListener("click", (e) => {
-  const tab = e.target.closest(".tabs [data-view]");
-  if (tab && !tab.disabled) {
-    view = tab.dataset.view;
-    savePref("view", view);
-    renderMain();
-    return;
-  }
   const ex = e.target.closest("[data-expand]");
   if (ex) {
-    document.querySelectorAll("tr.b-rubric.has-children").forEach((tr) => toggleRubric(tr, ex.dataset.expand === "all"));
+    document.querySelectorAll("#main tr.rubric").forEach((tr) => toggleRubric(tr, ex.dataset.expand === "all"));
     return;
   }
-  const tr = e.target.closest("tr.b-rubric.has-children");
+  const tr = e.target.closest("tr.rubric");
   if (tr) toggleRubric(tr);
 });
 
 $("#main").addEventListener("keydown", (e) => {
-  const tr = e.target.closest("tr.b-rubric.has-children");
+  const tr = e.target.closest("tr.rubric");
   if (tr && (e.key === "Enter" || e.key === " ")) {
     e.preventDefault();
     toggleRubric(tr);
@@ -346,7 +304,7 @@ document.addEventListener("click", (e) => {
   const pdf = e.target.closest("[data-pdf]");
   if (pdf) {
     if (pdf.dataset.pdf === "all") {
-      $("#print-area").innerHTML = orderedProjects().map(pageHtml).join("");
+      $("#print-area").innerHTML = orderedProjects().map(reportHtml).join("");
       document.body.classList.add("print-all");
     }
     window.print();
