@@ -368,10 +368,10 @@ table.offers td .sub { margin-top: 4px; }
 .deck-view { overflow: hidden; box-shadow: 0 6px 24px rgba(0, 0, 0, .10); border: 1px solid var(--grid); }
 .deck-track { display: flex; transform: translateX(calc(var(--i, 0) * -100%)); transition: transform .45s cubic-bezier(.4, 0, .2, 1); }
 .slide { flex: 0 0 100%; aspect-ratio: 16 / 9; position: relative; overflow: hidden; background: var(--panel); }
-.slide-canvas { position: absolute; top: 0; left: 0; width: 1600px; height: 900px; transform: scale(var(--s, .5)); transform-origin: 0 0;
+.slide-canvas { position: absolute; top: 0; left: 0; width: 1600px; height: 900px; zoom: var(--s, .5);  /* zoom (e não transform): o tamanho conta no layout, também na impressão */
   display: flex; flex-direction: column; background: var(--panel); }
 .slide-body { flex: 1; min-height: 0; padding: 44px 56px 16px; overflow: hidden; }
-.slide-fit { transform-origin: 0 0; width: 100%; }
+.slide-fit { width: 100%; }
 .slide-foot { display: flex; justify-content: space-between; padding: 12px 56px 18px; font-size: 13px; color: var(--muted);
   border-top: 3px solid var(--orange); margin: 0 56px; padding-left: 0; padding-right: 0; }
 .slide-foot span:first-child { font-weight: 700; letter-spacing: .08em; }
@@ -380,6 +380,10 @@ table.offers td .sub { margin-top: 4px; }
 .slide .t-scroll, .slide .rm-scroll { overflow: visible; }
 .slide .overview { max-width: none; }
 .slide .ov-media { min-height: 640px; }
+/* nos slides o layout não depende da largura da janela (a tela tem sempre 1600 px) */
+.slide .ov-body { grid-template-columns: minmax(0, 1.45fr) minmax(320px, 1fr); }
+.slide .ov-head { flex-direction: row; align-items: flex-end; }
+.slide .ov-status { text-align: right; }
 .slide .ov-foot a { display: none; }
 .slide .rm-link { pointer-events: none; }
 .deck-arrow { position: absolute; top: 50%; transform: translateY(-50%); z-index: 2; width: 44px; height: 44px; border-radius: 50%;
@@ -405,7 +409,7 @@ table.offers td .sub { margin-top: 4px; }
 .deck:fullscreen .deck-arrow { background: rgba(255, 255, 255, .18); }
 /* PDF da apresentação: tela medida fora do ecrã antes de imprimir */
 body.print-deck .print-only { display: block; position: absolute; left: -100000px; top: 0; }
-.print-only .slide { width: 1080px; }
+.print-only .slide { width: 1122px; }  /* 297 mm a 96 dpi: a largura da página do PDF */
 
 /* Slides do Project Review (estilo do PPT): título laranja, caixas, separadores */
 .slide-foot { align-items: center; }
@@ -557,7 +561,8 @@ table.rm .rm-grp-row th { padding-bottom: 0; }
   table.pr tr.subrow td { font-size: 10px; }
   table.pr tr.rubric .chev { display: none; }
   body.print-deck .print-only { position: static; }
-  .print-only .slide { page: deck; break-after: page; page-break-after: always; }
-  .print-only .slide:last-child { break-after: auto; page-break-after: auto; }
+  body.print-deck .print-only .slide { width: 100%; height: auto; aspect-ratio: 16 / 8.98;  /* um pouco menos alto que a página 16:9: não passa para a seguinte */
+    break-after: page; page-break-after: always; break-inside: avoid; }
+  body.print-deck .print-only .slide:last-child { break-after: auto; page-break-after: auto; }
 }
-@page deck { size: A4 landscape; margin: 8mm; }
+

@@ -443,16 +443,16 @@ function slideHtml(sl, k) {
 // Escala as telas para a largura disponível e reduz o conteúdo que não cabe na tela.
 function fitSlides(root = document) {
   root.querySelectorAll(".slide").forEach((sl) => {
-    const w = sl.clientWidth;
-    if (w) sl.style.setProperty("--s", w / SLIDE_W);
+    const w = sl.clientWidth, h = sl.clientHeight;
+    if (w) sl.style.setProperty("--s", h ? Math.min(w / SLIDE_W, h / (SLIDE_W * 9 / 16)) : w / SLIDE_W);
     const body = sl.querySelector(".slide-body"), fit = sl.querySelector(".slide-fit");
     if (!body || !fit) return;
-    fit.style.transform = "";
+    fit.style.zoom = "";
     const cs = getComputedStyle(body);
     const bw = body.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
     const bh = body.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
     const k = Math.min(1, bw / fit.scrollWidth, bh / fit.scrollHeight);
-    if (k < 1) fit.style.transform = `scale(${k})`;
+    if (k < 1) fit.style.zoom = k;
   });
 }
 
@@ -1159,10 +1159,14 @@ document.addEventListener("click", (e) => {
   const pdf = e.target.closest("[data-pdf]");
   if (pdf) {
     if (selectedId === ORION) {
-      // apresentação: todos os slides, um por página (A4 horizontal)
+      // apresentação: todos os slides, um por página 16:9 (297 × 167 mm, sem margens), como um PPT
       const slides = orionSlides();
       $("#print-area").innerHTML = slides.map((sl, k) => slideHtml(sl, k)).join("");
       document.body.classList.add("print-all", "print-deck");
+      const pg = document.createElement("style");
+      pg.id = "deck-page";
+      pg.textContent = "@page { size: 297mm 167.0625mm; margin: 0; }";
+      document.head.appendChild(pg);
       fitSlides($("#print-area"));
     } else if (pdf.dataset.pdf === "all") {
       $("#print-area").innerHTML = orderedProjects().map(reportHtml).join("");
@@ -1205,9 +1209,16 @@ $("#main").addEventListener("touchend", (e) => {
 let fitTimer;
 window.addEventListener("resize", () => { clearTimeout(fitTimer); fitTimer = setTimeout(() => selectedId === ORION && fitSlides(), 100); });
 document.addEventListener("fullscreenchange", () => selectedId === ORION && setTimeout(fitSlides, 50));
+// PDF da apresentação: a largura da página em px depende do browser e da escala do ecrã,
+// por isso a escala dos slides é recalculada já com o layout de impressão.
+matchMedia("print").addEventListener("change", (e) => {
+  if (e.matches && document.body.classList.contains("print-deck")) fitSlides($("#print-area"));
+});
 
 window.addEventListener("afterprint", () => {
   document.body.classList.remove("print-all", "print-deck");
+  const pg = document.getElementById("deck-page");
+  if (pg) pg.remove();
   $("#print-area").innerHTML = "";
 });
 
