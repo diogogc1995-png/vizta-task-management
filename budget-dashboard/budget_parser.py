@@ -18,7 +18,7 @@ import zipfile
 import openpyxl
 from openpyxl.utils import get_column_letter
 
-SCAN_ROWS = 80
+SCAN_ROWS = 120
 SCAN_COLS = 15
 
 DATE_IN_HEADER = re.compile(r"\d{1,2}\s*/\s*\d{1,2}\s*/\s*\d{2,4}")
@@ -86,6 +86,18 @@ def parse_sheet(grid, sheet_name):
     if header_r is None or not total_found:
         return None
 
+    # Outros quadros na mesma folha, mais abaixo (outro Δ): p.ex. a segunda vista de custos do
+    # NOLA ou o Project Review anterior. Ficam em "views"; o quadro principal acaba antes deles.
+    views = []
+    nxt = next((r for r in range(header_r + 1, len(grid))
+                if any(isinstance(v, str) and v.strip() == "Δ" for v in grid[r])), None)
+    if nxt is not None:
+        sub = parse_sheet(grid[nxt:], sheet_name)
+        if sub:
+            views = [{k: sub[k] for k in ("columns", "sqm_columns", "rows", "kpis", "kpi_title", "footnote", "notes")}]
+            views += sub.get("views", [])
+        grid = grid[:nxt]
+
     # Coluna das labels: a primeira coluna à esquerda do Δ com texto em linhas
     # abaixo do cabeçalho (normalmente B). O nome do projeto está no cabeçalho.
     label_c = None
@@ -99,6 +111,13 @@ def parse_sheet(grid, sheet_name):
     value_cols = list(range(label_c + 1, delta_c))
 
     columns = [{"lines": _header_lines(get(header_r, c))} for c in value_cols]
+
+    # Bloco €/sqm à direita do Δ (Residential / Retail / Park / Total): áreas na linha
+    # a seguir ao cabeçalho e um valor por rubrica, na mesma linha do Project Review.
+    sqm_cols = [c for c in range(delta_c + 1, len(grid[header_r]))
+                if isinstance(get(header_r, c), str) and get(header_r, c).strip()]
+    sqm_columns = [{"label": _norm(get(header_r, c)), "area": _cell_value(get(header_r + 1, c))}
+                   for c in sqm_cols]
 
     rows = []
     kpi_r = None
@@ -116,13 +135,17 @@ def parse_sheet(grid, sheet_name):
                 pass  # nota de rodapé ("*Margin Pre-Tax"), tratada abaixo
             elif any(_is_number(v) for v in values + [delta]) or any(
                     isinstance(v, str) for v in values):
-                rows.append({
+                row = {
                     "label": lab,
                     "kind": _row_kind(lab),
                     "percent": "(%)" in lab,
                     "values": values,
                     "delta": delta,
-                })
+                }
+                sqm = [_cell_value(get(r, c)) for c in sqm_cols]
+                if any(v is not None for v in sqm):
+                    row["sqm"] = sqm
+                rows.append(row)
         r += 1
 
     kpis = []
@@ -180,6 +203,7 @@ def parse_sheet(grid, sheet_name):
         "name": str(name),
         "sheet": sheet_name,
         "columns": columns,
+        "sqm_columns": sqm_columns,
         "rows": rows,
         "kpis": kpis,
         "kpi_title": _norm(get(kpi_r, label_c)) if kpi_r is not None else None,
@@ -187,6 +211,7 @@ def parse_sheet(grid, sheet_name):
         "notes": notes,
         "last_review": last_review,
         "next_review": next_review,
+        "views": views,
     }
 
 

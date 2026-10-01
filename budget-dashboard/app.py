@@ -301,7 +301,20 @@ class Store:
                                 "sheet": (self.cfg.get("roadmap") or {}).get("sheet")},
                     "financing_unmatched": sorted(c["project"] for k, c in self.financing.items()
                                                   if k not in matched),
+                    "orion": build_orion(self.cfg.get("orion") or {}, ids, self.info),
                     **build_menu(self.cfg.get("menu", []), ids)}
+
+
+def build_orion(conf, ids, info):
+    """Apresentação "Project Review - Orion": projetos e slides de cada um, pela ordem do config.json.
+    Projetos sem quadro de Project Review (p.ex. Turquesa) levam os dados do project_info.json."""
+    out = []
+    for entry in conf.get("projects", []):
+        k = financing.key(entry["project"])
+        out.append({"project": entry["project"], "id": ids.get(k), "slides": entry.get("slides", []),
+                    "subtitles": entry.get("subtitles", {}),
+                    "info": None if k in ids else info.get(k)})
+    return {"projects": out}
 
 
 def _menu_items(menu):

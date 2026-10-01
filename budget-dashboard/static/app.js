@@ -12,6 +12,7 @@ const PAGES = [["kpis", "Project KPIs"], ["financing", "Financing"], ["sales", "
 const pagesOf = (p) => PAGES.filter(([k]) => k === "kpis" || (k === "financing" && p.financing) || (k === "sales" && p.sales_name));
 const PORTFOLIO = "portfolio";
 const PORTFOLIO_PAGES = [["summary", "Summary of all projects"], ["roadmap", "Roadmap"], ["financing", "Projects financing overview"]];
+const ORION = "orion";            // apresentação "Project Review - Orion" (slides em carrossel)
 const validPage = (p, pg) => pg === "overview" || pagesOf(p).some(([k]) => k === pg);
 
 // Preferências do utilizador (só neste browser): grupos do menu abertos.
@@ -76,6 +77,8 @@ async function load() {
   const ids = orderedProjects().map((p) => p.id);
   if (selectedId === PORTFOLIO) {
     if (!PORTFOLIO_PAGES.some(([k]) => k === page)) page = PORTFOLIO_PAGES[0][0];
+  } else if (selectedId === ORION) {
+    if (!orionSlides().some((sl) => sl.key === page)) page = "cover";
   } else if (!ids.includes(selectedId)) selectedId = ids[0] || null;
   render();
 }
@@ -149,7 +152,13 @@ function renderSidebar() {
   const portfolio = `<div class="side-title">Vizta Portfolio</div>
     <div class="pitem open">${PORTFOLIO_PAGES.map(([k, label]) =>
       `<button type="button" class="ppage pf ${inPf && k === page ? "active" : ""}" data-id="${PORTFOLIO}" data-page="${k}">${label}</button>`).join("")}</div>`;
-  $("#sidebar").innerHTML = portfolio + `<div class="side-title side-sep">Projects</div>` + (html || `<div class="proj">No projects</div>`);
+  // "Project Review - Orion": lista de slides (só aberta quando a apresentação está selecionada)
+  const inOr = selectedId === ORION;
+  const slides = inOr ? orionSlides() : [{ key: "cover", title: "Presentation" }];
+  const orion = `<div class="side-title side-sep">Project Review - Orion</div>
+    <div class="pitem open">${slides.map((sl, i) =>
+      `<button type="button" class="ppage pf ${inOr && sl.key === page ? "active" : ""}" data-id="${ORION}" data-page="${sl.key}">${inOr ? `<span class="sl-n">${i + 1}</span>` : ""}${esc(sl.title)}</button>`).join("")}</div>`;
+  $("#sidebar").innerHTML = portfolio + orion + `<div class="side-title side-sep">Projects</div>` + (html || `<div class="proj">No projects</div>`);
 }
 
 function banners() {
@@ -166,6 +175,11 @@ function banners() {
 }
 
 function renderMain() {
+  if (selectedId === ORION) {
+    $("#main").innerHTML = banners() + orionHtml();
+    fitSlides();
+    return;
+  }
   if (selectedId === PORTFOLIO) {
     $("#main").innerHTML = banners() + portfolioHtml(page);
     return;
@@ -192,6 +206,277 @@ function select(id, pg) {
   render();
 }
 
+// ---------- Project Review - Orion (apresentação) ----------
+// Todos os slides têm o mesmo tamanho: uma tela de 1600×900 (16:9) escalada para caber no ecrã.
+// O conteúdo que não cabe na tela é reduzido (fitSlides), nunca cortado.
+const SLIDE_W = 1600;
+
+// Ordem dos slides: a do PPT do Project Review. Os projetos e os slides de cada um vêm do
+// config.json ("orion"); o que o dashboard não tem fica como placeholder ("To be provided").
+const SLIDE_KINDS = {
+  overview: "Overview", commercial: "Commercial status", timeline: "Timeline & key points",
+  variations: "Project Review", cost_per_item: "Effective cost per item", contract: "Construction contract", fees: "VIZTA fees",
+};
+
+function reviewQuarter(d = new Date()) {
+  // trimestre fechado mais recente: em outubro de 2026 -> Q3.2026
+  const q = Math.floor(d.getMonth() / 3);
+  return q === 0 ? `Q4.${d.getFullYear() - 1}` : `Q${q}.${d.getFullYear()}`;
+}
+
+function orionSlides() {
+  if (!data) return [];
+  const pf = (k) => PORTFOLIO_PAGES.find(([x]) => x === k)[1];
+  const byId = Object.fromEntries(allProjects().map((p) => [p.id, p]));
+  const S = (key, title, html, bleed) => ({ key, title, html, bleed });  // bleed: fundo a toda a tela
+  const ph = (title, sub, boxes) => () => placeholderHtml(title, sub, boxes);
+  const out = [
+    S("cover", "Cover", orionCoverHtml),
+    S("agenda", "Agenda", orionAgendaHtml, true),
+    S("s-roadmap", "01 · Road Map", () => dividerHtml("01", "Road Map"), true),
+    S("roadmap", pf("roadmap"), () => roadmapHtml(pf("roadmap"))),
+    S("summary", pf("summary"), () => summaryHtml(pf("summary"))),
+    S("summary-phases", `${pf("summary")} · phases & regions`, () => summaryChartsHtml(pf("summary"))),
+    S("financing", "Projects financing overview", ph("Projects financing overview", "Local banking financing conditions & outstanding amounts",
+      ["Financing conditions & outstanding amounts per quarter"])),
+    S("launch-1", "Sales Launch (1/2)", ph("Sales Launch", "", ["Sales launch calendar"])),
+    S("launch-2", "Sales Launch (2/2)", ph("Sales Launch", "", ["Sales launch calendar"])),
+    S("s-market", "02 · Market Information", () => dividerHtml("02", "Market Information"), true),
+    S("market-1", "Market Information (1/2)", ph("Market Information", "",
+      ["Portugal housing sales – volume (€m)", "Portugal housing sales – nb of transactions ('000)", "Commentary & sources"])),
+    S("market-2", "Market Information (2/2)", ph("Market Information", "Lisbon and Porto: price trends and supply constraints",
+      ["Lisbon prices – sales new apt. (€/sqm)", "Porto prices – sales new apt. (€/sqm)", "Commentary & sources"])),
+  ];
+  for (const e of (data.orion || {}).projects || []) {
+    const p = e.id ? byId[e.id] : null;
+    const name = p ? p.label || p.name : (e.info && e.info.summary_name) || e.project;
+    const base = e.id || "x-" + e.project.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    for (const k of e.slides) {
+      out.push(S(`${base}-${k}`, `${name} · ${SLIDE_KINDS[k] || k}`, () => projectSlideHtml(k, p, e, name)));
+    }
+  }
+  out.push(S("end", "Thank you", orionEndHtml, true));
+  return out;
+}
+
+const slideLogo = () => ($(".topbar .logo") || {}).outerHTML || "";
+
+function orionCoverHtml() {
+  const d = new Date();
+  return `<div class="sl-cover"><div class="sl-cover-logo">${slideLogo()}</div>
+    <h1>Project Review <span>${reviewQuarter(d)}</span></h1>
+    <div class="sl-cover-date">${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}</div></div>`;
+}
+
+function orionAgendaHtml() {
+  const slides = orionSlides();
+  const at = (pred) => Math.max(0, slides.findIndex(pred));
+  const firstProject = at((sl, i) => i > slides.findIndex((x) => x.key === "s-market") && /-overview$/.test(sl.key));
+  const items = [["01", "Road Map", at((sl) => sl.key === "s-roadmap")],
+    ["02", "Market information", at((sl) => sl.key === "s-market")], ["03", "Projects", firstProject]];
+  return `<div class="sl sl-agenda"><div class="sl-head"><h1>Agenda</h1></div>
+    <div class="sl-agenda-items">${items.map(([n, t, i]) =>
+      `<button type="button" class="sl-agenda-item" data-slide="${i}"><span class="sl-big">${n} <i>↗</i></span><span>${t}</span></button>`).join("")}</div></div>`;
+}
+
+function dividerHtml(n, title) {
+  return `<div class="sl sl-divider"><div class="sl-big">${n}</div><h1>${esc(title)}</h1></div>`;
+}
+
+function orionEndHtml() {
+  return `<div class="sl sl-end"><h1>Thank you.</h1><div class="sl-cover-logo">${slideLogo()}</div></div>`;
+}
+
+function placeholderHtml(title, sub, boxes) {
+  return `<div class="sl"><div class="sl-head"><h1>${esc(title)}</h1>${sub ? `<div class="sl-sub">${esc(sub)}</div>` : ""}</div>
+    <div class="sl-ph-grid n${boxes.length}">${boxes.map((b) => phBox(b)).join("")}</div></div>`;
+}
+
+const phBox = (label, cls = "") => `<div class="sl-ph ${cls}"><span>${esc(label)}</span><small>To be provided</small></div>`;
+
+function projectSlideHtml(k, p, e, name) {
+  const sub = (kind) => (e.subtitles || {})[kind] || "";  // subtítulos do config.json (p.ex. vistas do NOLA)
+  const ph = (boxes) => placeholderHtml(name, sub(k), boxes);
+  if (k === "overview") {
+    return overviewHtml(p || { name, label: name, info: e.info || {}, rows: [], kpis: [], columns: [], sheet: "" });
+  }
+  if (k === "commercial") return ph(["Typology report – units & amounts", "Commercial Project Status", "Buyer Profile", "PSPA / Reservation evolution"]);
+  if (k === "timeline") return ph(["Project timeline", "Key points for discussion – Planning"]);
+  if (k === "variations") {
+    return p ? prSlideHtml(p, name, p, sub(k)) : ph(["Project Review table", "Key Variations", "Financing", "Opportunities / Risks", "Sources & Uses"]);
+  }
+  if (k === "cost_per_item") {
+    // segundo quadro da folha do Project Review (p.ex. NOLA: "effective cost per item view")
+    const v = p && (p.views || [])[0];
+    return v ? prSlideHtml(p, name, v, sub(k)) : ph(["Effective cost per item view", "Key Variations", "Financing", "Opportunities / Risks"]);
+  }
+  if (k === "contract") return ph(["Construction contract – milestones & delivery dates"]);
+  if (k === "fees") return ph(["VIZTA fees – milestones, amounts & status"]);
+  return ph([k]);
+}
+
+// Quadro do Project Review (colunas do Excel) + €/sqm da mesma folha + caixas de comentário
+function prSlideHtml(p, name, t = p, sub = "") {
+  // t: quadro a mostrar (o principal ou outro da mesma folha, em p.views)
+  const n = t.columns.length;
+  // colunas de €/sqm sem nenhum valor diferente de zero (p.ex. "Park (Mandatory)") ficam de fora
+  const sq = (t.sqm_columns || []).map((c, i) => ({ ...c, i }))
+    .filter((c) => t.rows.some((r) => r.sqm && typeof r.sqm[c.i] === "number" && Math.round(r.sqm[c.i] * 100) !== 0));
+  const sqv = (r, c) => {
+    const v = r.sqm ? r.sqm[c.i] : null;
+    if (typeof v !== "number") return typeof v === "string" && !v.startsWith("#") ? esc(v) : "";
+    return r.percent ? fmtPct(v) : `${fmtNum(v)} €/sqm`;
+  };
+  const head = `<tr><th class="lbl">${esc(p.name)}</th>${t.columns.map((c, i) =>
+    `<th class="${i === n - 1 ? "latest" : ""}">${c.lines.map(esc).join("<br>")}</th>`).join("")}<th class="delta">Δ</th>
+    ${sq.length ? `<th class="gap"></th>${sq.map((c) => `<th class="sq">${esc(c.label)}<small>${typeof c.area === "number" ? `${fmtNum(c.area)} sqm` : ""}</small></th>`).join("")}` : ""}</tr>`;
+  let prev = null;
+  const body = t.rows.map((r) => {
+    const cls = [r.kind === "line" ? "" : r.kind, r.kind !== "line" && prev === "line" ? "first-total" : ""].join(" ").trim();
+    prev = r.kind;
+    return `<tr class="${cls}"><td class="lbl">${esc(r.label)}</td>${r.values.map((v, i) =>
+      `<td class="${i === n - 1 ? "latest" : ""}">${fmt(v, r.percent)}</td>`).join("")}<td class="delta">${fmt(r.delta, r.percent)}</td>
+      ${sq.length ? `<td class="gap"></td>${sq.map((c) => `<td class="sq">${sqv(r, c)}</td>`).join("")}` : ""}</tr>`;
+  }).join("");
+  const kpis = t.kpis.length ? `<table class="sl-kpi"><thead><tr><th colspan="${n + 1}">${esc(t.kpi_title || "KPIs")}</th></tr></thead>
+    <tbody>${t.kpis.map((k) => `<tr><td class="lbl">${esc(k.label)}</td>${k.values.map((l) =>
+      `<td>${l.length ? l.map(esc).join("<br>") : "—"}</td>`).join("")}</tr>`).join("")}</tbody></table>` : "";
+  return `<div class="sl sl-pr"><div class="sl-head"><h1>${esc(name)}${sub ? ` <small>${esc(sub)}</small>` : ""}</h1></div>
+    <div class="sl-pr-body">
+      <div class="sl-pr-main"><table class="sl-prt"><thead>${head}</thead><tbody>${body}</tbody></table>${kpis}
+        <div class="sl-src">Source: ${esc(p.file || "")} › ${esc(p.sheet)}${t.footnote ? ` · ${esc(t.footnote)}` : ""}</div></div>
+      <div class="sl-pr-side">${phBox("Key Variations")}${slideFinancingHtml(p.financing)}${phBox("Opportunities / Risks")}${phBox("Sources & Uses", "small")}</div>
+    </div></div>`;
+}
+
+// Financiamento do financing.json, em resumo (estado, banco, montante, taxa, prazo)
+function slideFinancingHtml(f) {
+  if (!f) return phBox("Financing");
+  const rate = [f.index, f.spread !== undefined ? fmtRate(f.spread) : ""].filter(Boolean).map(esc).join(" + ");
+  const items = [
+    ["Status", esc(f.status || (f.signed ? `Signed ${fmtDate(f.signed)}` : "")) + (f.stage ? ` · ${esc(f.stage)}` : "")],
+    ["Bank", esc(f.bank)],
+    ["Amount", f.amount !== undefined ? fmtEur(f.amount) : ""],
+    ["Interest rate", rate],
+    ["Maturity", f.maturity ? fmtDate(f.maturity) : ""],
+  ].filter(([, v]) => v);
+  return `<div class="sl-box"><h3>Financing</h3><dl>${items.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl></div>`;
+}
+
+// Slide 6: peso de cada fase nos KPIs do Summary e distribuição Lisbon / Porto
+function summaryChartsHtml(title) {
+  const rows = summaryRows();
+  const metrics = [["apartments", "Apartments (#)"], ["gca", "GCA", "ab. ground sqm"], ["cost", "Project Total Cost", "M€"],
+    ["revenue", "Revenue", "M€"], ["margin", "Margin", "Orion (M€)*"]];
+  const val = (r, k) => (typeof r[k] === "number" ? r[k] : 0);
+  const pct = (x, t) => (t ? Math.round((x / t) * 100) : 0);
+  const bars = metrics.map(([k, label, unit]) => {
+    const tot = rows.reduce((a, r) => a + val(r, k), 0);
+    const segs = PHASES.map(([ph, cls]) => [cls, rows.filter((r) => r.phase === ph).reduce((a, r) => a + val(r, k), 0)])
+      .filter(([, v]) => v > 0);
+    return `<div class="sc-col"><div class="sc-h">${label}${unit ? `<small>${unit}</small>` : ""}</div>
+      <div class="sc-bar">${segs.map(([cls, v]) => `<div class="sm-${cls}" style="flex:${v}"><span>${pct(v, tot)}%</span></div>`).join("")}</div></div>`;
+  }).join("");
+  const region = (r) => (/lisbo/i.test(r.region || "") ? "Lisbon" : /porto/i.test(r.region || "") ? "Porto" : null);
+  const pie = (phases, k, label) => {
+    const rs = rows.filter((r) => phases.includes(r.phase));
+    const lis = rs.filter((r) => region(r) === "Lisbon").reduce((a, r) => a + val(r, k), 0);
+    const por = rs.filter((r) => region(r) === "Porto").reduce((a, r) => a + val(r, k), 0);
+    const t = lis + por;
+    const a = t ? (lis / t) * 360 : 0;
+    return `<div class="sc-pie"><div class="sc-pie-h">${label}</div>
+      <div class="sc-disc" style="background:conic-gradient(var(--lis) 0 ${a}deg, var(--por) ${a}deg 360deg)">
+        <span class="l" style="--a:${a / 2}deg">${pct(lis, t)}%</span><span class="p" style="--a:${a + (360 - a) / 2}deg">${pct(por, t)}%</span></div></div>`;
+  };
+  const pies = (phases, note) => `<div class="sc-pies">${pie(phases, "margin", "Margin (€)")}${pie(phases, "apartments", "# Units")}</div>
+    <div class="sc-note">Phases considered: ${note}</div>`;
+  const legend = `<div class="sc-leg"><span><i style="background:var(--lis)"></i>Lisbon</span><span><i style="background:var(--por)"></i>Porto</span></div>`;
+  const names = PHASES.map(([ph, cls], i) => {
+    const rs = rows.filter((r) => r.phase === ph);
+    return rs.length ? `<div class="sc-ph sm-${cls}"><b>${i + 1}</b><span>${ph}</span><ul>${rs.map((r) => `<li>${esc(r.name)}</li>`).join("")}</ul></div>` : "";
+  }).join("");
+  return `<div class="sl sl-sc"><div class="sl-head"><h1>${esc(title)}</h1></div>
+    <div class="sc-body">
+      <div class="sc-phases">${names}</div>
+      <div class="sc-bars-wrap"><div class="sc-bars">${bars}</div><div class="sc-cap">Weight of the projects from each phase on the above KPIs</div></div>
+      <div class="sc-regions"><h3>Distribution by region</h3>${legend}${pies(["Delivered", "Construction", "Pre-sales"], "1 Delivered; 2 Construction; 3 Pre-sales")}
+        ${pies(["Pipeline"], "4 Pipeline")}</div>
+    </div>
+    <div class="sl-src">Same data as the Summary of all projects (projects without a value are not counted) · Region from the project location · *Orion view, levered post-tax</div></div>`;
+}
+
+function orionHtml() {
+  const slides = orionSlides();
+  const i = Math.max(0, slides.findIndex((sl) => sl.key === page));
+  const n = slides.length;
+  return `<section class="deck" id="deck" style="--i:${i}">
+    <div class="deck-bar no-print">
+      <div><div class="kicker">Project Review - Orion</div><h1>${esc(slides[i].title)}</h1></div>
+      <div class="deck-ctl">
+        <button type="button" data-slide="prev" ${i === 0 ? "disabled" : ""} aria-label="Previous slide">‹</button>
+        <span class="deck-count">${i + 1} / ${n}</span>
+        <button type="button" data-slide="next" ${i === n - 1 ? "disabled" : ""} aria-label="Next slide">›</button>
+        <button type="button" class="deck-full" data-slide="full" title="Full screen (F)">Present</button>
+      </div>
+    </div>
+    <div class="deck-stage">
+      <button type="button" class="deck-arrow l no-print" data-slide="prev" ${i === 0 ? "disabled" : ""} aria-label="Previous slide">‹</button>
+      <div class="deck-view"><div class="deck-track">${slides.map((sl, k) => slideHtml(sl, k)).join("")}</div></div>
+      <button type="button" class="deck-arrow r no-print" data-slide="next" ${i === n - 1 ? "disabled" : ""} aria-label="Next slide">›</button>
+    </div>
+    <div class="deck-dots no-print">${slides.map((sl, k) =>
+      `<button type="button" class="${k === i ? "on" : ""}" data-slide="${k}" title="${esc(sl.title)}" aria-label="${esc(sl.title)}"></button>`).join("")}</div>
+  </section>`;
+}
+
+function slideHtml(sl, k) {
+  return `<div class="slide" data-k="${k}"><div class="slide-canvas ${sl.bleed ? "bleed" : ""}">
+    <div class="slide-body"><div class="slide-fit">${sl.html()}</div></div>
+    <div class="slide-foot"><span>${k + 1}</span>${slideLogo()}</div>
+  </div></div>`;
+}
+
+// Escala as telas para a largura disponível e reduz o conteúdo que não cabe na tela.
+function fitSlides(root = document) {
+  root.querySelectorAll(".slide").forEach((sl) => {
+    const w = sl.clientWidth;
+    if (w) sl.style.setProperty("--s", w / SLIDE_W);
+    const body = sl.querySelector(".slide-body"), fit = sl.querySelector(".slide-fit");
+    if (!body || !fit) return;
+    fit.style.transform = "";
+    const cs = getComputedStyle(body);
+    const bw = body.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    const bh = body.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+    const k = Math.min(1, bw / fit.scrollWidth, bh / fit.scrollHeight);
+    if (k < 1) fit.style.transform = `scale(${k})`;
+  });
+}
+
+function toggleFull() {
+  const deck = $("#deck");
+  if (document.fullscreenElement) document.exitFullscreen();
+  else if (deck) deck.requestFullscreen();
+}
+
+function goSlide(to) {
+  const slides = orionSlides();
+  const i = slides.findIndex((sl) => sl.key === page);
+  const j = to === "prev" ? i - 1 : to === "next" ? i + 1 : to === "first" ? 0 : to === "last" ? slides.length - 1 : +to;
+  if (j < 0 || j >= slides.length || j === i) return;
+  page = slides[j].key;
+  history.replaceState(null, "", "#" + ORION + "/" + page);
+  // carrossel: só desliza (sem voltar a desenhar os slides) e atualiza os controlos
+  const deck = $("#deck");
+  if (!deck) return render();
+  deck.style.setProperty("--i", j);
+  deck.querySelector(".deck-bar h1").textContent = slides[j].title;
+  deck.querySelector(".deck-count").textContent = `${j + 1} / ${slides.length}`;
+  deck.querySelectorAll("[data-slide=prev]").forEach((b) => (b.disabled = j === 0));
+  deck.querySelectorAll("[data-slide=next]").forEach((b) => (b.disabled = j === slides.length - 1));
+  deck.querySelectorAll(".deck-dots button").forEach((b, k) => b.classList.toggle("on", k === j));
+  renderSidebar();
+}
+
 // ---------- Vizta Portfolio (conteúdo a definir) ----------
 function portfolioHtml(pg) {
   const [, title] = PORTFOLIO_PAGES.find(([k]) => k === pg) || PORTFOLIO_PAGES[0];
@@ -214,7 +499,7 @@ function phaseOf(status) {
   return "Other";
 }
 
-function summaryHtml(title) {
+function summaryRows() {
   const m = (k) => (typeof k === "number" ? k / 1000 : null);  // k€ -> M€
   const pm = (txt) => {  // "8.2M€" / "8,2 M€" -> 8.2
     const x = String(txt || "").match(/(-?[\d.,]+)/);
@@ -234,14 +519,15 @@ function summaryHtml(title) {
       cost: m(lastValue(p, /^TOTAL COST/i)), revenue: m(lastValue(p, /^TOTAL REVENUE/i)),
       margin: !only || only.includes("margin") ? pm(lpt.profit) : null,
       irr: !only || only.includes("irr") ? irr : null,
-      delivered: info.delivered || null,
+      delivered: info.delivered || null, region: (info.location || "").split("|")[1],
     });
   }
   for (const info of data.info_extra || []) {  // projetos só com dados manuais (Turquesa)
     if (!info.summary_name) continue;
     rows.push({ id: null, name: info.summary_name, order: info.summary_order ?? 999, phase: phaseOf(info.status),
       apartments: info.apartments, gca: info.gca_above, gpa: info.gpa, gpa_retail: info.retail_gpa,
-      cost: null, revenue: null, margin: null, irr: null, delivered: info.delivered || null });
+      cost: null, revenue: null, margin: null, irr: null, delivered: info.delivered || null,
+      region: (info.location || "").split("|")[1] });
   }
   // data de entrega (roadmap: End of deliveries) para os projetos entregues
   const rm = (data.roadmap || {}).rows || [];
@@ -250,11 +536,16 @@ function summaryHtml(title) {
     const hit = rm.find((x) => (r.id && x.project_id === r.id));
     if (hit && hit.end_deliveries && new Date(hit.end_deliveries) <= new Date()) r.delivered = hit.end_deliveries.slice(0, 7);
   }
+  rows.sort((a, b) => a.order - b.order);
+  return rows;
+}
+
+function summaryHtml(title) {
+  const rows = summaryRows();
   const mon = (ym) => {
     const [y, mo] = ym.split("-");
     return `${["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"][+mo - 1]}/${y.slice(2)}`;
   };
-  rows.sort((a, b) => a.order - b.order);
   const sum = (k) => rows.reduce((a, r) => a + (typeof r[k] === "number" ? r[k] : 0), 0);
   const n0 = (v) => (typeof v === "number" ? fmtNum(v) : "–");
   const n1 = (v) => (typeof v === "number" ? v.toFixed(1).replace(".", ",") : "–");
@@ -407,10 +698,12 @@ function overviewHtml(p) {
   // números com separador de milhares; texto (p.ex. "TBD", "3/4") tal como está no project_info.json
   const num = (v, unit) => (typeof v === "number" ? `${fmtNum(v)}${unit ? ` ${unit}` : ""}`
     : typeof v === "string" && v.trim() ? esc(v) : "—");
-  const cost = lastValue(p, /^TOTAL COST/i);
-  const rev = lastValue(p, /^TOTAL REVENUE/i);
-  const lpt = leveredPostTax(p);
-  const avg = typeof rev === "number" && typeof info.gpa === "number" && info.gpa > 0 ? (rev * 1000) / info.gpa : null;
+  const km = info.kpis_manual;  // projetos sem budget no dashboard (p.ex. Turquesa): valores do último Project Review
+  const cost = km ? km.cost : lastValue(p, /^TOTAL COST/i);
+  const rev = km ? km.revenue : lastValue(p, /^TOTAL REVENUE/i);
+  const lpt = km ? { irr: km.irr, profit: km.margin } : leveredPostTax(p);
+  const avg = km ? km.avg_price
+    : typeof rev === "number" && typeof info.gpa === "number" && info.gpa > 0 ? (rev * 1000) / info.gpa : null;
   const lastCol = p.columns.length ? p.columns[p.columns.length - 1].lines.join(" ") : "";
   const fact = (ico, label, value, extra = "") => `<div class="ov-fact">${icon(ico)}<span class="ov-l">${label}</span>${extra}<span class="ov-v">${value}</span></div>`;
   const gpaTxt = (v, note) => (v === null || v === undefined ? "" : `GPA ${num(v, "sqm")}${note ? `*` : ""}`);
@@ -461,7 +754,7 @@ function overviewHtml(p) {
       </div>
       <div class="ov-facts">${facts}</div>
     </div>
-    <div class="ov-foot"><span>Costs, revenue, IRR and margin: ${esc(p.sheet)}${lastCol ? ` · ${esc(lastCol)}` : ""} · ${notes}</span>
+    <div class="ov-foot"><span>Costs, revenue, IRR and margin: ${km ? esc(km.source || "") : `${esc(p.sheet)}${lastCol ? ` · ${esc(lastCol)}` : ""}`} · ${notes}</span>
       ${info.website ? `<a href="${esc(info.website)}" target="_blank" rel="noopener noreferrer">vizta.pt ↗</a>` : ""}</div>
   </section>`;
 }
@@ -775,6 +1068,11 @@ $("#sidebar").addEventListener("click", (e) => {
 });
 
 $("#main").addEventListener("click", (e) => {
+  const sb = e.target.closest("[data-slide]");
+  if (sb) {
+    if (sb.dataset.slide === "full") toggleFull(); else goSlide(sb.dataset.slide);
+    return;
+  }
   if (e.target.closest("[data-ver-reset]")) {
     const p = allProjects().find((x) => x.id === selectedId);
     if (p) {
@@ -823,7 +1121,13 @@ document.addEventListener("click", (e) => {
 
   const pdf = e.target.closest("[data-pdf]");
   if (pdf) {
-    if (pdf.dataset.pdf === "all") {
+    if (selectedId === ORION) {
+      // apresentação: todos os slides, um por página (A4 horizontal)
+      const slides = orionSlides();
+      $("#print-area").innerHTML = slides.map((sl, k) => slideHtml(sl, k)).join("");
+      document.body.classList.add("print-all", "print-deck");
+      fitSlides($("#print-area"));
+    } else if (pdf.dataset.pdf === "all") {
       $("#print-area").innerHTML = orderedProjects().map(reportHtml).join("");
       document.body.classList.add("print-all");
     }
@@ -844,8 +1148,29 @@ document.addEventListener("click", (e) => {
   }
 });
 
+// Apresentação: setas / PageUp-PageDown / espaço, Home-End, F = ecrã inteiro; deslizar no ecrã tátil
+document.addEventListener("keydown", (e) => {
+  if (selectedId !== ORION || e.target.closest("input, select, textarea")) return;
+  const map = { ArrowRight: "next", ArrowDown: "next", PageDown: "next", " ": "next", ArrowLeft: "prev", ArrowUp: "prev", PageUp: "prev", Home: "first", End: "last" };
+  if (map[e.key]) {
+    e.preventDefault();
+    goSlide(map[e.key]);
+  } else if (e.key === "f" || e.key === "F") toggleFull();
+});
+let touchX = null;
+$("#main").addEventListener("touchstart", (e) => { touchX = e.target.closest(".deck-view") ? e.touches[0].clientX : null; }, { passive: true });
+$("#main").addEventListener("touchend", (e) => {
+  if (touchX === null) return;
+  const dx = e.changedTouches[0].clientX - touchX;
+  touchX = null;
+  if (Math.abs(dx) > 50) goSlide(dx < 0 ? "next" : "prev");
+});
+let fitTimer;
+window.addEventListener("resize", () => { clearTimeout(fitTimer); fitTimer = setTimeout(() => selectedId === ORION && fitSlides(), 100); });
+document.addEventListener("fullscreenchange", () => selectedId === ORION && setTimeout(fitSlides, 50));
+
 window.addEventListener("afterprint", () => {
-  document.body.classList.remove("print-all");
+  document.body.classList.remove("print-all", "print-deck");
   $("#print-area").innerHTML = "";
 });
 

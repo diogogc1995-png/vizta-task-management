@@ -23,6 +23,8 @@ def make_review_sheet(ws, name):
     ws["D6"] = "Project Review        16 / 07 / 2026        Orion"
     ws["E6"] = "Project Review        21 / 10 / 2026        Orion"
     ws["F6"], ws["H6"] = "Δ", "Residential "
+    ws["I6"], ws["H7"], ws["I7"] = "Total", 7779.2, 8957.15
+    ws["H9"], ws["I9"] = 204.41, 204.41
     r = 9
     for i, label in enumerate(LINES):
         ws.cell(r, 2, label)
@@ -74,7 +76,13 @@ class ParserTest(unittest.TestCase):
         wb = Workbook()
         wb.active.title = "Cover"
         wb.active["A1"] = "TOTAL COST"  # sem Δ: não é uma folha de review
-        make_review_sheet(wb.create_sheet("PR NOLA"), "NOLA")
+        ws = wb.create_sheet("PR NOLA")
+        make_review_sheet(ws, "NOLA")
+        # segundo quadro na mesma folha (outra vista de custos)
+        ws["B45"], ws["C45"], ws["D45"], ws["F45"] = "NOLA", "Acquisition Orion", "Project Review 21 / 10 / 2026", "Δ"
+        ws["B48"], ws["C48"], ws["D48"], ws["F48"] = "1- Land costs", 19934.7, 686.5, 0
+        ws["B59"], ws["D59"], ws["F59"] = "TOTAL COST (PROJECT)", 79220.7, 295.4
+        ws["D74"], ws["E74"] = "Margin w/out internal fees", 0.2627
         make_review_sheet(wb.create_sheet("PR OTHER"), "OTHER")
         cmp_ws = wb.create_sheet("Comparison")  # tem Δ, mas "Total costs" não é TOTAL COST
         cmp_ws["B22"], cmp_ws["D22"], cmp_ws["F22"] = "Key milestones", "Current", "Δ"
@@ -114,6 +122,23 @@ class ParserTest(unittest.TestCase):
         self.assertTrue(rows["MARGIN (%)*"]["percent"])
         self.assertAlmostEqual(rows["MARGIN (%)*"]["delta"], 0.0019)
         self.assertNotIn("*Margin Pre-Tax", rows)
+
+    def test_second_table(self):
+        p = self.projects[0]
+        self.assertEqual(len(p["views"]), 1)
+        v = p["views"][0]
+        self.assertEqual([r["label"] for r in v["rows"]], ["1- Land costs", "TOTAL COST (PROJECT)"])
+        self.assertEqual(v["rows"][0]["values"], [19934.7, 686.5, None])
+        # as notas do segundo quadro não passam para o principal
+        self.assertEqual(len([n for n in p["notes"] if n["label"].startswith("Margin w/out")]), 1)
+        self.assertEqual(self.projects[1]["views"], [])
+
+    def test_sqm_block(self):
+        p = self.projects[0]
+        self.assertEqual(p["sqm_columns"], [{"label": "Residential", "area": 7779.2}, {"label": "Total", "area": 8957.15}])
+        rows = {r["label"]: r for r in p["rows"]}
+        self.assertEqual(rows["1- Land costs"]["sqm"], [204.41, 204.41])
+        self.assertNotIn("sqm", rows["2- Charges"])
 
     def test_notes_and_kpis(self):
         p = self.projects[0]

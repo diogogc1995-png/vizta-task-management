@@ -33,5 +33,9 @@
       {"project": "NOME NO QUADRO FASE II", "label": "Fase 2 - Lote Y", "budget_sheet": "BUDGET FASE 2"}
     ]},
     {"project": "NOME NO QUADRO", "label": "Nome a mostrar", "budget_sheet": "BUDGET", "sales_project": "Nome no Power BI"}
-  ]
+  ],
+  "orion": {"projects": [
+    {"project": "NOME NO QUADRO", "slides": ["overview", "commercial", "timeline", "variations"]},
+    {"project": "PROJETO SÓ NO project_info.json", "slides": ["overview", "variations"]}
+  ]}
 }

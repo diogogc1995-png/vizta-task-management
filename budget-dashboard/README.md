@@ -166,6 +166,26 @@ A 1.ª coluna (Investment Committee / Acquisition) fica fixa. O **Δ é sempre R
 - Os KPIs da Orion também mudam com a versão escolhida, quando a folha tem o bloco de KPIs para essa versão. Caso contrário mostram "—". As notas (Margin w/out internal fees, …) só aparecem na versão do quadro.
 - O browser lembra a escolha de cada projeto. "Reset to Project Review" volta ao padrão. O PDF e o Excel exportados saem com as versões escolhidas.
 
+## Project Review - Orion (apresentação)
+
+Entrada própria no menu lateral. Mostra os slides como uma apresentação em carrossel:
+todos com o mesmo tamanho (tela 16:9 de 1600×900, escalada para o ecrã; o conteúdo que
+não cabe é reduzido, nunca cortado).
+
+- **Ordem dos slides**: a do PPT do Project Review — capa (trimestre fechado mais recente),
+  agenda, Road Map, Summary (quadro + pesos por fase e regiões), Projects financing overview,
+  Sales Launch, Market Information e, por projeto, os slides definidos em `config.json` → `orion`:
+  `overview`, `commercial`, `timeline`, `variations` (quadro do Project Review com os €/sqm da
+  mesma folha e o financiamento do `financing.json`), `cost_per_item`, `contract`, `fees`.
+- O que o dashboard não tem (comentários, key variations, buyer profile, mercado, etc.) aparece
+  como caixa **To be provided**.
+- Projetos sem budget (p.ex. Turquesa) usam o `project_info.json`, incluindo `kpis_manual`
+  (custos, receita, IRR, margem e preço médio, com a fonte).
+- Navegação: setas ‹ ›, pontos por baixo do slide, lista de slides no menu lateral, agenda
+  clicável, teclado (← → / PageUp PageDown / espaço, Home / End) e deslizar no ecrã tátil.
+- **Present** (ou tecla F): ecrã inteiro, só o slide; Esc para sair.
+- **Export PDF** com a apresentação aberta: todos os slides, um por página (A4 horizontal).
+
 ## Subrubricas e menu
 
 No quadro do Project Review, as rubricas (p.ex. "1- Land costs") abrem um dropdown com as subrubricas, lidas da folha de budget do projeto (p.ex. `BUDGET FASE 1`). "Expand all" / "Collapse all" abre ou fecha todas.
