@@ -67,7 +67,7 @@ code { font-family: Consolas, monospace; font-size: 12px; }
 /* Layout */
 .layout { display: flex; min-height: calc(100vh - var(--topbar-h)); }
 .sidebar {
-  width: 260px; flex-shrink: 0;
+  width: 300px; flex-shrink: 0;
   background: var(--panel); border-right: 1px solid var(--grid);
   padding: 20px 0; overflow-y: auto;
   position: sticky; top: var(--topbar-h); height: calc(100vh - var(--topbar-h));
@@ -86,6 +86,43 @@ code { font-family: Consolas, monospace; font-size: 12px; }
 .proj.active { border-left-color: var(--orange); background: var(--peach-pale); color: var(--orange); font-weight: 700; }
 
 .proj.sub { padding-left: 37px; font-size: 13.5px; }
+/* Projeto com dropdown das páginas (Project KPIs / Financing / Sales) */
+.proj { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.proj .chev { opacity: .35; }
+.pitem.open > .proj .chev { transform: rotate(45deg); opacity: 1; }
+.proj-pages { padding: 2px 0 6px; }
+.ppage {
+  display: block; width: 100%; text-align: left; border: 0; background: none;
+  padding: 6px 24px 6px 41px; font-size: 13px; color: var(--muted); position: relative;
+}
+.ppage.sub { padding-left: 54px; }
+.ppage::before { content: ""; position: absolute; left: 29px; top: 50%; width: 5px; height: 5px; border-radius: 50%; background: var(--grid); transform: translateY(-50%); }
+.ppage.sub::before { left: 42px; }
+.ppage:hover { color: var(--orange); }
+.ppage.active { color: var(--orange); font-weight: 700; }
+.ppage.active::before { background: var(--orange); }
+.pitem.open > .proj.active { background: none; border-left-color: var(--orange); }
+
+/* Sales: Typology Report */
+.page-sales, .page-financing { width: auto; max-width: 1100px; }
+.page-financing .financing { margin-top: 8px; border-top: 0; padding-top: 0; width: auto; min-width: 0; }
+h2.sec { font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 8px 0 10px; }
+.t-scroll { overflow-x: auto; margin-bottom: 22px; }
+table.typo { border-collapse: separate; border-spacing: 3px; font-size: 13px; font-variant-numeric: tabular-nums; background: #fde3cc; padding: 6px; min-width: 100%; }
+table.typo th { font-size: 12px; font-weight: 600; padding: 6px 8px; text-align: center; color: var(--ink); white-space: nowrap; }
+table.typo th.lbl { text-align: left; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-size: 11px; }
+table.typo td { background: #fff; padding: 6px 10px; text-align: right; min-width: 46px; white-space: nowrap; }
+table.typo td.lbl { background: var(--orange); color: #fff; font-weight: 700; text-align: left; min-width: 190px; }
+table.typo td.sum { background: #fdf0e6; }
+table.typo tr.t-total td { background: #f6b48f; font-weight: 700; }
+table.typo tr.t-total td.lbl { background: #e2552f; }
+table.typo tr.t-grand td { background: var(--orange); color: #fff; font-weight: 700; }
+table.typo tr.t-grand td.lbl { background: #c94422; }
+table.typo.amounts td.lbl { background: #555; }
+table.typo.amounts tr.t-total td { background: #c9c9c9; }
+table.typo.amounts tr.t-total td.lbl { background: #777; }
+table.typo.amounts tr.t-grand td { background: #555; color: #fff; }
+table.typo.amounts tr.t-grand td.lbl { background: #333; }
 
 /* Grupos do menu (dropdown) */
 .mgroup-head {

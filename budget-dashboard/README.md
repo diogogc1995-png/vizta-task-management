@@ -58,7 +58,7 @@ A Microsoft exige que a app esteja registada no Azure AD da empresa. Envia isto 
 > - **Supported account types:** Accounts in this organizational directory only
 > - **Authentication → Add a platform → Mobile and desktop applications**, redirect URI `http://localhost`
 > - **Authentication → Allow public client flows:** Yes
-> - **API permissions:** Microsoft Graph → *Delegated* → `Files.Read.All` (e *Grant admin consent*, se a política da empresa o exigir)
+> - **API permissions:** Microsoft Graph → *Delegated* → `Files.Read.All`, e **Power BI Service** → *Delegated* → `Dataset.Read.All` (e *Grant admin consent*, se a política da empresa o exigir)
 > - Não é preciso *client secret*.
 >
 > Preciso do **Application (client) ID** e do **Directory (tenant) ID**.
@@ -85,6 +85,33 @@ A Microsoft exige que a app esteja registada no Azure AD da empresa. Envia isto 
 - **Erros:** se um link falhar (sem acesso, link expirado, login necessário), aparece um aviso no dashboard e os últimos dados lidos continuam visíveis.
 
 Se o IT não puder criar o registo, a alternativa é sincronizar a biblioteca do SharePoint com o OneDrive ("Sync" ou "Add shortcut to My files") e usar o caminho local.
+
+## Páginas de cada projeto
+
+No menu, cada projeto abre um dropdown com as suas páginas:
+
+- **Project KPIs** — o quadro de Project Review, com as subrubricas e os KPIs da Orion.
+- **Financing** — os termos do contrato de financiamento (`financing.json`). Só aparece nos projetos com contrato.
+- **Sales** — o *Typology Report* do Power BI "vizta - sales dashboards": unidades e valores por tipologia e estado (PSPA, Reserved, Off-market, Available), com €/m².
+
+### Vendas (Power BI)
+
+Os dados de vendas vêm do CRM através do Power BI. A app usa a mesma conta Microsoft e a mesma *App registration* do SharePoint (secção `sharepoint` do `config.json`), com a permissão delegada **Power BI Service → `Dataset.Read.All`** (ver o pedido ao IT acima). Sem isso, a página Sales explica o que falta.
+
+```json
+"powerbi": {
+  "app_id": "<id da App do Power BI, do link: /apps/<app_id>/reports/...>",
+  "report_id": "<id do relatório, do link: /reports/<report_id>/...>",
+  "typology_query": "<consulta DAX>",
+  "poll_seconds": 900
+}
+```
+
+- A app descobre o dataset a partir do relatório e corre a consulta DAX (`executeQueries`). A consulta tem de devolver, por linha: projeto, estado, tipologia, unidades, valor e área. Os nomes das colunas configuram-se em `"columns"`.
+- A consulta depende dos nomes das tabelas do modelo. Quando houver acesso, `python powerbi.py --probe` lista as tabelas, colunas e medidas.
+- No menu, `"sales_project"` indica o nome do projeto no Power BI (p.ex. `"Core Leça"`). `null` significa que o projeto não tem página Sales. Sem esta chave, usa-se o nome do quadro.
+- Os totais e as % do Typology Report são somas e divisões dos valores do Power BI, como no relatório.
+- O Power BI é lido a cada `poll_seconds`, por omissão 15 minutos.
 
 ## Subrubricas e menu
 
@@ -114,7 +141,7 @@ O menu lateral e a folha de budget de cada projeto configuram-se em `config.json
 
 ## Financiamento por projeto
 
-A página de cada projeto pode mostrar os termos do contrato de financiamento: banco, data, maturidade, montante, prazos, indexante + spread, fundos próprios exigidos e distribuições permitidas ao promotor. O bloco aparece também no PDF e no Excel exportados.
+A página **Financing** de cada projeto mostra os termos do contrato de financiamento: banco, data, maturidade, montante, prazos, indexante + spread, fundos próprios exigidos e distribuições permitidas ao promotor. O bloco aparece também no PDF e no Excel exportados.
 
 - Os dados ficam em `financing.json`, na pasta da app. Este ficheiro está **fora do Git** porque os contratos são confidenciais. O formato está em `financing.example.json`.
 - A chave de cada entrada é o **nome do projeto tal como aparece no dashboard** (p.ex. `"PLENO I"`). Se um nome não corresponder a nenhum projeto, aparece um aviso.
@@ -153,6 +180,7 @@ budget-dashboard/
   budget_parser.py    leitura das folhas de Project Review
   excel_export.py     exportação para .xlsx
   financing.py        leitura do financing.json (contratos de financiamento)
+  powerbi.py          vendas do Power BI (Typology Report)
   static/             dashboard (HTML/CSS/JS, sem dependências externas)
   test_budget_parser.py, test_sharepoint.py
   config.example.json

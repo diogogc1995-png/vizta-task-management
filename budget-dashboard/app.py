@@ -21,6 +21,7 @@ import webbrowser
 from flask import Flask, abort, jsonify, request, send_file, send_from_directory
 
 import financing
+import powerbi
 from budget_parser import attach_budget_details, parse_file
 from excel_export import build_workbook
 from sharepoint import SharePointClient, is_url
@@ -47,6 +48,8 @@ def load_config():
     cfg.setdefault("port", 8765)
     cfg.setdefault("sharepoint", {})
     cfg["sharepoint"].setdefault("poll_seconds", 60)
+    cfg.setdefault("powerbi", {})
+    cfg["powerbi"].setdefault("poll_seconds", 900)
     return cfg
 
 
@@ -182,6 +185,7 @@ class Store:
 
     def snapshot(self):
         menu_conf = menu_index(self.cfg.get("menu", []))
+        sales = sales_store.state() if sales_store else {"data": {}, "error": None, "updated": None}
         with self.lock:
             files = []
             matched = set()
@@ -204,10 +208,14 @@ class Store:
                         budget = next(iter(budgets.values())) if len(budgets) == 1 else None
                     # Subrubricas da folha de budget dentro das rubricas do Project Review
                     detailed = attach_budget_details(p, budget) if budget else p
+                    # Vendas (Power BI): nome do projeto no Power BI; "sales_project": null = sem vendas
+                    sales_name = conf.get("sales_project", p["name"]) if conf else p["name"]
                     projects.append({**detailed, "id": pid, "financing": fin,
                                      "label": conf.get("label") or p["name"],
                                      "menu_group": conf.get("group"),
-                                     "budget_missing": sheet if sheet and not budget else None})
+                                     "budget_missing": sheet if sheet and not budget else None,
+                                     "sales_name": sales_name,
+                                     "sales": sales["data"].get(financing.key(sales_name)) if sales_name else None})
                 files.append({
                     "file": e["name"],
                     "group": os.path.splitext(e["name"])[0],
@@ -222,6 +230,8 @@ class Store:
             return {"version": self.version, "files": files, "missing": list(self.missing),
                     "source_errors": [{"source": s, "error": err}
                                       for s, err in sorted(self.source_errors.items())],
+                    "sales_status": {"configured": sales_store is not None, "error": sales["error"] or sales_init_error,
+                                     "updated": sales["updated"]},
                     "financing_error": self.financing_error,
                     "financing_unmatched": sorted(c["project"] for k, c in self.financing.items()
                                                   if k not in matched),
@@ -284,11 +294,21 @@ cfg = load_config()
 store = Store(cfg)
 sp_client = None
 sp_init_error = None
-if any(is_url(s) for s in cfg["sources"]):
+uses_powerbi = bool(cfg["powerbi"].get("app_id") or cfg["powerbi"].get("dataset_id"))
+if any(is_url(s) for s in cfg["sources"]) or uses_powerbi:
     try:
         sp_client = SharePointClient(cfg["sharepoint"], TOKEN_CACHE)
     except Exception as e:
         sp_init_error = str(e)
+# Vendas (Power BI): mesma conta/App registration do SharePoint, permissão Dataset.Read.All
+sales_store = None
+sales_init_error = None
+if uses_powerbi:
+    if sp_client:
+        sales_store = powerbi.SalesStore(powerbi.PowerBIClient(sp_client, cfg["powerbi"]),
+                                         max(60, int(cfg["powerbi"]["poll_seconds"])))
+    else:
+        sales_init_error = f"Power BI: {sp_init_error}"
 app = Flask(__name__, static_folder=None)
 
 
@@ -302,16 +322,24 @@ def static_files(name):
     return send_from_directory(os.path.join(BASE_DIR, "static"), name)
 
 
+def full_version():
+    """Versão dos ficheiros + da última leitura do Power BI (o browser recarrega quando muda)."""
+    if not sales_store:
+        return store.version
+    st = sales_store.state()
+    return f"{store.version}-{st['updated'] or 0:.0f}-{hash(st['error']) & 0xffff:x}"
+
+
 @app.get("/api/version")
 def api_version():
     store.refresh()
-    return jsonify({"version": store.version})
+    return jsonify({"version": full_version()})
 
 
 @app.get("/api/projects")
 def api_projects():
     store.refresh()
-    return jsonify(store.snapshot())
+    return jsonify({**store.snapshot(), "version": full_version()})
 
 
 @app.get("/api/export.xlsx")
@@ -374,6 +402,14 @@ if __name__ == "__main__":
         interval = max(15, int(cfg["sharepoint"]["poll_seconds"]))
         threading.Thread(target=sharepoint_loop, args=(sp_client, interval), daemon=True).start()
         print(f"  SharePoint: verifica alterações a cada {interval}s")
+    if sales_store:
+        sales_store.refresh()
+        st = sales_store.state()
+        print(f"  Vendas (Power BI): {len(st['data'])} projeto(s)" if not st["error"]
+              else f"  VENDAS (Power BI): {st['error']}")
+        threading.Thread(target=sales_store.loop, daemon=True).start()
+    elif sales_init_error:
+        print(f"  VENDAS: {sales_init_error}")
     url = f"http://localhost:{port}"
     print(f"\nDashboard em {url}  (Ctrl+C para parar)")
     if "--no-browser" not in sys.argv:

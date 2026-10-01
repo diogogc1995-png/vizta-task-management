@@ -13,11 +13,17 @@
     "auth_flow": "interactive",
     "poll_seconds": 60
   },
+  "powerbi": {
+    "app_id": "COLOCAR-AQUI-O-ID-DA-APP-DO-POWER-BI",
+    "report_id": "COLOCAR-AQUI-O-ID-DO-RELATORIO",
+    "typology_query": "EVALUATE ...",
+    "poll_seconds": 900
+  },
   "menu": [
     {"group": "Projeto com fases", "items": [
       {"project": "NOME NO QUADRO FASE I", "label": "Fase 1 - Lote X", "budget_sheet": "BUDGET FASE 1"},
       {"project": "NOME NO QUADRO FASE II", "label": "Fase 2 - Lote Y", "budget_sheet": "BUDGET FASE 2"}
     ]},
-    {"project": "NOME NO QUADRO", "label": "Nome a mostrar", "budget_sheet": "BUDGET"}
+    {"project": "NOME NO QUADRO", "label": "Nome a mostrar", "budget_sheet": "BUDGET", "sales_project": "Nome no Power BI"}
   ]
 }

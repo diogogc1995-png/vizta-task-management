@@ -72,18 +72,20 @@ class SharePointClient:
             with open(self.cache_path, "w", encoding="utf-8") as f:
                 f.write(self.cache.serialize())
 
-    def token(self):
+    def token(self, scopes=None):
+        """Token de acesso (por omissão para o Graph; o Power BI pede os seus próprios scopes)."""
+        scopes = scopes or SCOPES
         with self._login_lock:
             accounts = self.app.get_accounts(username=self.cfg.get("login_hint")) or self.app.get_accounts()
             result = None
             if accounts:
-                result = self.app.acquire_token_silent(SCOPES, account=accounts[0])
+                result = self.app.acquire_token_silent(scopes, account=accounts[0])
             if not result or "access_token" not in result:
                 if self._login_failed:
                     raise GraphError("Login Microsoft necessário: reinicia a app para voltar a fazer login.")
                 self._login_failed = True
                 if self.cfg.get("auth_flow") == "device_code":
-                    flow = self.app.initiate_device_flow(scopes=SCOPES)
+                    flow = self.app.initiate_device_flow(scopes=scopes)
                     if "user_code" not in flow:
                         raise GraphError(f"Login falhou: {flow.get('error_description', flow)}")
                     print("\n" + flow["message"] + "\n", flush=True)
@@ -91,7 +93,7 @@ class SharePointClient:
                 else:
                     print("A abrir o browser para login na Microsoft...", flush=True)
                     result = self.app.acquire_token_interactive(
-                        SCOPES, login_hint=self.cfg.get("login_hint"), prompt="select_account")
+                        scopes, login_hint=self.cfg.get("login_hint"), prompt="select_account")
             if "access_token" not in result:
                 raise GraphError(f"Login falhou: {result.get('error')}: {result.get('error_description')}")
             self._login_failed = False
