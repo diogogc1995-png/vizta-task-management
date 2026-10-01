@@ -13,6 +13,7 @@ import os
 import re
 import shutil
 import tempfile
+import zipfile
 
 import openpyxl
 
@@ -20,6 +21,9 @@ SCAN_ROWS = 80
 SCAN_COLS = 15
 
 DATE_IN_HEADER = re.compile(r"\d{1,2}\s*/\s*\d{1,2}\s*/\s*\d{2,4}")
+# "TOTAL COST (PROJECT)" sim; "Total costs (k€)" (folhas de comparação) não.
+TOTAL_COST = re.compile(r"^\s*TOTAL COST\b", re.I)
+DEFINED_NAMES = re.compile(rb"<definedNames>.*?</definedNames>|<definedNames\s*/>", re.S)
 
 
 def _norm(v):
@@ -76,7 +80,7 @@ def parse_sheet(grid, sheet_name):
             if isinstance(v, str):
                 if v.strip() == "Δ" and header_r is None:
                     header_r, delta_c = r, c
-                if "TOTAL COST" in v.upper():
+                if TOTAL_COST.match(v):
                     total_found = True
     if header_r is None or not total_found:
         return None
@@ -185,6 +189,33 @@ def parse_sheet(grid, sheet_name):
     }
 
 
+def _strip_defined_names(path):
+    """Remove os nomes definidos do workbook.xml (reescreve o ficheiro).
+
+    O openpyxl recusa abrir ficheiros com p.ex. Print_Titles = #N/A ou #REF!.
+    A app não usa nomes definidos, por isso podem ser retirados da cópia.
+    """
+    fd, out = tempfile.mkstemp(suffix=os.path.splitext(path)[1])
+    os.close(fd)
+    with zipfile.ZipFile(path) as zin, zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
+        for item in zin.infolist():
+            data = zin.read(item.filename)
+            if item.filename == "xl/workbook.xml":
+                data = DEFINED_NAMES.sub(b"", data)
+            zout.writestr(item, data)
+    shutil.move(out, path)
+
+
+def _load(tmp):
+    try:
+        return openpyxl.load_workbook(tmp, data_only=True, read_only=True)
+    except ValueError as e:
+        if "assign names" not in str(e):
+            raise
+    _strip_defined_names(tmp)
+    return openpyxl.load_workbook(tmp, data_only=True, read_only=True)
+
+
 def parse_workbook(path, include_hidden=False):
     """Devolve a lista de projetos encontrados no ficheiro."""
     # Copia para um ficheiro temporário: evita problemas com ficheiros abertos
@@ -193,7 +224,7 @@ def parse_workbook(path, include_hidden=False):
     os.close(fd)
     try:
         shutil.copyfile(path, tmp)
-        wb = openpyxl.load_workbook(tmp, data_only=True, read_only=True)
+        wb = _load(tmp)
         try:
             projects = []
             for ws in wb.worksheets:

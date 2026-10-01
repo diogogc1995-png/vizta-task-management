@@ -2,8 +2,10 @@
 
 import datetime as dt
 import os
+import re
 import tempfile
 import unittest
+import zipfile
 
 from openpyxl import Workbook
 
@@ -49,6 +51,9 @@ class ParserTest(unittest.TestCase):
         wb.active["A1"] = "TOTAL COST"  # sem Δ: não é uma folha de review
         make_review_sheet(wb.create_sheet("PR NOLA"), "NOLA")
         make_review_sheet(wb.create_sheet("PR OTHER"), "OTHER")
+        cmp_ws = wb.create_sheet("Comparison")  # tem Δ, mas "Total costs" não é TOTAL COST
+        cmp_ws["B22"], cmp_ws["D22"], cmp_ws["F22"] = "Key milestones", "Current", "Δ"
+        cmp_ws["B33"], cmp_ws["D33"], cmp_ws["F33"] = "Total costs (k€)", 66629.1, 1950.1
         hidden = wb.create_sheet("PR HIDDEN")
         make_review_sheet(hidden, "HIDDEN")
         hidden.sheet_state = "hidden"
@@ -91,6 +96,24 @@ class ParserTest(unittest.TestCase):
                          [("Margin w/out internal fees", 0.2627, False), ("Margin post tax", 0.17, True)])
         self.assertEqual(p["kpis"][0]["label"], "Unlevered")
         self.assertEqual(p["kpis"][0]["values"][0], ["16,5% / 1,3x", "12.0M€ / -42.4M€"])
+
+    def test_invalid_defined_names(self):
+        # Print_Titles = #N/A faz o openpyxl recusar o ficheiro; a app ignora os nomes.
+        fd, path = tempfile.mkstemp(suffix=".xlsx")
+        os.close(fd)
+        try:
+            with zipfile.ZipFile(self.path) as zin, zipfile.ZipFile(path, "w") as zout:
+                for item in zin.infolist():
+                    data = zin.read(item.filename)
+                    if item.filename == "xl/workbook.xml":
+                        data = re.sub(rb"<definedNames>.*?</definedNames>|(?=<calcPr)",
+                                      b'<definedNames><definedName name="_xlnm.Print_Titles" '
+                                      b'localSheetId="1">#N/A</definedName></definedNames>',
+                                      data, count=1, flags=re.S)
+                    zout.writestr(item, data)
+            self.assertEqual([p["name"] for p in parse_workbook(path)], ["NOLA", "OTHER"])
+        finally:
+            os.remove(path)
 
     def test_excel_export(self):
         wb = build_workbook([("File", p) for p in self.projects])
