@@ -86,6 +86,15 @@ A Microsoft exige que a app esteja registada no Azure AD da empresa. Envia isto 
 
 Se o IT não puder criar o registo, a alternativa é sincronizar a biblioteca do SharePoint com o OneDrive ("Sync" ou "Add shortcut to My files") e usar o caminho local.
 
+## Financiamento por projeto
+
+A página de cada projeto pode mostrar os termos do contrato de financiamento: banco, data, maturidade, montante, prazos, indexante + spread, fundos próprios exigidos e distribuições permitidas ao promotor. O bloco aparece também no PDF e no Excel exportados.
+
+- Os dados ficam em `financing.json`, na pasta da app. Este ficheiro está **fora do Git** porque os contratos são confidenciais. O formato está em `financing.example.json`.
+- A chave de cada entrada é o **nome do projeto tal como aparece no dashboard** (p.ex. `"PLENO I"`). Se um nome não corresponder a nenhum projeto, aparece um aviso.
+- A maturidade e o fim do período de utilização são calculados a partir de `signed` + `term_months` / `availability_months`.
+- A app relê o ficheiro quando muda, sem ser preciso reiniciar.
+
 ## Arrancar
 
 - **Duplo clique em `run.bat`.** Da primeira vez cria o ambiente Python e instala as dependências. Depois abre o browser em <http://localhost:8765>.
@@ -117,6 +126,7 @@ budget-dashboard/
   sharepoint.py       login Microsoft (MSAL) e leitura via Microsoft Graph
   budget_parser.py    leitura das folhas de Project Review
   excel_export.py     exportação para .xlsx
+  financing.py        leitura do financing.json (contratos de financiamento)
   static/             dashboard (HTML/CSS/JS, sem dependências externas)
   test_budget_parser.py, test_sharepoint.py
   config.example.json

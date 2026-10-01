@@ -20,12 +20,14 @@ import webbrowser
 
 from flask import Flask, abort, jsonify, request, send_file, send_from_directory
 
+import financing
 from budget_parser import parse_workbook
 from excel_export import build_workbook
 from sharepoint import SharePointClient, is_url
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.environ.get("BUDGET_DASHBOARD_CONFIG") or os.path.join(BASE_DIR, "config.json")
+FINANCING_PATH = os.environ.get("BUDGET_DASHBOARD_FINANCING") or os.path.join(BASE_DIR, "financing.json")
 CACHE_DIR = os.path.join(BASE_DIR, ".cache")
 TOKEN_CACHE = os.path.join(BASE_DIR, "token_cache.json")
 EXCEL_EXT = (".xlsx", ".xlsm")
@@ -94,17 +96,30 @@ class Store:
         self.files = {}  # chave -> {"name", "location", "modified", "sig", "projects", "error", "loaded_at"}
         self.missing = []
         self.source_errors = {}  # link SharePoint -> erro
+        self.financing, self.financing_error, self.financing_sig = {}, None, None
         self.version = ""
 
     def _update_version(self):
         state = json.dumps(
             [(k, e["sig"], e["error"]) for k, e in sorted(self.files.items())]
-            + self.missing + sorted(self.source_errors.items()), default=str)
+            + self.missing + sorted(self.source_errors.items())
+            + [self.financing_sig, self.financing_error], default=str)
         self.version = hashlib.sha1(state.encode()).hexdigest()[:12]
+
+    def _refresh_financing(self):
+        try:
+            st = os.stat(FINANCING_PATH)
+            sig = (st.st_mtime, st.st_size)
+        except OSError:
+            sig = None
+        if sig != self.financing_sig:
+            self.financing, self.financing_error = financing.load(FINANCING_PATH)
+            self.financing_sig = sig
 
     def refresh(self):
         """Ficheiros locais (OneDrive sincronizado): verifica mtime/tamanho."""
         with self.lock:
+            self._refresh_financing()
             paths, self.missing = list_files(self.cfg["sources"])
             local = {k for k in self.files if not k.startswith("sp:")}
             for gone in local - set(paths):
@@ -166,11 +181,15 @@ class Store:
     def snapshot(self):
         with self.lock:
             files = []
+            matched = set()
             for key, e in sorted(self.files.items(), key=lambda kv: kv[1]["name"].lower()):
                 projects = []
                 for p in e["projects"]:
                     pid = hashlib.sha1(f"{key}|{p['sheet']}".encode()).hexdigest()[:10]
-                    projects.append({**p, "id": pid})
+                    fin = self.financing.get(financing.key(p["name"]))
+                    if fin:
+                        matched.add(financing.key(p["name"]))
+                    projects.append({**p, "id": pid, "financing": fin})
                 files.append({
                     "file": e["name"],
                     "group": os.path.splitext(e["name"])[0],
@@ -184,7 +203,10 @@ class Store:
                 })
             return {"version": self.version, "files": files, "missing": list(self.missing),
                     "source_errors": [{"source": s, "error": err}
-                                      for s, err in sorted(self.source_errors.items())]}
+                                      for s, err in sorted(self.source_errors.items())],
+                    "financing_error": self.financing_error,
+                    "financing_unmatched": sorted(c["project"] for k, c in self.financing.items()
+                                                  if k not in matched)}
 
 
 def sharepoint_loop(client, interval):
@@ -271,6 +293,13 @@ if __name__ == "__main__":
         print(f"  NÃO ENCONTRADO: {m}")
     for se in snap["source_errors"]:
         print(f"  SHAREPOINT ERRO: {se['source'][:80]}...\n    {se['error']}")
+    n_fin = sum(1 for f in snap["files"] for p in f["projects"] if p["financing"])
+    if snap["financing_error"]:
+        print(f"  FINANCIAMENTO: {snap['financing_error']}")
+    elif n_fin or snap["financing_unmatched"]:
+        print(f"  Financiamento: {n_fin} contrato(s) associados a projetos")
+    for name in snap["financing_unmatched"]:
+        print(f"  FINANCIAMENTO SEM PROJETO: \"{name}\" (o nome tem de ser igual ao do dashboard)")
     if any(is_url(s) for s in cfg["sources"]):
         interval = max(15, int(cfg["sharepoint"]["poll_seconds"]))
         threading.Thread(target=sharepoint_loop, args=(sp_client, interval), daemon=True).start()

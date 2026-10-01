@@ -25,6 +25,8 @@ function fmtPct(v) {
   return s.replace(".", ",") + "%";
 }
 const fmt = (v, pct) => (pct ? fmtPct(v) : fmtNum(v));
+const fmtEur = (v) => (typeof v === "number" ? `${fmtNum(v)} €` : esc(v));
+const fmtRate = (v) => (typeof v === "number" ? `${v.toFixed(3).replace(".", ",")}%` : esc(v));
 function fmtDate(iso) {
   if (!iso) return "—";
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
@@ -107,6 +109,8 @@ function banners() {
   for (const se of data.source_errors || []) out.push(`Could not read SharePoint link <code>${esc(se.source.slice(0, 70))}…</code>: ${esc(se.error)}`);
   for (const f of data.files) if (f.error) out.push(`Could not read <b>${esc(f.file)}</b> (showing last good data, retrying automatically): ${esc(f.error)}`);
   for (const f of data.files) if (!f.error && !f.projects.length) out.push(`No Project Review sheet found in <b>${esc(f.file)}</b>.`);
+  if (data.financing_error) out.push(esc(data.financing_error));
+  for (const n of data.financing_unmatched || []) out.push(`Financing entry <b>${esc(n)}</b> in <code>financing.json</code> does not match any project name.`);
   return out.map((b) => `<div class="banner no-print">${b}</div>`).join("");
 }
 
@@ -150,6 +154,7 @@ function reportHtml(p) {
           .map((lines) => `<td>${lines.map(esc).join("<br>")}</td>`).join("")}</tr>`)
         .join("")}</tbody></table></div>` : "";
   const after = bottomNotes.length ? `<div class="notes"><span></span><span>${bottomNotes.map(notePill).join("")}</span></div>` : "";
+  const fin = p.financing ? financingHtml(p.financing) : "";
 
   return `<section class="report">
     <div class="report-head">
@@ -159,8 +164,37 @@ function reportHtml(p) {
         File saved: ${fmtTime(p.modified)}</div>
     </div>
     <table class="pr"><thead>${head}</thead><tbody>${body}</tbody></table>
-    ${notes}${kpis}${after}
+    ${notes}${kpis}${after}${fin}
   </section>`;
+}
+
+function financingHtml(f) {
+  const term = (months, end) => (months ? `${months} months${end ? ` · until ${fmtDate(end)}` : ""}` : "");
+  const rate = f.index || f.spread !== undefined
+    ? [esc(f.index || ""), f.spread !== undefined ? fmtRate(f.spread) : ""].filter(Boolean).join(" + ") : "";
+  const items = [
+    ["Bank", esc(f.bank)],
+    ["Borrower", esc(f.borrower)],
+    ["Signed", f.signed ? fmtDate(f.signed) : ""],
+    ["Maturity", f.maturity ? fmtDate(f.maturity) : ""],
+    ["Amount", f.amount !== undefined ? `<b>${fmtEur(f.amount)}</b>` : ""],
+    ["Term", term(f.term_months, f.maturity)],
+    ["Availability period", term(f.availability_months, f.availability_end)],
+    ["Interest rate", rate ? `<b>${rate}</b>` : ""],
+    ["Purpose", esc(f.purpose)],
+    ["Own funds required", f.own_funds !== undefined ? `${fmtEur(f.own_funds)}${f.own_funds_note ? `<div class="sub">${esc(f.own_funds_note)}</div>` : ""}` : ""],
+  ].filter(([, v]) => v);
+  const d = f.distributions;
+  const dist = d ? `<div class="fin-dist">
+      <h3>Distributions to promoter${typeof d.max === "number" ? ` · up to ${fmtEur(d.max)}` : ""}</h3>
+      ${(d.conditions || []).length ? `<ul>${d.conditions.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>` : ""}
+      ${d.note ? `<p class="sub">${esc(d.note)}</p>` : ""}
+    </div>` : "";
+  return `<div class="financing">
+    <h2>Financing${f.facility ? ` <span>${esc(f.facility)}</span>` : ""}</h2>
+    <dl class="fin-grid">${items.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("")}</dl>
+    ${dist}
+  </div>`;
 }
 
 // ---------- eventos ----------

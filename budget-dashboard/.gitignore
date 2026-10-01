@@ -1,5 +1,7 @@
 # Caminhos pessoais do OneDrive
 config.json
+# Contratos de financiamento (dados confidenciais)
+financing.json
 # Nunca versionar os ficheiros de budget (dados confidenciais)
 *.xlsx
 *.xlsm

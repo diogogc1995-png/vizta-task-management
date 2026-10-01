@@ -135,6 +135,20 @@ table.kpi { border-collapse: collapse; border-top: 2px solid var(--orange); font
 table.kpi td { background: #f6f6f6; padding: 8px 14px; text-align: center; border-bottom: 1px solid var(--grid); line-height: 1.5; white-space: nowrap; }
 table.kpi td.lbl { text-align: left; font-weight: 700; padding-left: 8px; }
 
+/* Financiamento (financing.json) — width:0/min-width:100% para não alargar o quadro */
+.financing { margin-top: 32px; width: 0; min-width: 100%; border-top: 2px solid var(--orange); padding-top: 14px; }
+.financing h2 { font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0 0 14px; }
+.financing h2 span { text-transform: none; letter-spacing: 0; font-weight: 400; margin-left: 8px; color: var(--ink); font-size: 13px; }
+.fin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px 28px; margin: 0; }
+.fin-grid dt { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 3px; }
+.fin-grid dd { margin: 0; font-size: 14px; line-height: 1.4; }
+.fin-grid dd b { font-weight: 700; }
+.financing .sub { font-size: 12px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+.fin-dist { margin-top: 20px; background: var(--peach-pale); border-left: 3px solid var(--orange); padding: 12px 16px; }
+.fin-dist h3 { margin: 0 0 6px; font-size: 14px; font-weight: 700; }
+.fin-dist ul { margin: 0; padding-left: 18px; line-height: 1.55; }
+.fin-dist p { margin: 8px 0 0; }
+
 .toast {
   position: fixed; bottom: 24px; right: 24px; background: var(--ink); color: #fff;
   padding: 12px 18px; font-size: 13px; box-shadow: 0 8px 24px rgba(0,0,0,.2);
@@ -165,4 +179,7 @@ table.kpi td.lbl { text-align: left; font-weight: 700; padding-left: 8px; }
   table.pr, table.kpi { font-size: 11px; }
   table.pr thead th { min-width: 110px; padding: 6px 8px; }
   table.pr thead th.lbl { min-width: 200px; }
+  .financing { break-inside: avoid; page-break-inside: avoid; }
+  .fin-grid { grid-template-columns: repeat(3, 1fr); }
+  .fin-grid dd, .fin-dist { font-size: 11px; }
 }

@@ -1,5 +1,6 @@
 """Exporta o(s) quadro(s) de Project Review para um .xlsx formatado como o dashboard."""
 
+import datetime as dt
 import re
 
 from openpyxl import Workbook
@@ -16,6 +17,7 @@ CENTER = Alignment(horizontal="center", vertical="center", wrap_text=True)
 RIGHT = Alignment(horizontal="right", vertical="center")
 NUM_FMT = '#,##0;-#,##0;0'
 PCT_FMT = '0.00%'
+DATE_FMT = 'dd/mm/yyyy'
 
 
 def _sheet_title(text, used):
@@ -95,7 +97,68 @@ def write_project(ws, group, p):
                 cell.border = Border(bottom=DOTTED)
             ws.row_dimensions[r].height = 32
 
+    if p.get("financing"):
+        write_financing(ws, r + 2, p["financing"], last)
+
     ws.sheet_view.showGridLines = False
+
+
+def _date(iso):
+    try:
+        return dt.date.fromisoformat(iso)
+    except (TypeError, ValueError):
+        return iso
+
+
+def write_financing(ws, r, f, last):
+    """Bloco "Financing" (dados de financing.json) a partir da linha r."""
+    ws.cell(r, 1, "Financing" + (f" — {f['facility']}" if f.get("facility") else "")).font = BOLD
+    for c in range(1, last + 1):
+        ws.cell(r, c).border = Border(top=Side(style="medium", color="F26641"))
+
+    def term(months, end):
+        if not months:
+            return None
+        return f"{months} months" + (f" (until {_date(end):%d/%m/%Y})" if end else "")
+
+    rate = " + ".join(x for x in [f.get("index"), f"{f['spread']:.3f}%".replace(".", ",")
+                                  if isinstance(f.get("spread"), (int, float)) else None] if x)
+    items = [
+        ("Bank", f.get("bank"), None),
+        ("Borrower", f.get("borrower"), None),
+        ("Signed", _date(f.get("signed")), DATE_FMT),
+        ("Maturity", _date(f.get("maturity")), DATE_FMT),
+        ("Amount (€)", f.get("amount"), NUM_FMT),
+        ("Term", term(f.get("term_months"), f.get("maturity")), None),
+        ("Availability period", term(f.get("availability_months"), f.get("availability_end")), None),
+        ("Interest rate", rate or None, None),
+        ("Purpose", f.get("purpose"), None),
+        ("Own funds required (€)", f.get("own_funds"), NUM_FMT),
+        ("", f.get("own_funds_note"), None),
+    ]
+    for label, value, fmt in items:
+        if value in (None, ""):
+            continue
+        r += 1
+        ws.cell(r, 1, label).font = Font(color="7F7F7F")
+        v = ws.cell(r, 2, value)
+        v.alignment = Alignment(horizontal="left", vertical="center")
+        if fmt:
+            v.number_format = fmt
+
+    d = f.get("distributions")
+    if d:
+        r += 2
+        title = "Distributions to promoter"
+        if isinstance(d.get("max"), (int, float)):
+            title += f" — up to {d['max']:,.0f} €".replace(",", " ")
+        ws.cell(r, 1, title).font = BOLD
+        for text in d.get("conditions", []) + ([d["note"]] if d.get("note") else []):
+            r += 1
+            cell = ws.cell(r, 1, ("• " if text != d.get("note") else "") + text)
+            cell.alignment = Alignment(wrap_text=True, vertical="top")
+            ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=last)
+            ws.row_dimensions[r].height = 30
 
 
 def build_workbook(projects):

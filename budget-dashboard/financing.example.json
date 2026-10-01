@@ -1,0 +1,26 @@
+{
+  "_info": "Copia para financing.json (fora do Git). A chave é o nome do projeto tal como aparece no dashboard. Valores fictícios.",
+
+  "NOME DO PROJETO": {
+    "bank": "Banco Exemplo",
+    "borrower": "Sociedade Exemplo, S.A.",
+    "facility": "Abertura de crédito à construção com hipoteca",
+    "signed": "2025-01-31",
+    "amount": 10000000,
+    "purpose": "Custos diretos de construção (hard costs)",
+    "term_months": 48,
+    "availability_months": 36,
+    "index": "Euribor 3M",
+    "spread": 1.5,
+    "own_funds": 2000000,
+    "own_funds_note": "Mais 1.000.000 € de sinais",
+    "distributions": {
+      "max": 1000000,
+      "conditions": [
+        "CPCV assinados para pelo menos 75% das frações",
+        "Obra realizada de pelo menos 50%"
+      ],
+      "note": "Inclui dividendos e reembolso de suprimentos."
+    }
+  }
+}
