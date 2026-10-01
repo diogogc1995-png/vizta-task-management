@@ -146,6 +146,36 @@ code { font-family: Consolas, monospace; font-size: 12px; }
 .ppage.pf.active { color: var(--orange); }
 .portfolio { width: auto; min-width: min(100%, 720px); }
 
+/* Summary of all projects */
+.summary { width: auto; max-width: 1300px; }
+.sm-sub { margin-top: 8px; font-size: 18px; color: #f2a07f; font-weight: 400; }
+table.sm { border-collapse: separate; border-spacing: 6px 4px; width: 100%; min-width: 1000px; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+table.sm thead th { font-weight: 700; font-size: 13px; color: var(--ink); text-align: center; vertical-align: bottom; padding: 0 4px 8px;
+  border-bottom: 2px solid var(--ink); line-height: 1.3; }
+table.sm thead th small { display: block; font-weight: 400; font-size: 10.5px; color: var(--muted); }
+table.sm thead th .ov-ico { width: 34px; height: 34px; display: block; margin: 0 auto 6px; color: var(--ink); }
+.sm-split { display: flex; justify-content: space-around; }
+table.sm thead th.sm-h-phase, table.sm thead th.sm-h-name { vertical-align: bottom; }
+table.sm tbody td { text-align: center; padding: 6px 8px; }
+th.sm-phase { color: #fff; font-size: 15px; font-weight: 700; text-align: left; padding: 6px 12px; width: 140px; position: relative; }
+.sm-num { display: inline-block; font-style: italic; font-size: 20px; margin-right: 10px; background: #fff; color: var(--ink);
+  padding: 4px 6px; line-height: 1; }
+td.sm-name { text-align: left !important; white-space: nowrap; }
+td.sm-name small { font-size: 10.5px; opacity: .85; }
+.sm-name .rm-link { color: inherit; }
+/* cores por fase, como no slide */
+tr.sm-delivered th.sm-phase, tr.sm-delivered td { background: #e57a1e; color: #fff; }
+tr.sm-construction th.sm-phase, tr.sm-construction td { background: #f8b26a; color: #fff; }
+tr.sm-presales th.sm-phase, tr.sm-presales td { background: #fcd5aa; color: var(--ink); }
+tr.sm-pipeline th.sm-phase, tr.sm-pipeline td { background: #9e9e9e; color: #fff; }
+tr.sm-other th.sm-phase, tr.sm-other td { background: #d6d6d6; color: var(--ink); }
+tr.sm-presales th.sm-phase, tr.sm-other th.sm-phase { color: var(--ink); }
+table.sm tbody td.sm-name { background: var(--panel) !important; color: var(--ink) !important; border-bottom: 1px solid var(--grid); }
+table.sm tfoot td { text-align: center; color: var(--orange); font-weight: 700; font-size: 15px; padding-top: 12px; border-top: 2px solid var(--orange); }
+table.sm tfoot td:first-child { border-top: 0; }
+td.sm-tot-l { text-align: right !important; }
+.sm-foot { margin-top: 12px; font-size: 11px; color: var(--muted); }
+
 /* Roadmap (Gantt) */
 .roadmap { width: auto; max-width: 1300px; }
 .rm-scroll { overflow-x: auto; }

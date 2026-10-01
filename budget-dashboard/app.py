@@ -291,6 +291,8 @@ class Store:
                                      "snapshot_error": self.snap_error},
                     "financing_error": self.financing_error,
                     "info_error": self.info_error,
+                    # entradas do project_info.json sem projeto no dashboard (p.ex. Turquesa, só no Summary)
+                    "info_extra": [v for k, v in self.info.items() if k not in ids],
                     "roadmap": {"rows": [{**r, "project_id": ids.get(financing.key(r["project"])) if r.get("project") else None}
                                          for r in self.rm_rows],
                                 "unmatched": self.rm_unmatched, "error": self.rm_error,

@@ -125,6 +125,16 @@ Os dados de vendas vêm do CRM através do Power BI. A app usa a mesma conta Mic
 
 No topo do menu, o item "Vizta Portfolio" tem as páginas *Summary of all projects*, *Roadmap* e *Projects financing overview*.
 
+### Summary of all projects
+
+Quadro com todos os projetos agrupados por fase. A fase vem do `status` no `project_info.json`: Delivered, In Construction, Pre-Sales, Pipeline e, para o resto, Other.
+
+- **Dados físicos:** apartamentos, GCA acima do solo, GPA residencial e GPA de retalho, do `project_info.json`. Quando há um bloco `total` (NOLA), usa-se o TOTAL.
+- **Valores financeiros:** Project Total Cost e Revenue são o TOTAL COST e o TOTAL REVENUE da coluna mais recente do Project Review. Margin e IRR são o Profit e o IRR do KPI "Levered post tax" da mesma coluna. `summary_kpis` (p.ex. `["cost", "revenue"]`) limita os KPIs mostrados.
+- **Nome, ordem e entrega:** `summary_name` e `summary_order` definem o nome e a ordem. A data de entrega dos projetos entregues vem do roadmap (End of deliveries) ou do campo `delivered` ("AAAA-MM").
+- **Projetos sem budget no dashboard** (p.ex. Turquesa) entram com `"summary_only": true` no `project_info.json`, só com os dados físicos.
+- O subtítulo e os totais são somas das linhas (GDV = soma das receitas).
+
 ### Roadmap
 
 Gráfico de Gantt com os projetos agrupados por zona, feito a partir do ficheiro "RM mensuelle Portugal Always Updated" (folha `RM Portugal AllUpdate`), lido da pasta sincronizada do SharePoint. A app relê o ficheiro quando muda.

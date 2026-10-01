@@ -196,9 +196,104 @@ function select(id, pg) {
 function portfolioHtml(pg) {
   const [, title] = PORTFOLIO_PAGES.find(([k]) => k === pg) || PORTFOLIO_PAGES[0];
   if (pg === "roadmap") return roadmapHtml(title);
+  if (pg === "summary") return summaryHtml(title);
   return `<section class="report portfolio">
     <div class="report-head"><div><div class="kicker">Vizta Portfolio</div><h1>${esc(title)}</h1></div></div>
     <div class="empty"><p>Content to be defined.</p></div>
+  </section>`;
+}
+
+// ---------- Summary of all projects ----------
+const PHASES = [["Delivered", "delivered"], ["Construction", "construction"], ["Pre-sales", "presales"], ["Pipeline", "pipeline"], ["Other", "other"]];
+function phaseOf(status) {
+  const s = (status || "").toLowerCase();
+  if (s.startsWith("deliver")) return "Delivered";
+  if (s.includes("construction")) return "Construction";
+  if (s.startsWith("pre-sale") || s.startsWith("presale")) return "Pre-sales";
+  if (s.startsWith("pipeline")) return "Pipeline";
+  return "Other";
+}
+
+function summaryHtml(title) {
+  const m = (k) => (typeof k === "number" ? k / 1000 : null);  // k€ -> M€
+  const pm = (txt) => {  // "8.2M€" / "8,2 M€" -> 8.2
+    const x = String(txt || "").match(/(-?[\d.,]+)/);
+    return x ? parseFloat(x[1].replace(",", ".")) : null;
+  };
+  const rows = [];
+  for (const p of allProjects()) {
+    const info = p.info || {};
+    const phys = info.total || info;  // NOLA: colunas TOTAL
+    const only = info.summary_kpis;   // p.ex. Domitys: só custos e receita
+    const lpt = leveredPostTax(p);
+    const irr = lpt.irr ? parseFloat(lpt.irr.replace(",", ".")) : null;
+    rows.push({
+      id: p.id, name: info.summary_name || p.label || p.name, order: info.summary_order ?? 999, phase: phaseOf(info.status),
+      apartments: phys.apartments, gca: phys.gca_above, gpa: phys.gpa,
+      gpa_retail: info.retail_label ? null : phys.retail_gpa,  // "Common Areas" (Domitys) não é retalho
+      cost: m(lastValue(p, /^TOTAL COST/i)), revenue: m(lastValue(p, /^TOTAL REVENUE/i)),
+      margin: !only || only.includes("margin") ? pm(lpt.profit) : null,
+      irr: !only || only.includes("irr") ? irr : null,
+      delivered: info.delivered || null,
+    });
+  }
+  for (const info of data.info_extra || []) {  // projetos só com dados manuais (Turquesa)
+    if (!info.summary_name) continue;
+    rows.push({ id: null, name: info.summary_name, order: info.summary_order ?? 999, phase: phaseOf(info.status),
+      apartments: info.apartments, gca: info.gca_above, gpa: info.gpa, gpa_retail: info.retail_gpa,
+      cost: null, revenue: null, margin: null, irr: null, delivered: info.delivered || null });
+  }
+  // data de entrega (roadmap: End of deliveries) para os projetos entregues
+  const rm = (data.roadmap || {}).rows || [];
+  for (const r of rows) {
+    if (r.phase !== "Delivered" || r.delivered) continue;
+    const hit = rm.find((x) => (r.id && x.project_id === r.id));
+    if (hit && hit.end_deliveries && new Date(hit.end_deliveries) <= new Date()) r.delivered = hit.end_deliveries.slice(0, 7);
+  }
+  const mon = (ym) => {
+    const [y, mo] = ym.split("-");
+    return `${["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"][+mo - 1]}/${y.slice(2)}`;
+  };
+  rows.sort((a, b) => a.order - b.order);
+  const sum = (k) => rows.reduce((a, r) => a + (typeof r[k] === "number" ? r[k] : 0), 0);
+  const n0 = (v) => (typeof v === "number" ? fmtNum(v) : "–");
+  const n1 = (v) => (typeof v === "number" ? v.toFixed(1).replace(".", ",") : "–");
+  const gpaR = (v) => (typeof v === "number" && v > 0 ? fmtNum(v) : "–");
+  const totals = { apartments: sum("apartments"), gca: sum("gca"), gpa: sum("gpa"), gpa_retail: sum("gpa_retail"),
+    cost: sum("cost"), revenue: sum("revenue"), margin: sum("margin") };
+
+  let body = "";
+  PHASES.forEach(([phase, cls], i) => {
+    const rs = rows.filter((r) => r.phase === phase);
+    rs.forEach((r, j) => {
+      const name = r.id ? `<button type="button" class="rm-link" data-id="${r.id}">${esc(r.name)}</button>` : esc(r.name);
+      body += `<tr class="sm-${cls}">${j === 0 ? `<th class="sm-phase" rowspan="${rs.length}"><span class="sm-num">${i + 1}</span>${phase}</th>` : ""}
+        <td class="sm-name">${name}${r.delivered ? ` <small>(${mon(r.delivered)})</small>` : ""}</td>
+        <td>${n0(r.apartments)}</td><td>${n0(r.gca)}</td><td>${n0(r.gpa)}</td><td>${gpaR(r.gpa_retail)}</td>
+        <td>${n1(r.cost)}</td><td>${n1(r.revenue)}</td><td>${n1(r.margin)}</td><td>${n1(r.irr)}</td></tr>`;
+    });
+  });
+  const ic = (k) => icon(k);
+  const projects = rows.length;
+  return `<section class="report portfolio summary">
+    <div class="report-head"><div><div class="kicker">Vizta Portfolio</div><h1>${esc(title)}</h1>
+      <div class="sm-sub">${projects} projects under management, with a total of ${fmtNum(totals.apartments)} apartments and ${fmtNum(totals.revenue)} M€ GDV</div></div></div>
+    <div class="t-scroll"><table class="sm">
+      <thead><tr><th class="sm-h-phase">Project phase</th><th class="sm-h-name">Projects</th>
+        <th>${ic("home")}<div>Apartments (#)</div></th>
+        <th>${ic("plan")}<div>GCA</div><small>ab. ground sqm</small></th>
+        <th colspan="2">${ic("plan")}<div>GPA</div><div class="sm-split"><small>Residential</small><small>Retail</small></div></th>
+        <th>${ic("coins")}<div>Project Total Cost <small>(M€)</small></div></th>
+        <th>${ic("chart")}<div>Revenue <small>(M€)</small></div></th>
+        <th>${ic("margin")}<div>Margin</div><small>Orion (M€)*</small></th>
+        <th>${ic("pct")}<div>IRR</div><small>Orion (%)*</small></th></tr></thead>
+      <tbody>${body}</tbody>
+      <tfoot><tr><td></td><td class="sm-tot-l">Totals</td><td>${fmtNum(totals.apartments)}</td><td>${fmtNum(totals.gca)}</td>
+        <td>${fmtNum(totals.gpa)}</td><td>${fmtNum(totals.gpa_retail)}</td><td>${fmtNum(totals.cost)}</td>
+        <td>${fmtNum(totals.revenue)}</td><td>${fmtNum(totals.margin)}</td><td></td></tr></tfoot>
+    </table></div>
+    <div class="sm-foot">Physical data: project_info.json · Cost and revenue: TOTAL COST / TOTAL REVENUE of the most recent column of each Project Review ·
+      *Margin and IRR: Orion view, levered post-tax (most recent column)</div>
   </section>`;
 }
 
@@ -284,6 +379,7 @@ const ICONS = {
   chart: '<path d="M4 20V4"/><path d="M4 20h16"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="5" width="3" height="13"/>',
   curve: '<path d="M3 20h18"/><path d="M4 19c3 0 4-13 8-13s5 13 8 13"/><path d="M12 6v13" stroke-dasharray="2 2"/>',
   pct: '<circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/><path d="M19 5L5 19"/>',
+  plan: '<rect x="3" y="4" width="18" height="16" rx="1"/><path d="M3 9h6v11"/><path d="M9 14h12"/><path d="M14 4v10"/><path d="M17 17h2"/>',
   margin: '<rect x="4" y="3" width="16" height="12" rx="1"/><path d="M8 11l3-3 2 2 3-3"/><path d="M12 15v4"/><path d="M8 21l4-2 4 2"/>',
 };
 const icon = (k) => `<svg class="ov-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[k]}</svg>`;
