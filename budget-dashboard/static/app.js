@@ -484,7 +484,58 @@ function toggleRubric(tr, force) {
   document.querySelectorAll(`tr.subrow[data-parent="${CSS.escape(key)}"]`).forEach((s) => (s.hidden = !open));
 }
 
-function reportHtml(p) {
+// ---------- Escolha das versões do budget no quadro (coluna de comparação e de referência) ----------
+const verKey = (p) => "ver." + p.name;
+function versionSel(p) {
+  const d = p.version_default || [];
+  const ok = (k) => (p.versions || []).some((v) => v.col === k);
+  const s = loadPref(verKey(p), null);
+  return [s && ok(s[0]) ? s[0] : d[1], s && ok(s[1]) ? s[1] : d[2]];
+}
+const canChooseVersions = (p) => (p.versions || []).length && p.columns.length === 3
+  && (p.version_default || [])[1] != null && p.version_default[2] != null;
+
+// Projeto com as colunas 2 e 3 trocadas pelas versões escolhidas (Δ = referência − comparação)
+function withVersions(p, sel = versionSel(p)) {
+  const d = p.version_default || [];
+  if (!canChooseVersions(p) || (sel[0] === d[1] && sel[1] === d[2])) return { view: p, changed: false };
+  const slots = [d[0], sel[0], sel[1]];
+  const ver = (k) => p.versions.find((v) => v.col === k) || { lines: ["—"] };
+  const pick = (r, s) => (s === 0 || slots[s] === d[s] ? r.values[s] : r.bvalues ? r.bvalues[slots[s]] ?? null : null);
+  const num = (v) => typeof v === "number";
+  const mk = (r) => {
+    const values = [pick(r, 0), pick(r, 1), pick(r, 2)];
+    return { ...r, values, delta: num(values[1]) && num(values[2]) ? values[2] - values[1] : null };
+  };
+  const kpiCol = (k, s) => (slots[s] === d[s] ? k.values[s] : ((p.bkpis || {})[k.label] || [])[slots[s]] || []);
+  return {
+    changed: true,
+    view: {
+      ...p,
+      columns: [p.columns[0], ...[1, 2].map((s) => ({ lines: slots[s] === d[s] ? p.columns[s].lines : ver(slots[s]).lines }))],
+      rows: p.rows.map((r) => ({ ...mk(r), children: r.children ? r.children.map(mk) : undefined })),
+      kpis: p.kpis.map((k) => ({ ...k, values: [k.values[0], kpiCol(k, 1), kpiCol(k, 2)] })),
+      notes: [],  // as notas (Margin w/out internal fees, ...) só existem para a versão do quadro
+    },
+  };
+}
+
+function versionToolsHtml(p, changed) {
+  if (!canChooseVersions(p)) return "";
+  const sel = versionSel(p);
+  const opts = (cur) => p.versions.map((v) => `<option value="${v.col}" ${v.col === cur ? "selected" : ""}>${esc(v.label)}${
+    v.letter ? ` · col ${v.letter}` : ""}${v.hidden ? " (hidden in Excel)" : ""}</option>`).join("");
+  return `<div class="ver-tools no-print">
+    <label>Compare <select data-ver="0">${opts(sel[0])}</select></label>
+    <span class="ver-arrow">→</span>
+    <label>Reference <select data-ver="1">${opts(sel[1])}</select></label>
+    ${changed ? `<button type="button" data-ver-reset>Reset to Project Review</button>` : ""}
+    <span class="b-src">Δ = Reference − Compare${changed ? " · values from " + esc(p.budget_link.sheet) : ""}</span>
+  </div>`;
+}
+
+function reportHtml(orig) {
+  const { view: p, changed } = withVersions(orig);
   const n = p.columns.length;
   const latest = n - 1;
   const head = `<tr><th class="lbl">${esc(p.name)}</th>${p.columns
@@ -528,12 +579,13 @@ function reportHtml(p) {
   const kpis = p.kpis.length
     ? `<div class="kpis"><h2>${esc(p.kpi_title || "KPIs")}</h2><table class="kpi"><tbody>${p.kpis
         .map((k) => `<tr><td class="lbl">${esc(k.label)}</td>${k.values
-          .map((lines) => `<td>${lines.map(esc).join("<br>")}</td>`).join("")}</tr>`)
+          .map((lines) => `<td>${lines.length ? lines.map(esc).join("<br>") : "—"}</td>`).join("")}</tr>`)
         .join("")}</tbody></table></div>` : "";
   const after = bottomNotes.length ? `<div class="notes"><span></span><span>${bottomNotes.map(notePill).join("")}</span></div>` : "";
 
   return `<section class="report">
     ${headHtml(p, p.sheet)}
+    ${versionToolsHtml(orig, changed)}
     ${tools}
     <table class="pr"><thead>${head}</thead><tbody>${body}</tbody></table>
     ${notes}${kpis}${after}
@@ -627,6 +679,14 @@ $("#sidebar").addEventListener("click", (e) => {
 });
 
 $("#main").addEventListener("click", (e) => {
+  if (e.target.closest("[data-ver-reset]")) {
+    const p = allProjects().find((x) => x.id === selectedId);
+    if (p) {
+      try { localStorage.removeItem("bd." + verKey(p)); } catch (err) { /* sem storage */ }
+      renderMain();
+    }
+    return;
+  }
   const link = e.target.closest(".rm-link[data-id]");
   if (link) {
     select(link.dataset.id, "overview");
@@ -639,6 +699,17 @@ $("#main").addEventListener("click", (e) => {
   }
   const tr = e.target.closest("tr.rubric");
   if (tr) toggleRubric(tr);
+});
+
+$("#main").addEventListener("change", (e) => {
+  const s = e.target.closest("select[data-ver]");
+  if (!s) return;
+  const p = allProjects().find((x) => x.id === selectedId);
+  if (!p) return;
+  const sel = versionSel(p);
+  sel[+s.dataset.ver] = +s.value;
+  savePref(verKey(p), sel);
+  renderMain();
 });
 
 $("#main").addEventListener("keydown", (e) => {
@@ -664,7 +735,16 @@ document.addEventListener("click", (e) => {
   }
   const xlsx = e.target.closest("[data-xlsx]");
   if (xlsx) {
-    location.href = xlsx.dataset.xlsx === "one" && selectedId ? `/api/export.xlsx?id=${encodeURIComponent(selectedId)}` : "/api/export.xlsx";
+    // versões escolhidas em cada projeto (só as diferentes do quadro de Project Review)
+    const one = xlsx.dataset.xlsx === "one" && selectedId && selectedId !== PORTFOLIO;
+    const vers = {};
+    for (const p of allProjects()) {
+      if (one && p.id !== selectedId) continue;
+      if (withVersions(p).changed) vers[p.id] = versionSel(p);
+    }
+    const qs = [one ? `id=${encodeURIComponent(selectedId)}` : "",
+      Object.keys(vers).length ? `versions=${encodeURIComponent(JSON.stringify(vers))}` : ""].filter(Boolean).join("&");
+    location.href = "/api/export.xlsx" + (qs ? `?${qs}` : "");
   }
 });
 

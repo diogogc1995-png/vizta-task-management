@@ -23,7 +23,7 @@ from flask import Flask, abort, jsonify, request, send_file, send_from_directory
 import financing
 import powerbi
 import roadmap
-from budget_parser import attach_budget_details, parse_file
+from budget_parser import apply_versions, attach_budget_details, parse_file
 from excel_export import build_workbook
 from sharepoint import SharePointClient, is_url
 
@@ -416,7 +416,12 @@ def api_export():
     store.refresh()
     snap = store.snapshot()
     wanted = request.args.get("id")
-    by_id = {p["id"]: (f["group"], p) for f in snap["files"] for p in f["projects"]}
+    try:
+        chosen = json.loads(request.args.get("versions") or "{}")  # {id: [comparação, referência]}
+    except ValueError:
+        chosen = {}
+    by_id = {p["id"]: (f["group"], apply_versions(p, chosen[p["id"]]) if p["id"] in chosen else p)
+             for f in snap["files"] for p in f["projects"]}
     order = [pid for m in snap["menu"] for pid in ([m["item"]] if "item" in m else m["items"])]
     projects = [by_id[pid] for pid in order if pid in by_id and (not wanted or pid == wanted)]
     if not projects:

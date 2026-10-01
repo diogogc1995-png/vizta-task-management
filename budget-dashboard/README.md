@@ -143,6 +143,19 @@ Gráfico de Gantt com os projetos agrupados por zona, feito a partir do ficheiro
 - `"project"` liga a linha ao projeto do dashboard: clicar no nome abre o resumo.
 - Datas anteriores a `from_year` ficam encostadas ao início do gráfico. Passar o rato por uma barra mostra as datas.
 
+### Escolher as versões do budget (Project KPIs)
+
+Por cima do quadro há duas listas:
+- **Compare:** a coluna de comparação, por omissão a do quadro (p.ex. "Project Review 16/07/2026").
+- **Reference:** a coluna de referência, por omissão a mais recente.
+
+A 1.ª coluna (Investment Committee / Acquisition) fica fixa. O **Δ é sempre Reference − Compare**; nas margens em % é a diferença em pontos percentuais.
+
+- As versões disponíveis são todas as colunas BUDGET da folha de budget do projeto, incluindo as escondidas no Excel (indicadas como "hidden in Excel", com a letra da coluna), mais o "Last budget validated" e o "Current (signed + forecasted)", que é o TOTAL.
+- Os valores das versões escolhidas vêm da folha de budget. Cada linha do quadro só é ligada à folha se os valores coincidirem nas versões do quadro; tolera-se uma coluna diferente, p.ex. um erro numa célula. Linhas sem correspondência (p.ex. "12-Other Adjustments", quando a folha não a tem) aparecem vazias.
+- Os KPIs da Orion também mudam com a versão escolhida, quando a folha tem o bloco de KPIs para essa versão. Caso contrário mostram "—". As notas (Margin w/out internal fees, …) só aparecem na versão do quadro.
+- O browser lembra a escolha de cada projeto. "Reset to Project Review" volta ao padrão. O PDF e o Excel exportados saem com as versões escolhidas.
+
 ## Subrubricas e menu
 
 No quadro do Project Review, as rubricas (p.ex. "1- Land costs") abrem um dropdown com as subrubricas, lidas da folha de budget do projeto (p.ex. `BUDGET FASE 1`). "Expand all" / "Collapse all" abre ou fecha todas.

@@ -269,6 +269,13 @@ table.pr tr.subrow td { font-size: 12.5px; color: #555; background: #fcfcfc; bor
 table.pr tr.subrow td.latest { background: var(--peach-pale); }
 table.pr tr.subrow td.lbl { padding-left: 30px; }
 table.pr tr.subrow .code { display: inline-block; min-width: 50px; color: var(--muted); font-size: 11px; }
+.ver-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 12px; padding: 10px 12px;
+  background: var(--peach-pale); border-left: 3px solid var(--orange); font-size: 12px; }
+.ver-tools label { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-size: 11px; }
+.ver-tools select { font: inherit; font-size: 13px; text-transform: none; letter-spacing: 0; color: var(--ink); font-weight: 400;
+  border: 1px solid var(--grid); background: #fff; padding: 4px 6px; max-width: 320px; }
+.ver-tools button { border: 1px solid var(--orange); background: #fff; color: var(--orange); padding: 4px 10px; font-size: 12px; font-weight: 700; }
+.ver-arrow { color: var(--muted); }
 .kicker { font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--orange); margin-bottom: 6px; }
 .b-tools { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 .b-tools button { border: 1px solid var(--grid); background: var(--panel); padding: 5px 12px; font-size: 12px; font-weight: 600; }

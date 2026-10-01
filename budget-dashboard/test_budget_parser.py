@@ -9,7 +9,7 @@ import zipfile
 
 from openpyxl import Workbook
 
-from budget_parser import attach_budget_details, parse_file, parse_workbook
+from budget_parser import apply_versions, attach_budget_details, parse_file, parse_workbook
 from excel_export import build_workbook
 
 LINES = ["1- Land costs", "2- Charges", "4- Construction", "12-Other Adjustments"]
@@ -194,6 +194,22 @@ class ParserTest(unittest.TestCase):
         self.assertNotIn("children", q["rows"][1])  # rubrica sem subrubricas
         self.assertEqual(q["rows"][2]["children"][0]["code"], "321.1")
         self.assertNotIn("children", project["rows"][0])  # o original não é alterado
+
+        # Versões: colunas BUDGET (incl. escondida) e o TOTAL; linhas ligadas ao budget
+        self.assertEqual([v["col"] for v in q["versions"]], [0, 1, 2, 3])  # aqui todas são do grupo BUDGET
+        self.assertEqual(q["version_default"], [2, 3, 1])
+        self.assertEqual(q["rows"][0]["bvalues"], [110, 120, 100, 110])
+        self.assertNotIn("bvalues", q["rows"][3])  # TOTAL COST não existe na folha de budget de teste
+        # Escolher a coluna escondida (0) como comparação e o TOTAL (1) como referência: Δ recalculado
+        q2 = q
+        v = apply_versions(q2, [0, 1])
+        self.assertEqual(v["columns"][1]["lines"], ["Project Review 2026-07-16"])
+        self.assertEqual(v["columns"][2]["lines"], ["Project Review", "21/10/2026"])  # referência = padrão
+        self.assertEqual((v["rows"][0]["values"], v["rows"][0]["delta"]), ([100, 110, 120], 10))
+        self.assertEqual([c["values"] for c in v["rows"][0]["children"]], [[90, 100, 105], [10, 10, 15]])
+        self.assertEqual(v["rows"][3]["values"], [620, None, 690])  # sem dados no budget: vazio (Δ também)
+        self.assertIsNone(v["rows"][3]["delta"])
+        self.assertIs(apply_versions(q2, [3, 1]), q2)  # escolha = padrão: o quadro fica igual
 
         wb = build_workbook([("File", {**self.projects[0], **q, "footnote": None, "notes": [], "kpis": []})])
         ws = wb.active

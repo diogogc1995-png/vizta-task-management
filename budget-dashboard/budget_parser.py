@@ -16,6 +16,7 @@ import tempfile
 import zipfile
 
 import openpyxl
+from openpyxl.utils import get_column_letter
 
 SCAN_ROWS = 80
 SCAN_COLS = 15
@@ -249,22 +250,25 @@ def parse_budget_sheet(grid, sheet_name, hidden_cols=()):
             "sub": _norm(str(sub)) if sub not in (None, "") and not _is_number(sub) else None,
             "percent": bool(lines) and lines[0].startswith("%"),
             "hidden": c in hidden_cols,
+            "letter": get_column_letter(c + 1),
         })
         col_idx.append(c)
     if not columns:
         return None
 
-    items, current, blanks = [], None, 0
+    items, current, blanks, end_r = [], None, 0, len(grid)
     for r in range(first_r, len(grid)):
         label = get(r, label_c)
         if not (isinstance(label, str) and label.strip()):
             blanks += 1
             if blanks > 8:
+                end_r = r
                 break
             continue
         blanks = 0
         lab = _norm(label)
         if BUDGET_END.match(lab):
+            end_r = r
             break
         values = [_cell_value(get(r, c)) for c in col_idx]
         if not any(v is not None for v in values):
@@ -284,8 +288,31 @@ def parse_budget_sheet(grid, sheet_name, hidden_cols=()):
         else:
             items.append({**row, "kind": "line"})
 
+    # Blocos de KPIs por versão ("Project KPIs = Orions KPIs", "Orions View KPIs", ...):
+    # linhas Unlevered / Levered / Levered post tax com texto tipo "16,5% / 1,3x | 12.0M€ / -42.4M€".
+    kpi_blocks, block = {}, None
+    for r in range(end_r, len(grid)):
+        label = get(r, label_c)
+        lab = _norm(label) if isinstance(label, str) else ""
+        if re.match(r"^(Project KPIs|Orions? View KPIs)", lab, re.I):
+            block = kpi_blocks.setdefault(_kpi_key(lab), {"title": lab, "rows": {}})
+            continue
+        if block is None or not lab:
+            continue
+        vals = [get(r, c) for c in col_idx]
+        if not any(isinstance(v, str) and v.strip() for v in vals):
+            block = None if block["rows"] else block
+            continue
+        block["rows"][lab] = [[_norm(p) for p in str(v).split("\n") if _norm(p)]
+                              if isinstance(v, str) and v.strip() else [] for v in vals]
+
     return {"sheet": sheet_name, "title": _norm(str(get(head_r - 1, label_c) or "")) or None,
-            "columns": columns, "rows": items}
+            "columns": columns, "rows": items, "kpi_blocks": list(kpi_blocks.values())}
+
+
+def _kpi_key(title):
+    t = re.sub(r"[^a-z]", "", (title or "").lower())
+    return "orion" if t.startswith("orion") or "orionskpis" in t else "project"
 
 
 RUBRIC_NUM = re.compile(r"^\s*(\d{1,2})\s*-")
@@ -307,6 +334,12 @@ def _dates(lines):
             y = int(m.group(3))
             out.add((y + 2000 if y < 100 else y, int(m.group(2)), int(m.group(1))))
     return out
+
+
+def _row_key(label):
+    """'TOTAL COST (PROJECT)' ~ 'TOTAL COST'; "MARGIN (ORIONS' VIEW) (€)*" ~ 'MARGIN (ORIONS VIEW) (€)'."""
+    t = (label or "").upper().replace("(PROJECT)", "").replace("ORIONS", "ORION")
+    return re.sub(r"[^A-Z0-9€%]", "", t)
 
 
 def _code_str(code):
@@ -379,18 +412,113 @@ def attach_budget_details(project, budget):
             delta = c["values"][delta_k] if delta_k is not None else None
         return {"label": c["label"], "code": _code_str(c["code"]), "values": vals, "delta": delta}
 
+    # Linha do budget que corresponde a cada linha do quadro (rubrica pelo número, totais/margens
+    # pelo texto). Só fica ligada se os valores coincidirem nas colunas já associadas.
+    b_by_key = {}
+    for br in budget["rows"]:
+        b_by_key.setdefault(_row_key(br["label"]), br)
+
+    def budget_row(r):
+        n = _rubric_num(r["label"])
+        br = b_rub.get(n) if n is not None else b_by_key.get(_row_key(r["label"]))
+        if not br:
+            return None
+        checks = [(r["values"][j], br["values"][k]) for j, k in enumerate(mapping)
+                  if k is not None and _is_number(r["values"][j])]
+        same = lambda a, b: (_close(b, a) or (b is None and abs(a) < 0.5)
+                             or (r.get("percent") and _is_number(b) and abs(a - b) < 0.0005))
+        hits = sum(1 for a, b in checks if same(a, b))
+        # tolera uma coluna diferente (p.ex. erro numa célula do quadro), desde que as outras coincidam
+        return br if checks and hits >= max(1, len(checks) - 1) and hits >= min(2, len(checks)) else None
+
     # Subrubricas numa lista simples, como no Excel (o Excel não indica se umas
     # estão contidas noutras, p.ex. 321 / 321.1, por isso não se assume nada).
     rows = []
-    for r in project["rows"]:
-        n = _rubric_num(r["label"])
-        if n in b_rub and r is pr_rub.get(n) and b_rub[n]["children"]:
-            r = {**r, "children": [sub_row(c) for c in b_rub[n]["children"]]}
+    for orig in project["rows"]:
+        n = _rubric_num(orig["label"])
+        r = dict(orig)
+        br = budget_row(orig)
+        if br:
+            r["bvalues"] = br["values"]
+        if n in b_rub and orig is pr_rub.get(n) and b_rub[n]["children"]:
+            r["children"] = [{**sub_row(c), "bvalues": c["values"]} for c in b_rub[n]["children"]]
         rows.append(r)
-    return {**project, "rows": rows,
+
+    # Versões que se podem escolher no quadro: colunas BUDGET (incl. escondidas) e o TOTAL atual
+    versions = []
+    for k, col in enumerate(bcols):
+        g = (col.get("group") or "").upper()
+        if g.startswith("BUDGET"):
+            label = " ".join(col["lines"])
+        elif g.startswith("COST") and col["lines"] and col["lines"][0].upper() == "TOTAL":
+            label = "Current (signed + forecasted)"
+        else:
+            continue
+        versions.append({"col": k, "label": label, "hidden": bool(col.get("hidden")),
+                         "letter": col.get("letter"), "lines": col["lines"]})
+
+    # KPIs por versão: o bloco com o mesmo título do quadro, se coincidir nas colunas associadas
+    bkpis = None
+    want = _kpi_key(project.get("kpi_title"))
+    blocks = sorted(budget.get("kpi_blocks", []), key=lambda b: _kpi_key(b["title"]) != want)
+    flat = lambda v: " ".join(v or []).replace(" ", "").replace(",", ".")  # "7,2M€" == "7.2M€"
+    for b in blocks:
+        rows_k = {re.sub(r"\s+", " ", k).strip().lower(): v for k, v in b["rows"].items()}
+        ok = 0
+        for kpi in project.get("kpis", []):
+            bv = rows_k.get(kpi["label"].lower())
+            if bv is None:
+                continue
+            for j, k in enumerate(mapping):
+                if k is not None and kpi["values"][j] and flat(kpi["values"][j]) == flat(bv[k]):
+                    ok += 1
+        if ok:
+            bkpis = {kpi["label"]: rows_k.get(kpi["label"].lower()) for kpi in project.get("kpis", [])}
+            break
+
+    return {**project, "rows": rows, "versions": versions, "version_default": mapping, "bkpis": bkpis,
             "budget_link": {"sheet": budget["sheet"],
                             "columns": [bcols[k]["lines"] if k is not None else None for k in mapping],
                             "delta": ("column" if delta_k is not None else "difference" if delta_is_diff else None)}}
+
+
+def apply_versions(project, sel):
+    """Quadro com a 2.ª e 3.ª colunas trocadas pelas versões do budget escolhidas (sel = [comparação,
+    referência], índices das colunas do budget). Δ = referência − comparação. Igual ao que o browser faz."""
+    d = project.get("version_default") or []
+    cols = {v["col"]: v for v in project.get("versions") or []}
+    if (len(project["columns"]) != 3 or len(d) != 3 or None in (d[1], d[2])
+            or not isinstance(sel, (list, tuple)) or len(sel) != 2 or any(s not in cols for s in sel)
+            or (sel[0] == d[1] and sel[1] == d[2])):
+        return project
+    slots = [d[0], sel[0], sel[1]]
+
+    def pick(r, s):
+        if s == 0 or slots[s] == d[s]:
+            return r["values"][s]
+        b = r.get("bvalues")
+        return b[slots[s]] if b and slots[s] < len(b) else None
+
+    def mk(r):
+        values = [pick(r, 0), pick(r, 1), pick(r, 2)]
+        delta = values[2] - values[1] if _is_number(values[1]) and _is_number(values[2]) else None
+        out = {**r, "values": values, "delta": delta}
+        if r.get("children"):
+            out["children"] = [mk(c) for c in r["children"]]
+        return out
+
+    def kpi_col(k, s):
+        if slots[s] == d[s]:
+            return k["values"][s]
+        b = (project.get("bkpis") or {}).get(k["label"]) or []
+        return b[slots[s]] if slots[s] < len(b) else []
+
+    return {**project,
+            "columns": [project["columns"][0]] + [
+                {"lines": project["columns"][s]["lines"] if slots[s] == d[s] else cols[slots[s]]["lines"]} for s in (1, 2)],
+            "rows": [mk(r) for r in project["rows"]],
+            "kpis": [{**k, "values": [k["values"][0], kpi_col(k, 1), kpi_col(k, 2)]} for k in project.get("kpis", [])],
+            "notes": []}
 
 
 def _hidden_cols(path, sheet_names):
