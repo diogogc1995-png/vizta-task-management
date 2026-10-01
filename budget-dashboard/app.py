@@ -22,6 +22,7 @@ from flask import Flask, abort, jsonify, request, send_file, send_from_directory
 
 import financing
 import powerbi
+import roadmap
 from budget_parser import attach_budget_details, parse_file
 from excel_export import build_workbook
 from sharepoint import SharePointClient, is_url
@@ -107,6 +108,8 @@ class Store:
         self.info, self.info_error, self.info_sig = {}, None, None
         # Vendas transcritas do Power BI, usadas enquanto não houver leitura automática
         self.snap, self.snap_as_of, self.snap_error, self.snap_sig = {}, None, None, None
+        # Roadmap (ficheiro "RM mensuelle Portugal")
+        self.rm_rows, self.rm_unmatched, self.rm_error, self.rm_sig = [], [], None, None
         self.version = ""
 
     def _update_version(self):
@@ -114,7 +117,7 @@ class Store:
             [(k, e["sig"], e["error"]) for k, e in sorted(self.files.items())]
             + self.missing + sorted(self.source_errors.items())
             + [self.financing_sig, self.financing_error, self.info_sig, self.info_error,
-               self.snap_sig, self.snap_error], default=str)
+               self.snap_sig, self.snap_error, self.rm_sig, self.rm_error], default=str)
         self.version = hashlib.sha1(state.encode()).hexdigest()[:12]
 
     def _refresh_financing(self):
@@ -142,6 +145,32 @@ class Store:
         if sig != self.snap_sig:
             self.snap, self.snap_as_of, self.snap_error = powerbi.load_snapshot(SALES_SNAPSHOT_PATH)
             self.snap_sig = sig
+        self._refresh_roadmap()
+
+    def _refresh_roadmap(self):
+        rm = self.cfg.get("roadmap") or {}
+        if not rm.get("file"):
+            return
+        path = _expand(rm["file"])
+        try:
+            st = os.stat(path)
+            sig = (st.st_mtime, st.st_size)
+        except OSError:
+            sig = None
+        retry = self.rm_error and sig and time.time() - getattr(self, "rm_try", 0) > 60
+        if sig == self.rm_sig and not retry:
+            return
+        self.rm_try = time.time()
+        if sig is None:
+            self.rm_error = f"Ficheiro do roadmap não encontrado: {rm['file']}"
+        else:
+            try:
+                self.rm_rows, self.rm_unmatched = roadmap.load(path, rm.get("sheet", "RM Portugal AllUpdate"),
+                                                               rm.get("rows", []))
+                self.rm_error = None
+            except Exception as e:  # ficheiro aberto/bloqueado: mantém os últimos dados e tenta de novo
+                self.rm_error = f"Roadmap: {type(e).__name__}: {e}"
+        self.rm_sig = sig
 
     def refresh(self):
         """Ficheiros locais (OneDrive sincronizado): verifica mtime/tamanho."""
@@ -262,6 +291,12 @@ class Store:
                                      "snapshot_error": self.snap_error},
                     "financing_error": self.financing_error,
                     "info_error": self.info_error,
+                    "roadmap": {"rows": [{**r, "project_id": ids.get(financing.key(r["project"])) if r.get("project") else None}
+                                         for r in self.rm_rows],
+                                "unmatched": self.rm_unmatched, "error": self.rm_error,
+                                "from_year": (self.cfg.get("roadmap") or {}).get("from_year"),
+                                "modified": self.rm_sig[0] if self.rm_sig else None,
+                                "sheet": (self.cfg.get("roadmap") or {}).get("sheet")},
                     "financing_unmatched": sorted(c["project"] for k, c in self.financing.items()
                                                   if k not in matched),
                     **build_menu(self.cfg.get("menu", []), ids)}

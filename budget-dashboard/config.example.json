@@ -19,6 +19,14 @@
     "typology_query": "EVALUATE ...",
     "poll_seconds": 900
   },
+  "roadmap": {
+    "file": "%OneDriveCommercial%/.../RM mensuelle Portugal Always Updated.xlsx",
+    "sheet": "RM Portugal AllUpdate",
+    "from_year": 2023,
+    "rows": [
+      {"group": "Zona", "label": "Nome a mostrar", "area_match": "Zona na coluna B", "name_match": "Nome na coluna C", "project": "NOME NO QUADRO"}
+    ]
+  },
   "menu": [
     {"group": "Projeto com fases", "items": [
       {"project": "NOME NO QUADRO FASE I", "label": "Fase 1 - Lote X", "budget_sheet": "BUDGET FASE 1"},

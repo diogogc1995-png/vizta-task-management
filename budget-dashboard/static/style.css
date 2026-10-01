@@ -146,6 +146,40 @@ code { font-family: Consolas, monospace; font-size: 12px; }
 .ppage.pf.active { color: var(--orange); }
 .portfolio { width: auto; min-width: min(100%, 720px); }
 
+/* Roadmap (Gantt) */
+.roadmap { width: auto; max-width: 1300px; }
+.rm-scroll { overflow-x: auto; }
+table.rm { border-collapse: separate; border-spacing: 0 4px; width: 100%; min-width: 900px; font-size: 13px; }
+table.rm thead th { font-weight: 700; padding: 0 0 6px; }
+.rm-hcorner { text-align: left; font-size: 15px; color: var(--ink); vertical-align: bottom; border-bottom: 2px solid var(--ink); width: 300px; }
+.rm-years { position: relative; vertical-align: bottom; }
+.rm-yearrow { display: flex; }
+.rm-yearrow span { flex: 1; text-align: left; padding-left: 6px; color: var(--muted); font-size: 13px; font-weight: 600; border-left: 1px solid var(--grid); }
+.rm-today-lbl { position: absolute; top: -18px; transform: translateX(-50%); font-size: 11px; font-weight: 700; color: var(--ink); }
+th.rm-area { background: var(--orange); color: #fff; text-align: left; padding: 8px 12px; font-size: 14px; font-weight: 700;
+  width: 130px; border-right: 4px solid var(--panel); vertical-align: middle; }
+td.rm-name { background: #e6e6e6; padding: 0 10px; width: 170px; height: 32px; white-space: nowrap; }
+.rm-link { border: 0; background: none; padding: 0; font: inherit; color: var(--ink); cursor: pointer; text-align: left; }
+.rm-link:hover { color: var(--orange); text-decoration: underline; }
+td.rm-track { position: relative; height: 32px; padding: 0;
+  background-image: linear-gradient(to right, var(--grid) 1px, transparent 1px);
+  background-size: calc(100% / var(--years)) 100%; }
+.rm-bar { position: absolute; top: 3px; bottom: 3px; }
+.rm-bar.dev, .rm-legend i.dev { background: #d9d9d9; }
+.rm-bar.pre, .rm-legend i.pre { background: #fde3cc; }
+.rm-bar.cons, .rm-legend i.cons { background: var(--peach); }
+.rm-bar.del, .rm-legend i.del { background: var(--orange); }
+.rm-dia { position: absolute; top: 50%; width: 11px; height: 11px; transform: translate(-50%, -50%) rotate(45deg); z-index: 2; }
+.rm-dia.pspa { background: #222; }
+.rm-dia.launch { background: #8bc34a; }
+.rm-end { position: absolute; top: 50%; transform: translateY(-50%); margin-left: 6px; font-size: 10px; color: var(--muted); white-space: nowrap; }
+.rm-now { position: absolute; top: -4px; bottom: -4px; border-left: 1.5px dashed #555; z-index: 3; pointer-events: none; }
+.rm-legend { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 14px; font-size: 12px; color: var(--muted); align-items: center; }
+.rm-legend span { display: inline-flex; align-items: center; gap: 7px; }
+.rm-legend i { display: inline-block; width: 22px; height: 11px; }
+.rm-legend .rm-dia { position: static; transform: rotate(45deg); width: 9px; height: 9px; }
+.rm-endkey { font-style: italic; }
+
 /* Sales: Typology Report */
 .page-sales, .page-financing { width: auto; max-width: 1100px; }
 .page-financing .financing { margin-top: 8px; border-top: 0; padding-top: 0; width: auto; min-width: 0; }

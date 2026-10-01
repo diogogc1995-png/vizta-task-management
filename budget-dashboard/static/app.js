@@ -195,9 +195,83 @@ function select(id, pg) {
 // ---------- Vizta Portfolio (conteúdo a definir) ----------
 function portfolioHtml(pg) {
   const [, title] = PORTFOLIO_PAGES.find(([k]) => k === pg) || PORTFOLIO_PAGES[0];
+  if (pg === "roadmap") return roadmapHtml(title);
   return `<section class="report portfolio">
     <div class="report-head"><div><div class="kicker">Vizta Portfolio</div><h1>${esc(title)}</h1></div></div>
     <div class="empty"><p>Content to be defined.</p></div>
+  </section>`;
+}
+
+// ---------- Roadmap (ficheiro "RM mensuelle Portugal") ----------
+function roadmapHtml(title) {
+  const rm = data.roadmap || {};
+  const rows = rm.rows || [];
+  const head = `<div class="report-head"><div><div class="kicker">Vizta Portfolio</div><h1>${esc(title)}</h1>
+      <div class="src">${esc(rm.sheet || "")}${rm.modified ? ` · file saved ${fmtTime(rm.modified)}` : ""}</div></div></div>`;
+  const notes = [rm.error ? `<div class="banner">${esc(rm.error)}${rows.length ? " (showing last good data)" : ""}</div>` : "",
+    (rm.unmatched || []).length ? `<div class="banner">Roadmap rows not found in the sheet: ${rm.unmatched.map(esc).join(", ")}</div>` : ""].join("");
+  if (!rows.length) {
+    return `<section class="report portfolio">${head}${notes || `<div class="empty"><p>No roadmap configured (<code>config.json</code> → <code>roadmap</code>).</p></div>`}</section>`;
+  }
+  const D = (iso) => (iso ? new Date(iso + "T00:00:00") : null);
+  const lastYear = Math.max(...rows.map((r) => (D(r.end_deliveries) || D(r.construction_end) || new Date()).getFullYear()));
+  const y0 = rm.from_year || Math.min(...rows.map((r) => (D(r.launch) || new Date()).getFullYear()));
+  const t0 = new Date(y0, 0, 1).getTime();
+  const t1 = new Date(lastYear + 1, 0, 1).getTime();
+  const pos = (d) => Math.min(100, Math.max(0, ((d.getTime() - t0) / (t1 - t0)) * 100));
+  const years = [];
+  for (let y = y0; y <= lastYear; y++) years.push(y);
+  const today = new Date();
+  const quarter = (d) => `Q${Math.floor(d.getMonth() / 3) + 1} ${d.getFullYear()}`;
+  const fd = (iso) => fmtDate(iso);
+
+  const bar = (cls, a, b, label) => {
+    if (!a || !b || b <= a || b.getTime() <= t0) return "";
+    const l = pos(a), w = pos(b) - l;
+    return w > 0 ? `<span class="rm-bar ${cls}" style="left:${l}%;width:${w}%" title="${esc(label)}"></span>` : "";
+  };
+  const diamond = (cls, d, label) => (d ? `<span class="rm-dia ${cls}" style="left:${pos(d)}%" title="${esc(label)}"></span>` : "");
+
+  const groups = [];
+  for (const r of rows) {
+    const g = groups[groups.length - 1];
+    if (g && g.name === r.group) g.rows.push(r); else groups.push({ name: r.group, rows: [r] });
+  }
+  const body = groups.map((g) => g.rows.map((r, i) => {
+    const acq = D(r.acquisition) || D(r.projeto_base), launch = D(r.launch), cs = D(r.construction_start),
+      ce = D(r.construction_end), eod = D(r.end_deliveries), pspa = D(r.pspa);
+    const devEnd = launch || cs;
+    const bars = [
+      bar("dev", acq, devEnd, `Development & licensing: ${fd(r.acquisition || r.projeto_base)} → ${fd(r.launch || r.construction_start)}`),
+      bar("pre", launch, cs, `Pre-sales: ${fd(r.launch)} → ${fd(r.construction_start)}`),
+      bar("cons", cs, ce, `Construction: ${fd(r.construction_start)} → ${fd(r.construction_end)}`),
+      bar("del", ce, eod, `Deliveries: ${fd(r.construction_end)} → ${fd(r.end_deliveries)}`),
+      diamond("pspa", pspa, `PSPA: ${fd(r.pspa)}`),
+      diamond("launch", launch, `Commercial launch: ${fd(r.launch)}`),
+      eod ? `<span class="rm-end" style="left:${pos(eod)}%">${quarter(eod)}</span>` : "",
+      `<span class="rm-now" style="left:${pos(today)}%"></span>`,
+    ].join("");
+    const label = r.project_id
+      ? `<button type="button" class="rm-link" data-id="${r.project_id}">${esc(r.label)}</button>` : esc(r.label);
+    return `<tr>${i === 0 ? `<th class="rm-area" rowspan="${g.rows.length}">${esc(g.name)}</th>` : ""}
+      <td class="rm-name" title="${esc(r.area)} · ${esc(r.name)}">${label}</td>
+      <td class="rm-track">${bars}</td></tr>`;
+  }).join("")).join("");
+
+  const todayLeft = pos(today);
+  return `<section class="report portfolio roadmap">${head}${notes}
+    <div class="rm-scroll"><table class="rm">
+      <thead><tr><th class="rm-hcorner" colspan="2">Area &amp; Projects</th>
+        <th class="rm-years"><div class="rm-yearrow">${years.map((y) => `<span>${y}</span>`).join("")}</div>
+          <span class="rm-today-lbl" style="left:${todayLeft}%">Today</span></th></tr></thead>
+      <tbody style="--years:${years.length}">${body}</tbody>
+    </table></div>
+    <div class="rm-legend">
+      <span><i class="dev"></i>Development &amp; licensing</span><span><i class="pre"></i>Pre-sales</span>
+      <span><i class="cons"></i>Construction</span><span><i class="del"></i>Deliveries</span>
+      <span><b class="rm-dia pspa"></b>PSPA</span><span><b class="rm-dia launch"></b>Commercial launch</span>
+      <span class="rm-endkey">Q3 2028 = end of deliveries</span>
+    </div>
   </section>`;
 }
 
@@ -518,6 +592,11 @@ $("#sidebar").addEventListener("click", (e) => {
 });
 
 $("#main").addEventListener("click", (e) => {
+  const link = e.target.closest(".rm-link[data-id]");
+  if (link) {
+    select(link.dataset.id, "overview");
+    return;
+  }
   const ex = e.target.closest("[data-expand]");
   if (ex) {
     document.querySelectorAll("#main tr.rubric").forEach((tr) => toggleRubric(tr, ex.dataset.expand === "all"));

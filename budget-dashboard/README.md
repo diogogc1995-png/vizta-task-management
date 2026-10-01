@@ -123,7 +123,25 @@ Os dados de vendas vêm do CRM através do Power BI. A app usa a mesma conta Mic
 
 ## Vizta Portfolio
 
-No topo do menu, o item "Vizta Portfolio" tem as páginas *Summary of all projects*, *Roadmap* e *Projects financing overview*. O conteúdo está por definir.
+No topo do menu, o item "Vizta Portfolio" tem as páginas *Summary of all projects*, *Roadmap* e *Projects financing overview*.
+
+### Roadmap
+
+Gráfico de Gantt com os projetos agrupados por zona, feito a partir do ficheiro "RM mensuelle Portugal Always Updated" (folha `RM Portugal AllUpdate`), lido da pasta sincronizada do SharePoint. A app relê o ficheiro quando muda.
+
+| Barra / marca | Datas da folha |
+|---|---|
+| Cinzento: desenvolvimento e licenciamento | Acquisition Date (ou Projeto Base) → Commercial Launch |
+| Pêssego claro: pré-vendas | Commercial Launch → início de Construction |
+| Pêssego: construção | Construction start → end |
+| Laranja: entregas | Construction end → End of deliveries |
+| ◆ preto / ◆ verde | PSPA / Commercial Launch |
+| Etiqueta (p.ex. "Q3 2028") | End of deliveries |
+
+- As colunas são encontradas pelos cabeçalhos.
+- As linhas a mostrar, a ordem, a zona e o nome configuram-se em `config.json` → `"roadmap"` → `"rows"` (ver `config.example.json`). Cada linha é encontrada pela zona (coluna B, `area_match`) e pelo nome (coluna C, `name_match`; o nome exato tem prioridade).
+- `"project"` liga a linha ao projeto do dashboard: clicar no nome abre o resumo.
+- Datas anteriores a `from_year` ficam encostadas ao início do gráfico. Passar o rato por uma barra mostra as datas.
 
 ## Subrubricas e menu
 
