@@ -41,10 +41,6 @@ function allProjects() {
   if (!data) return [];
   return data.files.flatMap((f) => f.projects.map((p) => ({ ...p, group: f.group, file: f.file, modified: f.modified, remote: f.remote })));
 }
-function marginPct(p) {
-  const r = p.rows.find((r) => r.percent && r.kind === "total" && /^MARGIN/i.test(r.label));
-  return r ? { value: r.values[r.values.length - 1], delta: r.delta } : null;
-}
 
 async function load() {
   const res = await fetch("/api/projects", { cache: "no-store" });
@@ -78,8 +74,7 @@ function setStatus(ok) {
     return;
   }
   const n = allProjects().length;
-  const files = data ? data.files.length : 0;
-  el.innerHTML = `<span class="dot"></span>${n} project${n === 1 ? "" : "s"} from ${files} file${files === 1 ? "" : "s"} · live (checks every ${POLL_MS / 1000}s) · last check ${new Date().toLocaleTimeString("en-GB")}`;
+  el.innerHTML = `<span class="dot"></span>${n} project${n === 1 ? "" : "s"} · live · last check ${new Date().toLocaleTimeString("en-GB")}`;
 }
 
 let toastTimer;
@@ -99,23 +94,11 @@ function render() {
 }
 
 function renderSidebar() {
-  const html = data.files.map((f) => {
-    const items = f.projects.map((p) => {
-      const m = marginPct(p);
-      let mhtml = "";
-      if (m && typeof m.value === "number") {
-        const d = typeof m.delta === "number" && Math.abs(m.delta) >= 0.00005
-          ? ` <span class="${m.delta < 0 ? "neg" : "pos"}">${m.delta > 0 ? "▲" : "▼"}</span>` : "";
-        mhtml = `${fmtPct(m.value)}${d}`;
-      }
-      return `<button type="button" class="proj ${p.id === selectedId ? "active" : ""}" data-id="${p.id}" title="${esc(f.file)} › ${esc(p.sheet)}">
-        <span>${esc(p.name)}</span><span class="m">${mhtml}</span></button>`;
-    }).join("");
-    const err = f.error ? `<span class="err" title="${esc(f.error)}">⚠ read error</span>` : "";
-    const none = !f.projects.length && !f.error ? `<div class="proj" style="color:var(--muted)">No review sheet found</div>` : "";
-    return `<div class="group"><div class="group-title"><span title="${esc(f.location || "")}">${f.remote ? "☁ " : ""}${esc(f.group)}</span>${err}</div>${items}${none}</div>`;
-  }).join("");
-  $("#sidebar").innerHTML = html || `<div class="group-title">No files</div>`;
+  // Só os nomes dos projetos; erros de leitura aparecem como avisos na área principal.
+  const items = allProjects().map((p) =>
+    `<button type="button" class="proj ${p.id === selectedId ? "active" : ""}" data-id="${p.id}" title="${esc(p.file)} › ${esc(p.sheet)}">${esc(p.name)}</button>`
+  ).join("");
+  $("#sidebar").innerHTML = `<div class="side-title">Projects</div>` + (items || `<div class="proj">No projects</div>`);
 }
 
 function banners() {
@@ -123,6 +106,7 @@ function banners() {
   for (const m of data.missing) out.push(`Source not found: <code>${esc(m)}</code> — check <code>config.json</code> (is OneDrive synced?).`);
   for (const se of data.source_errors || []) out.push(`Could not read SharePoint link <code>${esc(se.source.slice(0, 70))}…</code>: ${esc(se.error)}`);
   for (const f of data.files) if (f.error) out.push(`Could not read <b>${esc(f.file)}</b> (showing last good data, retrying automatically): ${esc(f.error)}`);
+  for (const f of data.files) if (!f.error && !f.projects.length) out.push(`No Project Review sheet found in <b>${esc(f.file)}</b>.`);
   return out.map((b) => `<div class="banner no-print">${b}</div>`).join("");
 }
 

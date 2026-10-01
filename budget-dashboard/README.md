@@ -6,7 +6,7 @@ App local (corre só no teu PC) que junta os budgets de vários projetos num das
 - **Não faz cálculos.** Mostra os valores tal como estão guardados no Excel, e a coluna **Δ** também vem da folha. Os valores estão em k€.
 - **Atualiza sozinha.** Os ficheiros locais são verificados de 5 em 5 segundos e os do SharePoint de 60 em 60 segundos (configurável). Quando um ficheiro muda, é relido e o dashboard atualiza sem ser preciso recarregar a página.
 - Exporta para **PDF** (o projeto atual ou todos, um por página) e para **Excel** (formatado como o quadro, um separador por projeto).
-- O servidor só aceita ligações de `localhost`. A única ligação externa é ao Microsoft Graph, para ler os ficheiros do SharePoint com a tua conta.
+- O servidor só aceita ligações de `localhost`. As únicas ligações externas são ao Microsoft Graph, para ler os ficheiros do SharePoint com a tua conta, e ao Google Fonts, para a fonte Manrope do design Vizta (sem internet, usa a fonte do sistema).
 
 ## Como deteta os projetos
 

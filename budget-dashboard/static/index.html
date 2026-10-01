@@ -3,23 +3,39 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Project Budgets</title>
+  <title>VIZTA · Project Budgets</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap">
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
   <header class="topbar no-print">
-    <div class="brand">Project Budgets</div>
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 133 28" fill="currentColor" aria-label="VIZTA" role="img">
+        <path d="M39.2734 27.1706H34.2773V0H39.2734V27.1706Z"/>
+        <path d="M14.7541 27.1706H9.35947L0 0.00158307H5.39458L14.7541 27.1706Z"/>
+        <path d="M24.1134 0H29.508L20.1485 27.169H14.7539L24.1134 0Z"/>
+        <path d="M133 27.1707H127.606L118.246 0.00170898H123.641L133 27.1707Z"/>
+        <path d="M108.887 27.1707H103.492L112.852 0.00170898H118.246L108.887 27.1707Z"/>
+        <path d="M105.107 0.00158307H77.9377V4.67341H94.0203L89.0242 6.95397V27.1706H94.0203V4.67341H105.107V0.00158307Z"/>
+        <path d="M46 4.67341V0H73.169V4.67341H46Z"/>
+        <path d="M46 27.1706V22.1746H73.1706V27.1706H46Z"/>
+        <path d="M46 22.143V17.1469L73.1706 4.67342V9.66946L46 22.143Z"/>
+      </svg>
+      <span class="brand-sub">Project Budgets</span>
+    </div>
     <div class="status" id="status">Loading…</div>
     <div class="actions">
       <div class="menu">
-        <button type="button" id="btn-pdf">Export PDF ▾</button>
+        <button type="button" id="btn-pdf">Export PDF</button>
         <div class="menu-list">
           <button type="button" data-pdf="one">This project</button>
           <button type="button" data-pdf="all">All projects</button>
         </div>
       </div>
       <div class="menu">
-        <button type="button" id="btn-xlsx">Export Excel ▾</button>
+        <button type="button" id="btn-xlsx">Export Excel</button>
         <div class="menu-list">
           <button type="button" data-xlsx="one">This project</button>
           <button type="button" data-xlsx="all">All projects</button>
