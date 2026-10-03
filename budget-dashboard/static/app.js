@@ -874,8 +874,48 @@ function legalPageHtml(p) {
 }
 
 // ---------- Ponto de Situação (atas: só pontos Pendente / Standby) ----------
-const PS_AREAS = ["LICENCIAMENTO", "PRODUTO/PROJETO", "CONTRATAÇÕES", "OBRA", "MARKETING E VENDAS", "GESTÃO CLIENTE",
-  "PÓS-VENDA", "LEGAL", "FINANCEIRO E ADMIN"];
+// Colunas da lista: [campo, título, tipo do filtro] — "select" para valores repetidos, texto para o resto
+const PS_COLS = [["status", "Status", "select"], ["area", "Area", "select"], ["title", "Title", "text"],
+  ["description", "Description", "text"], ["action", "Action", "text"], ["owner", "Owner", "select"],
+  ["dept", "Dept.", "select"], ["created", "Created", "date"], ["target_initial", "Initial target", "date"],
+  ["target", "Current target", "date"]];
+const psFilters = {};  // filtros por projeto: {projectId: {campo: valor}}
+
+const psDue = (it) => it.target || it.target_initial;  // data objetivo atual; senão a inicial
+const psLate = (it) => psDue(it) && psDue(it) < new Date().toISOString().slice(0, 10);
+const psFold = (s) => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+function psFiltered(p) {
+  const f = psFilters[p.id] || {};
+  return (p.status_items || []).filter((it) => PS_COLS.every(([k, , type]) => {
+    const want = f[k];
+    if (!want) return true;
+    if (type === "select") return (it[k] || "") === want;
+    const v = type === "date" ? (it[k] ? fmtDate(it[k]) : "") : it[k];
+    return psFold(v).includes(psFold(want));
+  })).sort((x, y) => (psDue(x) || "9999").localeCompare(psDue(y) || "9999"));
+}
+
+function psRowsHtml(rows) {
+  const d = (iso, late) => (iso ? `<span class="${late ? "ps-late" : ""}">${fmtDate(iso)}</span>` : "—");
+  const txt = (v) => (v ? esc(v).replace(/\n/g, "<br>") : "");
+  if (!rows.length) return `<tr><td class="ps-none" colspan="${PS_COLS.length}">No items match the filters.</td></tr>`;
+  return rows.map((it) => {
+    const late = psLate(it);
+    return `<tr class="${late ? "late" : ""}">
+      <td><span class="ps-pill ${it.status === "Standby" ? "sb" : "pd"}">${esc(it.status)}</span></td>
+      <td class="ps-area">${esc(it.area || "").replace(/\//g, "/<wbr>")}</td><td class="ps-title">${txt(it.title)}</td>
+      <td>${txt(it.description)}</td><td>${txt(it.action)}</td>
+      <td>${esc(it.owner || "")}</td><td>${esc(it.dept || "")}</td><td class="ps-d">${d(it.created)}</td>
+      <td class="ps-d">${d(it.target_initial, !it.target && late)}</td><td class="ps-d">${d(it.target, it.target && late)}</td></tr>`;
+  }).join("");
+}
+
+function psCountHtml(p) {
+  const n = psFiltered(p).length, all = (p.status_items || []).length;
+  const any = Object.values(psFilters[p.id] || {}).some(Boolean);
+  return `${n === all ? `${all} items` : `Showing ${n} of ${all} items`}${any ? ` · <button type="button" class="ps-clear" data-ps-clear>Clear filters</button>` : ""}`;
+}
 
 function statusPageHtml(p) {
   const items = p.status_items || [];
@@ -886,37 +926,44 @@ function statusPageHtml(p) {
   if (!items.length) {
     return `<section class="report page-status">${head}${err}<div class="empty"><p>No pending or standby items for this project.</p></div></section>`;
   }
-  const today = new Date().toISOString().slice(0, 10);
-  const due = (it) => it.target || it.target_initial;  // data objetivo atual; senão a inicial
-  const late = (it) => due(it) && due(it) < today;
   const n = (st) => items.filter((it) => it.status === st).length;
-  const nLate = items.filter(late).length;
+  const nLate = items.filter(psLate).length;
   const kpi = (v, l, cls = "") => `<div class="ps-kpi ${cls}"><b>${v}</b><span>${l}</span></div>`;
   const kpis = `<div class="ps-kpis">${kpi(items.length, "Open items")}${kpi(n("Pendente"), "Pendente")}${kpi(n("Standby"), "Standby")}
     ${kpi(nLate, "Overdue", nLate ? "late" : "")}</div>`;
-  // áreas pela ordem habitual das atas, as restantes no fim (alfabético)
-  const areas = [...new Set(items.map((it) => it.area))].sort((a, b) => {
-    const ia = PS_AREAS.indexOf(a), ib = PS_AREAS.indexOf(b);
-    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b);
-  });
-  const d = (iso, cls = "") => (iso ? `<span class="${cls}">${fmtDate(iso)}</span>` : "—");
-  const txt = (v) => (v ? esc(v).replace(/\n/g, "<br>") : "");
-  const groups = areas.map((a) => {
-    const rows = items.filter((it) => it.area === a)
-      .sort((x, y) => (due(x) || "9999").localeCompare(due(y) || "9999"));
-    return `<div class="ps-group"><h3>${esc(a)} <span>${rows.length}</span></h3>
-      <div class="t-scroll"><table class="ps"><thead><tr><th>Status</th><th>Title</th><th>Description</th><th>Action</th>
-        <th>Owner</th><th>Dept.</th><th>Created</th><th>Initial target</th><th>Current target</th></tr></thead>
-      <tbody>${rows.map((it) => `<tr class="${late(it) ? "late" : ""}">
-        <td><span class="ps-pill ${it.status === "Standby" ? "sb" : "pd"}">${esc(it.status)}</span></td>
-        <td class="ps-title">${txt(it.title)}</td><td>${txt(it.description)}</td><td>${txt(it.action)}</td>
-        <td>${esc(it.owner || "")}</td><td>${esc(it.dept || "")}</td><td class="ps-d">${d(it.created)}</td>
-        <td class="ps-d">${d(it.target_initial, !it.target && late(it) ? "ps-late" : "")}</td>
-        <td class="ps-d">${d(it.target, it.target && late(it) ? "ps-late" : "")}</td></tr>`).join("")}</tbody></table></div></div>`;
-  }).join("");
-  return `<section class="report page-status">${head}${err}${kpis}${groups}
+  // filtros: listas com os valores existentes (estado, área, responsável, departamento); texto nas outras colunas
+  const f = psFilters[p.id] || {};
+  const filter = ([k, label, type]) => {
+    if (type === "select") {
+      const vals = [...new Set(items.map((it) => it[k] || ""))].filter(Boolean).sort((a, b) => a.localeCompare(b));
+      return `<th><select data-psf="${k}" aria-label="Filter ${label}"><option value="">All</option>${vals.map((v) =>
+        `<option${f[k] === v ? " selected" : ""}>${esc(v)}</option>`).join("")}</select></th>`;
+    }
+    return `<th><input type="search" data-psf="${k}" value="${esc(f[k] || "")}" placeholder="${type === "date" ? "dd/mm/aaaa" : "Filter…"}"
+      aria-label="Filter ${label}"></th>`;
+  };
+  return `<section class="report page-status">${head}${err}${kpis}
+    <div class="ps-count" id="ps-count">${psCountHtml(p)}</div>
+    <div class="t-scroll"><table class="ps"><thead><tr>${PS_COLS.map(([, l]) => `<th>${l}</th>`).join("")}</tr>
+      <tr class="ps-filters">${PS_COLS.map(filter).join("")}</tr></thead>
+      <tbody id="ps-body">${psRowsHtml(psFiltered(p))}</tbody></table></div>
     <div class="sm-foot">Only items with status "Pendente" or "Standby". Overdue: current target date (or initial, if there is no current one) before today.</div></section>`;
 }
+
+// filtros da lista: atualiza só as linhas e o contador (o campo onde se escreve não perde o foco)
+function psApplyFilter(el) {
+  const p = allProjects().find((x) => x.id === selectedId);
+  if (!p) return;
+  (psFilters[p.id] = psFilters[p.id] || {})[el.dataset.psf] = el.value.trim();
+  $("#ps-body").innerHTML = psRowsHtml(psFiltered(p));
+  $("#ps-count").innerHTML = psCountHtml(p);
+}
+$("#main").addEventListener("input", (e) => { const el = e.target.closest("[data-psf]"); if (el) psApplyFilter(el); });
+$("#main").addEventListener("click", (e) => {
+  if (!e.target.closest("[data-ps-clear]")) return;
+  delete psFilters[selectedId];
+  renderMain();
+});
 
 // ---------- Sales (Power BI: Typology Report) ----------
 function salesPageHtml(p) {

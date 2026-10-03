@@ -156,7 +156,9 @@ RESP, DEP, datas e ESTADO), por isso ficheiros com estruturas diferentes funcion
 em mais de um ficheiro (mesmo projeto, título e descrição) conta uma só vez.
 
 A página mostra:
-- os pontos agrupados por área e ordenados pela data objetivo;
+- os pontos numa lista contínua ordenada pela data objetivo, com um filtro por coluna:
+  - estado, área, responsável e departamento: listas com os valores existentes;
+  - título, descrição, ação e datas: pesquisa de texto, sem distinguir acentos;
 - os contadores de pontos abertos, pendentes, em standby e atrasados;
 - a data a vermelho quando a data objetivo atual (ou a inicial, se não houver atual) já passou.
 

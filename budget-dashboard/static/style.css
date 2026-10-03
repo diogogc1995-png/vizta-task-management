@@ -220,12 +220,27 @@ td.rm-track { position: relative; height: 34px; padding: 0;
 .ps-kpi span { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
 .ps-kpi.late { border-top-color: var(--neg); }
 .ps-kpi.late b { color: var(--neg); }
-.ps-group { margin-bottom: 26px; }
-.ps-group h3 { margin: 0 0 8px; font-size: 13px; font-weight: 700; letter-spacing: .08em; color: var(--orange); }
-.ps-group h3 span { color: var(--muted); font-weight: 400; margin-left: 6px; }
-table.ps { border-collapse: collapse; width: 100%; min-width: 880px; font-size: 13px; }
+.ps-count { font-size: 12px; color: var(--muted); margin-bottom: 8px; min-height: 22px; display: flex; align-items: center; gap: 4px; }
+.ps-clear { border: 0; background: none; color: var(--orange); font-weight: 700; padding: 0; font-size: 12px; }
+.ps-clear:hover { text-decoration: underline; }
+table.ps { border-collapse: collapse; width: 100%; min-width: 900px; font-size: 13px; table-layout: fixed; }
+table.ps tr.ps-filters th { padding: 6px 4px 8px; border-bottom: 2px solid var(--ink); text-transform: none; letter-spacing: 0; }
+table.ps thead tr:first-child th { border-bottom: 0; padding-bottom: 2px; }
+table.ps .ps-filters input, table.ps .ps-filters select { width: 100%; min-width: 0; box-sizing: border-box; font: inherit; font-size: 12px;
+  font-weight: 400; color: var(--ink); border: 1px solid var(--grid); background: var(--panel); padding: 4px 6px; }
+table.ps .ps-filters input:focus, table.ps .ps-filters select:focus { outline: none; border-color: var(--orange); }
+table.ps td.ps-area { font-size: 11.5px; color: var(--muted); font-weight: 700; letter-spacing: .03em; min-width: 100px; }
+table.ps td.ps-none { text-align: center; color: var(--muted); padding: 24px; }
+/* larguras das colunas: Status, Area, Title, Description, Action, Owner, Dept., Created, Initial, Current */
+table.ps th:nth-child(1) { width: 78px; } table.ps th:nth-child(2) { width: 10%; } table.ps th:nth-child(3) { width: 12%; }
+table.ps th:nth-child(4) { width: 16%; } table.ps th:nth-child(5) { width: 19%; } table.ps th:nth-child(6) { width: 52px; }
+table.ps th:nth-child(7) { width: 56px; } table.ps th:nth-child(n+8) { width: 80px; }
+table.ps td { overflow-wrap: break-word; }
+table.ps th, table.ps td { box-sizing: border-box; }
+table.ps td.ps-d { font-size: 12px; }
+table.ps td.ps-area { min-width: 0; }
 table.ps th { text-align: left; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em;
-  padding: 6px 8px; border-bottom: 2px solid var(--ink); white-space: nowrap; }
+  padding: 6px 8px; border-bottom: 2px solid var(--ink); vertical-align: bottom; line-height: 1.25; }
 table.ps td { padding: 8px; border-bottom: 1px solid var(--grid); vertical-align: top; line-height: 1.45; }
 table.ps td.ps-title { font-weight: 700; min-width: 140px; }
 table.ps td.ps-d { white-space: nowrap; }
