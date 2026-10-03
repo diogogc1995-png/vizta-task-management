@@ -228,6 +228,20 @@ A página **Financing** de cada projeto mostra os termos do contrato de financia
   - Campos opcionais: `amount_note`, `term_note`, `tranches`, `ltv`, `fees` e `conditions`.
   - Para comparar propostas de vários bancos, usa `"offers"`: uma lista com `bank`, `structure`, `amount`, `amount_detail`, `tenor`, `pricing`, `fees`, `security`, `conditions`, `equity_recap` e `status`. Aparece como uma tabela, com uma coluna por banco.
 
+## Servidor interno (acesso para a organização)
+
+O dashboard pode correr num servidor Windows da empresa, com IIS e login Windows, para toda a organização
+o usar sem depender do teu PC. Nesse modo:
+
+- `python app.py --server` usa o waitress e nunca abre o browser nem pede login. Atrás do IIS, a porta
+  vem de `HTTP_PLATFORM_PORT`.
+- Os Excel, o ficheiro RM e os ficheiros de dados (`"data"`: `financing`, `project_info`,
+  `sales_snapshot`, `images`) podem ser links do SharePoint, descarregados quando mudam.
+- O Graph e o Power BI usam a identidade da aplicação: certificado em `sharepoint.certificate` ou a
+  variável `BUDGET_DASHBOARD_CLIENT_SECRET`. No Power BI indica-se `powerbi.workspace_id`.
+
+Passos, pedido ao IT e configuração do IIS: [deploy/DEPLOY.md](deploy/DEPLOY.md).
+
 ## Arrancar
 
 - **Duplo clique em `run.bat`.** Da primeira vez cria o ambiente Python e instala as dependências. Depois abre o browser em <http://localhost:8765>.

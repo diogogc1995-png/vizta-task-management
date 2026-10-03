@@ -51,6 +51,23 @@ class TypologyTest(unittest.TestCase):
         self.assertEqual(calls[1][2]["queries"][0]["query"], "EVALUATE X")
         auth.token.assert_called_with(powerbi.SCOPES)
 
+    def test_workspace_for_app_identity(self):
+        # no servidor (identidade da aplicação) o relatório é procurado no workspace, não na app
+        auth = mock.Mock()
+        auth.token.return_value = "tok"
+        client = powerbi.PowerBIClient(auth, {"app_id": "app", "workspace_id": "ws", "report_id": "rep"})
+        calls = []
+
+        def fake(method, url, **kw):
+            calls.append(url)
+            r = mock.Mock(status_code=200)
+            r.json.return_value = {"datasetId": "ds9"}
+            return r
+
+        client.session.request = fake
+        self.assertEqual(client.dataset_id(), "ds9")
+        self.assertEqual(calls, [f"{powerbi.API}/groups/ws/reports/rep"])
+
     def test_load_snapshot(self):
         import json, os, tempfile
         snap = {"_as_of": "2026-10-01 13:02", "_typologies": ["T1", "T2"],

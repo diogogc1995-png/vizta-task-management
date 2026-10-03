@@ -1,10 +1,13 @@
 """Leitura de ficheiros diretamente do SharePoint/OneDrive via Microsoft Graph.
 
-Aceita links de partilha ("Copy link") de ficheiros ou de pastas. O login é
-feito com a conta Microsoft do utilizador (MSAL); o token fica guardado em
-token_cache.json para não pedir login a cada arranque.
+Aceita links de partilha ("Copy link") de ficheiros ou de pastas. Dois modos de login:
 
-Requer uma "App registration" no Azure AD do tenant (ver README).
+- No PC: com a conta Microsoft do utilizador (MSAL); o token fica guardado em
+  token_cache.json para não pedir login a cada arranque.
+- No servidor: com a identidade da própria aplicação (client credentials), quando há
+  "client_secret" (ou a variável BUDGET_DASHBOARD_CLIENT_SECRET) ou um certificado.
+
+Requer uma "App registration" no Azure AD do tenant (ver README e deploy/DEPLOY.md).
 """
 
 import base64
@@ -19,6 +22,18 @@ import requests
 GRAPH = "https://graph.microsoft.com/v1.0"
 SCOPES = ["Files.Read.All"]
 EXCEL_EXT = (".xlsx", ".xlsm")
+GRAPH_DEFAULT = "https://graph.microsoft.com/.default"
+
+
+def app_only_scopes(scopes):
+    """Com a identidade da aplicação só existe o scope "<recurso>/.default":
+    "Files.Read.All" -> Graph; "https://analysis.windows.net/powerbi/api/X" -> Power BI."""
+    out = []
+    for sc in scopes:
+        res = sc.rsplit("/", 1)[0] + "/.default" if sc.lower().startswith("https://") else GRAPH_DEFAULT
+        if res not in out:
+            out.append(res)
+    return out
 
 
 def is_url(source):
@@ -53,14 +68,30 @@ class SharePointClient:
         if not client_id:
             raise GraphError("Falta 'sharepoint.client_id' no config.json (ver README: App registration).")
         tenant = sp_cfg.get("tenant") or "organizations"
+        authority = f"https://login.microsoftonline.com/{tenant}"
         self.cache_path = cache_path
-        self.cache = msal.SerializableTokenCache()
-        if os.path.exists(cache_path):
-            with open(cache_path, encoding="utf-8") as f:
-                self.cache.deserialize(f.read())
-        self.app = msal.PublicClientApplication(
-            client_id, authority=f"https://login.microsoftonline.com/{tenant}",
-            token_cache=self.cache)
+        # Identidade da aplicação (servidor): segredo ou certificado, nunca login interativo
+        secret = sp_cfg.get("client_secret") or os.environ.get("BUDGET_DASHBOARD_CLIENT_SECRET")
+        cert = sp_cfg.get("certificate") or {}
+        self.app_only = bool(secret or cert)
+        self.interactive = not self.app_only  # no servidor (--server) fica sempre False
+        if self.app_only:
+            if tenant.lower() in ("organizations", "common"):
+                raise GraphError("Com client_secret/certificado, 'sharepoint.tenant' tem de ser o ID do tenant.")
+            if cert:
+                with open(cert["private_key_file"], encoding="utf-8") as f:
+                    credential = {"private_key": f.read(), "thumbprint": cert["thumbprint"]}
+            else:
+                credential = secret
+            # criado no primeiro token (o MSAL contacta a Microsoft logo ao criar o cliente)
+            self.app = None
+            self._confidential = (client_id, authority, credential)
+        else:
+            self.cache = msal.SerializableTokenCache()
+            if os.path.exists(cache_path):
+                with open(cache_path, encoding="utf-8") as f:
+                    self.cache.deserialize(f.read())
+            self.app = msal.PublicClientApplication(client_id, authority=authority, token_cache=self.cache)
         self.session = requests.Session()
         self._login_lock = threading.Lock()
         # Depois de um login falhado não volta a abrir o browser sozinho em cada ciclo.
@@ -75,12 +106,22 @@ class SharePointClient:
     def token(self, scopes=None):
         """Token de acesso (por omissão para o Graph; o Power BI pede os seus próprios scopes)."""
         scopes = scopes or SCOPES
+        if self.app_only:
+            if self.app is None:
+                cid, authority, credential = self._confidential
+                self.app = msal.ConfidentialClientApplication(cid, authority=authority, client_credential=credential)
+            result = self.app.acquire_token_for_client(scopes=app_only_scopes(scopes))  # o MSAL guarda-o em cache
+            if "access_token" not in result:
+                raise GraphError(f"Token da aplicação falhou: {result.get('error')}: {result.get('error_description')}")
+            return result["access_token"]
         with self._login_lock:
             accounts = self.app.get_accounts(username=self.cfg.get("login_hint")) or self.app.get_accounts()
             result = None
             if accounts:
                 result = self.app.acquire_token_silent(scopes, account=accounts[0])
             if not result or "access_token" not in result:
+                if not self.interactive:
+                    raise GraphError("Sem login: no servidor configura 'client_secret' ou 'certificate' (ver deploy/DEPLOY.md).")
                 if self._login_failed:
                     raise GraphError("Login Microsoft necessário: reinicia a app para voltar a fazer login.")
                 self._login_failed = True
@@ -145,6 +186,10 @@ class SharePointClient:
 
     def list_excel(self, share_url):
         """Ficheiros Excel do link: o próprio ficheiro, ou todos os de uma pasta (recursivo)."""
+        return self.list_files(share_url, EXCEL_EXT)
+
+    def list_files(self, share_url, exts, recursive=True):
+        """O ficheiro do link, ou os ficheiros da pasta com estas extensões."""
         root = self.resolve(share_url)
         drive_id = root.get("parentReference", {}).get("driveId")
         if "folder" not in root:
@@ -153,8 +198,9 @@ class SharePointClient:
         while stack:
             for child in self._children(drive_id, stack.pop()):
                 if "folder" in child:
-                    stack.append(child["id"])
-                elif child["name"].lower().endswith(EXCEL_EXT) and not child["name"].startswith("~$"):
+                    if recursive:
+                        stack.append(child["id"])
+                elif child["name"].lower().endswith(exts) and not child["name"].startswith("~$"):
                     out.append(self._describe(child, drive_id))
         return out
 

@@ -150,9 +150,11 @@ class PowerBIClient:
     def dataset_id(self):
         if not self._dataset_id:
             app_id, report_id = self.cfg.get("app_id"), self.cfg.get("report_id")
-            if not app_id or not report_id:
-                raise PowerBIError("Falta 'powerbi.app_id' / 'powerbi.report_id' no config.json")
-            rep = self._call("GET", f"{API}/apps/{app_id}/reports/{report_id}")
+            ws = self.cfg.get("workspace_id")  # identidade da aplicação (servidor): só vê workspaces, não apps
+            if not report_id or not (app_id or ws):
+                raise PowerBIError("Falta 'powerbi.report_id' e 'powerbi.workspace_id' (ou 'app_id') no config.json")
+            url = f"{API}/groups/{ws}/reports/{report_id}" if ws else f"{API}/apps/{app_id}/reports/{report_id}"
+            rep = self._call("GET", url)
             self._dataset_id = rep.get("datasetId")
             if not self._dataset_id:
                 raise PowerBIError("O relatório não indica o dataset (datasetId)")

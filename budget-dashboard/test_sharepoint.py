@@ -8,7 +8,7 @@ import unittest
 
 from openpyxl import Workbook
 
-from sharepoint import encode_share_url, is_url
+from sharepoint import GraphError, SharePointClient, app_only_scopes, encode_share_url, is_url
 from test_budget_parser import make_review_sheet
 
 SHARE = "https://contoso.sharepoint.com/:x:/s/Site/abc?e=1"
@@ -30,6 +30,26 @@ class FakeClient:
     def download(self, item, dest):
         self.downloads += 1
         shutil.copyfile(self.src, dest)
+
+
+class FakeDataClient:
+    """Ficheiros de dados (JSON e imagens) numa pasta do SharePoint simulada."""
+
+    def __init__(self, files):
+        self.files = files  # nome -> (cTag, conteúdo)
+        self.downloads = []
+
+    def list_files(self, url, exts, recursive=True):
+        names = [n for n in self.files if n.lower().endswith(exts)]
+        if "financing" in url:
+            names = ["financing.json"]
+        return [{"key": f"sp:d:{n}", "name": n, "drive_id": "d", "id": n, "sig": self.files[n][0],
+                 "modified": 0, "web_url": ""} for n in names]
+
+    def download(self, item, dest):
+        self.downloads.append(item["name"])
+        with open(dest, "wb") as f:
+            f.write(self.files[item["name"]][1])
 
 
 class SharePointSyncTest(unittest.TestCase):
@@ -59,6 +79,33 @@ class SharePointSyncTest(unittest.TestCase):
             "u!aHR0cHM6Ly9vbmVkcml2ZS5saXZlLmNvbS9yZWRpcj9yZXNpZD0xMjMxMjQ0MTkzOTEyITEyJmF1dGhLZXk9MTIwMTkxOSExMjkyMSEx")
         self.assertTrue(is_url(SHARE))
         self.assertFalse(is_url("C:/OneDrive/x.xlsx"))
+
+    def test_app_only_scopes(self):
+        self.assertEqual(app_only_scopes(["Files.Read.All"]), ["https://graph.microsoft.com/.default"])
+        self.assertEqual(app_only_scopes(["https://analysis.windows.net/powerbi/api/Dataset.Read.All"]),
+                         ["https://analysis.windows.net/powerbi/api/.default"])
+
+    def test_app_only_needs_tenant(self):
+        with self.assertRaises(GraphError):
+            SharePointClient({"client_id": "x", "client_secret": "s"}, os.path.join(self.tmp, "tok.json"))
+        c = SharePointClient({"client_id": "x", "client_secret": "s", "tenant": "11111111-1111-1111-1111-111111111111"},
+                             os.path.join(self.tmp, "tok.json"))
+        self.assertTrue(c.app_only)
+        self.assertFalse(c.interactive)
+
+    def test_data_files_from_sharepoint(self):
+        cfg = {**self.app.cfg, "data": {"financing": "https://contoso.sharepoint.com/:u:/s/S/financing",
+                                        "images": "https://contoso.sharepoint.com/:f:/s/S/imagens"}}
+        store = self.app.Store(cfg)
+        fin = json.dumps({"REMOTE": {"bank": "Banco X", "amount": 1000}}).encode()
+        client = FakeDataClient({"financing.json": ("t1", fin), "a.jpg": ("t1", b"jpg"), "notas.txt": ("t1", b"x")})
+        store.sync_data(client)
+        self.assertEqual(store.financing_error, None)
+        self.assertIn("remote", store.financing)
+        self.assertTrue(os.path.exists(os.path.join(store.data_path("images"), "a.jpg")))
+        self.assertFalse(os.path.exists(os.path.join(store.data_path("images"), "notas.txt")))
+        store.sync_data(client)  # nada mudou: não volta a descarregar
+        self.assertEqual(sorted(client.downloads), ["a.jpg", "financing.json"])
 
     def test_sync_downloads_only_when_changed(self):
         store = self.app.Store(self.app.cfg)

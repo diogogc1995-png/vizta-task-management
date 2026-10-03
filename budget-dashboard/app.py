@@ -1,11 +1,12 @@
-"""Budget Dashboard — servidor local.
+"""Budget Dashboard.
 
 Lê os ficheiros Excel indicados em config.json (pastas do OneDrive sincronizadas
 e/ou links do SharePoint), deteta as
 folhas de Project Review e serve o dashboard em http://localhost:<port>.
 Os ficheiros são relidos automaticamente quando mudam.
 
-Uso:  python app.py
+Uso:  python app.py            (no PC: abre o browser, login com a tua conta)
+      python app.py --server   (no servidor: waitress, identidade da aplicação; ver deploy/DEPLOY.md)
 """
 
 import glob
@@ -33,6 +34,9 @@ FINANCING_PATH = os.environ.get("BUDGET_DASHBOARD_FINANCING") or os.path.join(BA
 INFO_PATH = os.environ.get("BUDGET_DASHBOARD_INFO") or os.path.join(BASE_DIR, "project_info.json")
 IMAGES_DIR = os.path.join(BASE_DIR, "project_images")
 SALES_SNAPSHOT_PATH = os.path.join(BASE_DIR, "sales_snapshot.json")
+IMAGE_EXT = (".jpg", ".jpeg", ".png", ".webp")
+# No servidor (IIS / HttpPlatformHandler a porta vem em HTTP_PLATFORM_PORT)
+SERVER_MODE = "--server" in sys.argv or bool(os.environ.get("HTTP_PLATFORM_PORT"))
 CACHE_DIR = os.path.join(BASE_DIR, ".cache")
 TOKEN_CACHE = os.path.join(BASE_DIR, "token_cache.json")
 EXCEL_EXT = (".xlsx", ".xlsm")
@@ -54,7 +58,21 @@ def load_config():
     cfg["sharepoint"].setdefault("poll_seconds", 60)
     cfg.setdefault("powerbi", {})
     cfg["powerbi"].setdefault("poll_seconds", 900)
+    # Ficheiros de dados: caminho local ou link do SharePoint (no servidor ficam numa pasta do SharePoint)
+    cfg.setdefault("data", {})
     return cfg
+
+
+def data_sources(cfg):
+    """{chave: caminho ou link} dos ficheiros de dados (variáveis de ambiente > config.json > pasta da app)."""
+    d = cfg.get("data", {})
+    return {
+        "financing": os.environ.get("BUDGET_DASHBOARD_FINANCING") or d.get("financing") or FINANCING_PATH,
+        "project_info": os.environ.get("BUDGET_DASHBOARD_INFO") or d.get("project_info") or INFO_PATH,
+        "sales_snapshot": d.get("sales_snapshot") or SALES_SNAPSHOT_PATH,
+        "images": d.get("images") or IMAGES_DIR,
+        "roadmap": (cfg.get("roadmap") or {}).get("file"),
+    }
 
 
 def _expand(p):
@@ -111,6 +129,23 @@ class Store:
         # Roadmap (ficheiro "RM mensuelle Portugal")
         self.rm_rows, self.rm_unmatched, self.rm_error, self.rm_sig = [], [], None, None
         self.version = ""
+        self.data_src = data_sources(cfg)
+        self.extra_sigs = {}  # cópias do SharePoint: chave do item -> cTag
+
+    def data_path(self, key):
+        """Caminho local de um ficheiro de dados (a cópia descarregada, se for um link do SharePoint)."""
+        src = self.data_src.get(key)
+        if not src:
+            return None
+        if not is_url(src):
+            return _expand(src)
+        if key == "images":
+            return os.path.join(CACHE_DIR, "images")
+        ext = ".xlsx" if key == "roadmap" else ".json"
+        return os.path.join(CACHE_DIR, "data", key + ext)
+
+    def remote_data(self):
+        return {k: v for k, v in self.data_src.items() if v and is_url(v)}
 
     def _update_version(self):
         state = json.dumps(
@@ -121,29 +156,30 @@ class Store:
         self.version = hashlib.sha1(state.encode()).hexdigest()[:12]
 
     def _refresh_financing(self):
+        fin_path, info_path, snap_path = (self.data_path(k) for k in ("financing", "project_info", "sales_snapshot"))
         try:
-            st = os.stat(FINANCING_PATH)
+            st = os.stat(fin_path)
             sig = (st.st_mtime, st.st_size)
         except OSError:
             sig = None
         if sig != self.financing_sig:
-            self.financing, self.financing_error = financing.load(FINANCING_PATH)
+            self.financing, self.financing_error = financing.load(fin_path)
             self.financing_sig = sig
         try:
-            st = os.stat(INFO_PATH)
+            st = os.stat(info_path)
             sig = (st.st_mtime, st.st_size)
         except OSError:
             sig = None
         if sig != self.info_sig:
-            self.info, self.info_error = financing.load_map(INFO_PATH)
+            self.info, self.info_error = financing.load_map(info_path)
             self.info_sig = sig
         try:
-            st = os.stat(SALES_SNAPSHOT_PATH)
+            st = os.stat(snap_path)
             sig = (st.st_mtime, st.st_size)
         except OSError:
             sig = None
         if sig != self.snap_sig:
-            self.snap, self.snap_as_of, self.snap_error = powerbi.load_snapshot(SALES_SNAPSHOT_PATH)
+            self.snap, self.snap_as_of, self.snap_error = powerbi.load_snapshot(snap_path)
             self.snap_sig = sig
         self._refresh_roadmap()
 
@@ -151,7 +187,7 @@ class Store:
         rm = self.cfg.get("roadmap") or {}
         if not rm.get("file"):
             return
-        path = _expand(rm["file"])
+        path = self.data_path("roadmap")
         try:
             st = os.stat(path)
             sig = (st.st_mtime, st.st_size)
@@ -194,9 +230,38 @@ class Store:
                                           modified=st.st_mtime)
             self._update_version()
 
+    def sync_data(self, client):
+        """Ficheiros de dados no SharePoint (JSON, imagens, roadmap): descarrega os que mudaram."""
+        for key, url in self.remote_data().items():
+            try:
+                if client is None:
+                    raise RuntimeError(sp_init_error or "SharePoint não configurado")
+                dest = self.data_path(key)
+                if key == "images":
+                    os.makedirs(dest, exist_ok=True)
+                    items = client.list_files(url, IMAGE_EXT, recursive=False)
+                else:
+                    os.makedirs(os.path.dirname(dest), exist_ok=True)
+                    items = client.list_files(url, (".json", ".xlsx", ".xlsm"))[:1]
+                for it in items:
+                    target = os.path.join(dest, it["name"]) if key == "images" else dest
+                    if self.extra_sigs.get(it["key"]) == it["sig"] and os.path.exists(target):
+                        continue
+                    client.download(it, target)
+                    self.extra_sigs[it["key"]] = it["sig"]
+                with self.lock:
+                    self.source_errors.pop(url, None)
+            except Exception as e:  # mantém a última cópia
+                with self.lock:
+                    self.source_errors[url] = f"{type(e).__name__}: {e}"
+        with self.lock:
+            self._refresh_financing()
+            self._update_version()
+
     def sync_sharepoint(self, client):
         """Ficheiros do SharePoint: compara o cTag de cada ficheiro e descarrega os que mudaram."""
         os.makedirs(CACHE_DIR, exist_ok=True)
+        self.sync_data(client)
         for url in [s for s in self.cfg["sources"] if is_url(s)]:
             try:
                 if client is None:
@@ -373,10 +438,14 @@ cfg = load_config()
 store = Store(cfg)
 sp_client = None
 sp_init_error = None
-uses_powerbi = bool(cfg["powerbi"].get("app_id") or cfg["powerbi"].get("dataset_id"))
-if any(is_url(s) for s in cfg["sources"]) or uses_powerbi:
+uses_powerbi = bool(cfg["powerbi"].get("app_id") or cfg["powerbi"].get("dataset_id")
+                    or cfg["powerbi"].get("workspace_id"))
+uses_sharepoint = any(is_url(s) for s in cfg["sources"]) or bool(store.remote_data())
+if uses_sharepoint or uses_powerbi:
     try:
         sp_client = SharePointClient(cfg["sharepoint"], TOKEN_CACHE)
+        if SERVER_MODE:
+            sp_client.interactive = False  # no servidor ninguém pode fazer login no browser
     except Exception as e:
         sp_init_error = str(e)
 # Vendas (Power BI): mesma conta/App registration do SharePoint, permissão Dataset.Read.All
@@ -403,7 +472,7 @@ def static_files(name):
 
 @app.get("/project-images/<path:name>")
 def project_images(name):
-    return send_from_directory(IMAGES_DIR, name)
+    return send_from_directory(store.data_path("images"), name)
 
 
 def full_version():
@@ -455,11 +524,14 @@ def api_export():
 
 
 if __name__ == "__main__":
-    port = int(cfg["port"])
+    port = int(os.environ.get("HTTP_PLATFORM_PORT") or cfg["port"])
     print("A ler ficheiros...")
+    if SERVER_MODE and sp_client and not sp_client.app_only:
+        print("  AVISO: no servidor configura 'sharepoint.client_secret' (ou BUDGET_DASHBOARD_CLIENT_SECRET) "
+              "ou 'sharepoint.certificate' — ver deploy/DEPLOY.md")
     store.refresh()
-    if any(is_url(s) for s in cfg["sources"]):
-        if sp_client:
+    if uses_sharepoint:
+        if sp_client and not SERVER_MODE:
             try:
                 sp_client.token()  # login (browser) antes de arrancar
             except Exception as e:
@@ -487,7 +559,7 @@ if __name__ == "__main__":
         print(f"  Financiamento: {n_fin} contrato(s) associados a projetos")
     for name in snap["financing_unmatched"]:
         print(f"  FINANCIAMENTO SEM PROJETO: \"{name}\" (o nome tem de ser igual ao do dashboard)")
-    if any(is_url(s) for s in cfg["sources"]):
+    if uses_sharepoint:
         interval = max(15, int(cfg["sharepoint"]["poll_seconds"]))
         threading.Thread(target=sharepoint_loop, args=(sp_client, interval), daemon=True).start()
         print(f"  SharePoint: verifica alterações a cada {interval}s")
@@ -499,8 +571,13 @@ if __name__ == "__main__":
         threading.Thread(target=sales_store.loop, daemon=True).start()
     elif sales_init_error:
         print(f"  VENDAS: {sales_init_error}")
+    host = cfg.get("host", "127.0.0.1")
     url = f"http://localhost:{port}"
-    print(f"\nDashboard em {url}  (Ctrl+C para parar)")
-    if "--no-browser" not in sys.argv:
-        threading.Timer(1.0, lambda: webbrowser.open(url)).start()
-    app.run(host="127.0.0.1", port=port, debug=False, threaded=True)
+    print(f"\nDashboard em {url}  (Ctrl+C para parar)", flush=True)
+    if SERVER_MODE:
+        from waitress import serve  # servidor de produção (pip install waitress)
+        serve(app, host=host, port=port, threads=int(cfg.get("threads", 8)))
+    else:
+        if "--no-browser" not in sys.argv:
+            threading.Timer(1.0, lambda: webbrowser.open(url)).start()
+        app.run(host=host, port=port, debug=False, threaded=True)

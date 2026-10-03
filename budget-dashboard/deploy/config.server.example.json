@@ -1,0 +1,36 @@
+{
+  "_info": "config.json para o servidor: tudo lido do SharePoint pelo Graph, com a identidade da aplicação. O segredo NÃO fica aqui: usar a variável de ambiente BUDGET_DASHBOARD_CLIENT_SECRET ou um certificado (ver DEPLOY.md).",
+  "sources": [
+    "https://<empresa>.sharepoint.com/:x:/s/<Site>/<link-do-budget-1>",
+    "https://<empresa>.sharepoint.com/:x:/s/<Site>/<link-do-budget-2>"
+  ],
+  "include_hidden_sheets": false,
+  "port": 8765,
+  "host": "127.0.0.1",
+  "sharepoint": {
+    "client_id": "APPLICATION-CLIENT-ID",
+    "tenant": "DIRECTORY-TENANT-ID",
+    "certificate": {"thumbprint": "THUMBPRINT-DO-CERTIFICADO", "private_key_file": "C:/Apps/budget-dashboard/certs/dashboard.key"},
+    "poll_seconds": 60
+  },
+  "data": {
+    "financing": "https://<empresa>.sharepoint.com/:u:/s/<Site>/<link-financing.json>",
+    "project_info": "https://<empresa>.sharepoint.com/:u:/s/<Site>/<link-project_info.json>",
+    "sales_snapshot": "https://<empresa>.sharepoint.com/:u:/s/<Site>/<link-sales_snapshot.json>",
+    "images": "https://<empresa>.sharepoint.com/:f:/s/<Site>/<link-da-pasta-de-imagens>"
+  },
+  "powerbi": {
+    "workspace_id": "ID-DO-WORKSPACE",
+    "report_id": "ID-DO-RELATORIO",
+    "typology_query": "EVALUATE ...",
+    "poll_seconds": 900
+  },
+  "roadmap": {
+    "file": "https://<empresa>.sharepoint.com/:x:/s/<Site>/<link-RM-mensuelle>",
+    "sheet": "RM Portugal AllUpdate",
+    "from_year": 2023,
+    "rows": []
+  },
+  "menu": [],
+  "orion": {"projects": []}
+}
