@@ -42,5 +42,12 @@
     "folder": "https://<empresa>.sharepoint.com/sites/<Site>/<Biblioteca>/N_Legal/Legal_VIZTA Portugal/1. CORPORATE/Sociedades",
     "poll_seconds": 3600,
     "companies": {}
+  },
+  "ponto_situacao": {
+    "files": [
+      "https://<empresa>.sharepoint.com/:x:/s/<Site>/<link-ata-ponto-de-situacao>"
+    ],
+    "sheet": "ATA",
+    "projects": {}
   }
 }

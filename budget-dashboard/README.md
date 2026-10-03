@@ -143,6 +143,25 @@ A página mostra:
 As certidões são lidas em segundo plano (a primeira leitura demora uns segundos) e relidas a cada
 `poll_seconds` (600 s); só os PDFs novos ou alterados voltam a ser lidos.
 
+### Ponto de Situação
+
+Os pontos **Pendente** e **Standby** das atas de ponto de situação dos projetos (folha `ATA`),
+configuradas em `config.json` → `"ponto_situacao"`:
+
+- `files`: um ou mais ficheiros Excel (caminhos sincronizados ou links do SharePoint, no servidor);
+- `projects`: nome do projeto na ata → nome no quadro de Project Review.
+
+As colunas são encontradas pelo cabeçalho (PROJETO, Área/GRUPO, TITULO/ASSUNTO, DESCRIÇÃO, ACÇÃO,
+RESP, DEP, datas e ESTADO), por isso ficheiros com estruturas diferentes funcionam. Um ponto repetido
+em mais de um ficheiro (mesmo projeto, título e descrição) conta uma só vez.
+
+A página mostra:
+- os pontos agrupados por área e ordenados pela data objetivo;
+- os contadores de pontos abertos, pendentes, em standby e atrasados;
+- a data a vermelho quando a data objetivo atual (ou a inicial, se não houver atual) já passou.
+
+A app relê as atas quando os ficheiros mudam.
+
 ## Vizta Portfolio
 
 No topo do menu, o item "Vizta Portfolio" tem as páginas *Summary of all projects*, *Roadmap* e *Projects financing overview*.

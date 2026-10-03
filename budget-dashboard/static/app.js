@@ -8,9 +8,10 @@ let [selectedId, page] = (() => {
   const [id, pg] = decodeURIComponent(location.hash.slice(1)).split("/");
   return [id || null, pg || "overview"];
 })();
-const PAGES = [["kpis", "Project KPIs"], ["financing", "Financing"], ["sales", "Sales"], ["legal", "Legal Information"]];
+const PAGES = [["kpis", "Project KPIs"], ["financing", "Financing"], ["sales", "Sales"], ["legal", "Legal Information"],
+  ["status", "Ponto de Situação"]];
 const pagesOf = (p) => PAGES.filter(([k]) => k === "kpis" || (k === "financing" && p.financing) || (k === "sales" && p.sales_name)
-  || (k === "legal" && p.legal));
+  || (k === "legal" && p.legal) || (k === "status" && p.status_items));
 const PORTFOLIO = "portfolio";
 const PORTFOLIO_PAGES = [["summary", "Summary of all projects"], ["roadmap", "Roadmap"], ["financing", "Projects financing overview"]];
 const ORION = "orion";            // apresentação "Project Review - Orion" (slides em carrossel)
@@ -195,7 +196,7 @@ function renderMain() {
   if (!validPage(p, page)) page = "overview";
   const extra = p.budget_missing
     ? `<div class="banner no-print">Budget sheet <b>${esc(p.budget_missing)}</b> (config.json) was not found in <b>${esc(p.file)}</b>.</div>` : "";
-  const body = page === "financing" ? financingPageHtml(p) : page === "sales" ? salesPageHtml(p) : page === "legal" ? legalPageHtml(p)
+  const body = page === "financing" ? financingPageHtml(p) : page === "sales" ? salesPageHtml(p) : page === "legal" ? legalPageHtml(p) : page === "status" ? statusPageHtml(p)
     : page === "kpis" ? reportHtml(p) : overviewHtml(p);
   $("#main").innerHTML = banners() + extra + body;
 }
@@ -870,6 +871,51 @@ function legalPageHtml(p) {
     ${organs ? `<div class="financing"><h2>Corporate bodies</h2><div class="lg-organs">${organs}</div></div>` : ""}
     <div class="financing"><h2>Permanent certificate &amp; documents</h2>${crcCode}<div class="lg-docs">${docs}</div></div>
   </section>`;
+}
+
+// ---------- Ponto de Situação (atas: só pontos Pendente / Standby) ----------
+const PS_AREAS = ["LICENCIAMENTO", "PRODUTO/PROJETO", "CONTRATAÇÕES", "OBRA", "MARKETING E VENDAS", "GESTÃO CLIENTE",
+  "PÓS-VENDA", "LEGAL", "FINANCEIRO E ADMIN"];
+
+function statusPageHtml(p) {
+  const items = p.status_items || [];
+  const rep = data.status_report || {};
+  const sub = (rep.files || []).map((f) => `${esc(f.name)} · saved ${fmtTime(f.modified)}`).join("<br>");
+  const head = simpleHead(p, "Ponto de Situação", sub);
+  const err = rep.error ? `<div class="banner">${esc(rep.error)}</div>` : "";
+  if (!items.length) {
+    return `<section class="report page-status">${head}${err}<div class="empty"><p>No pending or standby items for this project.</p></div></section>`;
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  const due = (it) => it.target || it.target_initial;  // data objetivo atual; senão a inicial
+  const late = (it) => due(it) && due(it) < today;
+  const n = (st) => items.filter((it) => it.status === st).length;
+  const nLate = items.filter(late).length;
+  const kpi = (v, l, cls = "") => `<div class="ps-kpi ${cls}"><b>${v}</b><span>${l}</span></div>`;
+  const kpis = `<div class="ps-kpis">${kpi(items.length, "Open items")}${kpi(n("Pendente"), "Pendente")}${kpi(n("Standby"), "Standby")}
+    ${kpi(nLate, "Overdue", nLate ? "late" : "")}</div>`;
+  // áreas pela ordem habitual das atas, as restantes no fim (alfabético)
+  const areas = [...new Set(items.map((it) => it.area))].sort((a, b) => {
+    const ia = PS_AREAS.indexOf(a), ib = PS_AREAS.indexOf(b);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b);
+  });
+  const d = (iso, cls = "") => (iso ? `<span class="${cls}">${fmtDate(iso)}</span>` : "—");
+  const txt = (v) => (v ? esc(v).replace(/\n/g, "<br>") : "");
+  const groups = areas.map((a) => {
+    const rows = items.filter((it) => it.area === a)
+      .sort((x, y) => (due(x) || "9999").localeCompare(due(y) || "9999"));
+    return `<div class="ps-group"><h3>${esc(a)} <span>${rows.length}</span></h3>
+      <div class="t-scroll"><table class="ps"><thead><tr><th>Status</th><th>Title</th><th>Description</th><th>Action</th>
+        <th>Owner</th><th>Dept.</th><th>Created</th><th>Initial target</th><th>Current target</th></tr></thead>
+      <tbody>${rows.map((it) => `<tr class="${late(it) ? "late" : ""}">
+        <td><span class="ps-pill ${it.status === "Standby" ? "sb" : "pd"}">${esc(it.status)}</span></td>
+        <td class="ps-title">${txt(it.title)}</td><td>${txt(it.description)}</td><td>${txt(it.action)}</td>
+        <td>${esc(it.owner || "")}</td><td>${esc(it.dept || "")}</td><td class="ps-d">${d(it.created)}</td>
+        <td class="ps-d">${d(it.target_initial, !it.target && late(it) ? "ps-late" : "")}</td>
+        <td class="ps-d">${d(it.target, it.target && late(it) ? "ps-late" : "")}</td></tr>`).join("")}</tbody></table></div></div>`;
+  }).join("");
+  return `<section class="report page-status">${head}${err}${kpis}${groups}
+    <div class="sm-foot">Only items with status "Pendente" or "Standby". Overdue: current target date (or initial, if there is no current one) before today.</div></section>`;
 }
 
 // ---------- Sales (Power BI: Typology Report) ----------

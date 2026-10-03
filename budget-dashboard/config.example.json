@@ -43,5 +43,10 @@
     "web_folder": "https://<empresa>.sharepoint.com/sites/<Site>/<Biblioteca>/N_Legal/Legal_VIZTA Portugal/1. CORPORATE/Sociedades",
     "poll_seconds": 600,
     "companies": {"NOME NO QUADRO": "Nome da pasta da sociedade"}
+  },
+  "ponto_situacao": {
+    "files": ["%OneDriveCommercial%/.../N_Operações/Road Map Proj/Vizta_PontoSituacaoProjetos_always updated.xlsx"],
+    "sheet": "ATA",
+    "projects": {"Nome do projeto na ata": "NOME NO QUADRO"}
   }
 }

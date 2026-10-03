@@ -25,6 +25,7 @@ import financing
 import legal
 import powerbi
 import roadmap
+import status_report
 from budget_parser import apply_versions, attach_budget_details, parse_file
 from excel_export import build_workbook
 from sharepoint import SharePointClient, is_url
@@ -73,6 +74,7 @@ def data_sources(cfg):
         "sales_snapshot": d.get("sales_snapshot") or SALES_SNAPSHOT_PATH,
         "images": d.get("images") or IMAGES_DIR,
         "roadmap": (cfg.get("roadmap") or {}).get("file"),
+        **{f"ps{i}": f for i, f in enumerate((cfg.get("ponto_situacao") or {}).get("files", []))},
     }
 
 
@@ -136,6 +138,9 @@ class Store:
         self.legal, self.legal_error, self.legal_sig, self.legal_folder = {}, None, None, None
         self.legal_cache = {}
         self.legal_lock = threading.Lock()
+        # Ponto de situação (atas): pontos Pendente/Standby por projeto
+        self.ps, self.ps_unmatched, self.ps_error, self.ps_sig, self.ps_files = {}, [], None, None, []
+        self.ps_try = 0
 
     def data_path(self, key):
         """Caminho local de um ficheiro de dados (a cópia descarregada, se for um link do SharePoint)."""
@@ -146,7 +151,7 @@ class Store:
             return _expand(src)
         if key == "images":
             return os.path.join(CACHE_DIR, "images")
-        ext = ".xlsx" if key == "roadmap" else ".json"
+        ext = ".xlsx" if key == "roadmap" or key.startswith("ps") else ".json"
         return os.path.join(CACHE_DIR, "data", key + ext)
 
     def remote_data(self):
@@ -158,7 +163,7 @@ class Store:
             + self.missing + sorted(self.source_errors.items())
             + [self.financing_sig, self.financing_error, self.info_sig, self.info_error,
                self.snap_sig, self.snap_error, self.rm_sig, self.rm_error,
-               self.legal_sig, self.legal_error], default=str)
+               self.legal_sig, self.legal_error, self.ps_sig, self.ps_error], default=str)
         self.version = hashlib.sha1(state.encode()).hexdigest()[:12]
 
     def _refresh_financing(self):
@@ -188,6 +193,42 @@ class Store:
             self.snap, self.snap_as_of, self.snap_error = powerbi.load_snapshot(snap_path)
             self.snap_sig = sig
         self._refresh_roadmap()
+        self._refresh_status()
+
+    def _refresh_status(self):
+        """Atas do ponto de situação: relê quando algum ficheiro muda (ou de minuto a minuto após erro)."""
+        conf = self.cfg.get("ponto_situacao") or {}
+        keys = [k for k in self.data_src if k.startswith("ps")]
+        if not keys:
+            return
+        paths = [self.data_path(k) for k in keys]
+        sig = []
+        for path in paths:
+            try:
+                st = os.stat(path)
+                sig.append((path, st.st_mtime, st.st_size))
+            except OSError:
+                sig.append((path, None, None))
+        retry = self.ps_error and time.time() - self.ps_try > 60
+        if sig == self.ps_sig and not retry:
+            return
+        self.ps_try = time.time()
+        items, errors, files = [], [], []
+        for (path, mtime, _), src in zip(sig, (self.data_src[k] for k in keys)):
+            name = os.path.basename(src.split("?")[0]) if is_url(src) else os.path.basename(path)
+            if mtime is None:
+                errors.append(f"não encontrado: {name}")
+                continue
+            try:
+                items += status_report.read_file(path, conf.get("sheet", "ATA"))
+                files.append({"name": name, "modified": mtime})
+            except Exception as e:  # ficheiro aberto/bloqueado: mantém os últimos dados
+                errors.append(f"{name}: {type(e).__name__}: {e}")
+        if not errors or items:
+            self.ps, self.ps_unmatched = status_report.group_by_project(items, conf.get("projects"))
+            self.ps_files = files
+        self.ps_error = ("Ponto de situação: " + "; ".join(errors)) if errors else None
+        self.ps_sig = sig
 
     def _refresh_roadmap(self):
         rm = self.cfg.get("roadmap") or {}
@@ -298,6 +339,9 @@ class Store:
                 self.legal, self.legal_error, self.legal_sig, self.legal_folder = data, err, sig, local
                 self._update_version()
 
+    def data_src_has_ps(self):
+        return any(k.startswith("ps") for k in self.data_src)
+
     def legal_view(self, name):
         """Dados societários de um projeto para o browser: links do SharePoint em vez de caminhos locais."""
         info = self.legal.get(financing.key(name)) if self.legal else None
@@ -388,6 +432,7 @@ class Store:
                     snap = self.snap.get(sk) if sk and not live else None
                     projects.append({**detailed, "id": pid, "financing": fin, "info": self.info.get(k),
                                      "legal": self.legal_view(p["name"]),
+                                     "status_items": (self.ps.get(k, []) if self.data_src_has_ps() else None),
                                      "label": conf.get("label") or p["name"],
                                      "menu_group": conf.get("group"),
                                      "budget_missing": sheet if sheet and not budget else None,
@@ -414,6 +459,7 @@ class Store:
                     "financing_error": self.financing_error,
                     "info_error": self.info_error,
                     "legal_error": self.legal_error,
+                    "status_report": {"files": self.ps_files, "error": self.ps_error, "unmatched": self.ps_unmatched},
                     # entradas do project_info.json sem projeto no dashboard (p.ex. Turquesa, só no Summary)
                     "info_extra": [v for k, v in self.info.items() if k not in ids],
                     "roadmap": {"rows": [{**r, "project_id": ids.get(financing.key(r["project"])) if r.get("project") else None}
