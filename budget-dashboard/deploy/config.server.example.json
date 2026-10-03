@@ -10,7 +10,10 @@
   "sharepoint": {
     "client_id": "APPLICATION-CLIENT-ID",
     "tenant": "DIRECTORY-TENANT-ID",
-    "certificate": {"thumbprint": "THUMBPRINT-DO-CERTIFICADO", "private_key_file": "C:/Apps/budget-dashboard/certs/dashboard.key"},
+    "certificate": {
+      "thumbprint": "THUMBPRINT-DO-CERTIFICADO",
+      "private_key_file": "C:/Apps/budget-dashboard/certs/dashboard.key"
+    },
     "poll_seconds": 60
   },
   "data": {
@@ -32,5 +35,12 @@
     "rows": []
   },
   "menu": [],
-  "orion": {"projects": []}
+  "orion": {
+    "projects": []
+  },
+  "legal": {
+    "folder": "https://<empresa>.sharepoint.com/sites/<Site>/<Biblioteca>/N_Legal/Legal_VIZTA Portugal/1. CORPORATE/Sociedades",
+    "poll_seconds": 3600,
+    "companies": {}
+  }
 }

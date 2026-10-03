@@ -8,8 +8,9 @@ let [selectedId, page] = (() => {
   const [id, pg] = decodeURIComponent(location.hash.slice(1)).split("/");
   return [id || null, pg || "overview"];
 })();
-const PAGES = [["kpis", "Project KPIs"], ["financing", "Financing"], ["sales", "Sales"]];
-const pagesOf = (p) => PAGES.filter(([k]) => k === "kpis" || (k === "financing" && p.financing) || (k === "sales" && p.sales_name));
+const PAGES = [["kpis", "Project KPIs"], ["financing", "Financing"], ["sales", "Sales"], ["legal", "Legal Information"]];
+const pagesOf = (p) => PAGES.filter(([k]) => k === "kpis" || (k === "financing" && p.financing) || (k === "sales" && p.sales_name)
+  || (k === "legal" && p.legal));
 const PORTFOLIO = "portfolio";
 const PORTFOLIO_PAGES = [["summary", "Summary of all projects"], ["roadmap", "Roadmap"], ["financing", "Projects financing overview"]];
 const ORION = "orion";            // apresentação "Project Review - Orion" (slides em carrossel)
@@ -194,7 +195,7 @@ function renderMain() {
   if (!validPage(p, page)) page = "overview";
   const extra = p.budget_missing
     ? `<div class="banner no-print">Budget sheet <b>${esc(p.budget_missing)}</b> (config.json) was not found in <b>${esc(p.file)}</b>.</div>` : "";
-  const body = page === "financing" ? financingPageHtml(p) : page === "sales" ? salesPageHtml(p)
+  const body = page === "financing" ? financingPageHtml(p) : page === "sales" ? salesPageHtml(p) : page === "legal" ? legalPageHtml(p)
     : page === "kpis" ? reportHtml(p) : overviewHtml(p);
   $("#main").innerHTML = banners() + extra + body;
 }
@@ -823,6 +824,52 @@ function simpleHead(p, title, sub) {
 
 function financingPageHtml(p) {
   return `<section class="report page-financing">${simpleHead(p, "Financing", "financing.json")}${financingHtml(p.financing)}</section>`;
+}
+
+// ---------- Legal Information (certidão permanente da sociedade do projeto) ----------
+function legalPageHtml(p) {
+  const L = p.legal || {};
+  const sub = L.as_of ? `Permanent certificate (certidão permanente) consulted on ${fmtDate(L.as_of)}` : "Permanent certificate";
+  const head = simpleHead(p, "Legal Information", sub);
+  if (L.error) {
+    return `<section class="report page-legal">${head}<div class="banner">${esc(L.company || "")}: ${esc(L.error)}</div></section>`;
+  }
+  // validade da certidão: aviso nos últimos 60 dias e quando expirou
+  const days = L.valid_until ? Math.floor((new Date(L.valid_until + "T00:00:00") - new Date()) / 86400000) : null;
+  const validity = days === null ? "" : days < 0 ? `<span class="lg-pill bad">Expired</span>`
+    : days <= 60 ? `<span class="lg-pill warn">Expires in ${days} days</span>` : `<span class="lg-pill ok">Valid</span>`;
+  const item = (k, v) => (v ? `<div><dt>${k}</dt><dd>${v}</dd></div>` : "");
+  const cae = L.cae ? esc(L.cae) + ((L.cae_secondary || []).length
+    ? `<div class="sub">Secondary: ${L.cae_secondary.map(esc).join(" · ")}</div>` : "") : "";
+  const ident = [
+    item("Company", `<b>${esc(L.firm)}</b>`),
+    item("NIPC", esc(L.nipc)),
+    item("Legal form", esc(L.legal_form)),
+    item("Registered office", esc(L.address)),
+    item("Share capital", esc(L.capital)),
+    item("Financial year end", esc(L.year_end)),
+    item("Term of office", esc(L.term)),
+    item("Main CAE", cae),
+  ].join("");
+  const organs = (L.organs || []).map((g) => `<div class="lg-organ"><h3>${esc(g.organ)}</h3><ul>${g.members.map((m) =>
+    `<li><span>${esc(m.name)}</span>${m.role ? `<small>${esc(m.role)}</small>` : ""}</li>`).join("")}</ul></div>`).join("");
+  const docs = [["Permanent certificate", L.crc_url], ["Articles of association", L.statutes_url], ["RCBE (beneficial owners)", L.rcbe_url], ["Company folder", L.folder_url]]
+    .filter(([, u]) => u).map(([t, u]) => `<a class="lg-doc" href="${esc(u)}" target="_blank" rel="noopener noreferrer">${t} ↗</a>`).join("");
+  const crcCode = L.code ? `<div class="lg-code"><div><dt>Access code</dt><dd><b>${esc(L.code)}</b></dd></div>
+      <div><dt>Valid until</dt><dd>${fmtDate(L.valid_until)} ${validity}</dd></div>
+      <a class="lg-doc" href="https://registo.justica.gov.pt/Empresas/Consultar-Certidao-Permanente/Iniciar?codcertidao=${encodeURIComponent(L.code)}"
+        target="_blank" rel="noopener noreferrer">Consult online ↗</a></div>` : "";
+  const notes = [
+    L.newer_incomplete ? `There is a more recent certificate (${fmtDate(L.newer_incomplete)}), but without the corporate bodies; the data below is from ${fmtDate(L.as_of)}.` : "",
+    ...(L.pending || []).map((f) => `Pending registration: ${esc(f)}`),
+  ].filter(Boolean).map((t) => `<div class="banner">${t}</div>`).join("");
+  return `<section class="report page-legal">${head}${notes}
+    <div class="financing"><h2>Company <span>${esc(L.company || "")}</span></h2><dl class="fin-grid">${ident}</dl>
+      ${L.object ? `<div class="lg-block"><dt>Corporate purpose</dt><dd>${esc(L.object)}</dd></div>` : ""}
+      ${L.binding ? `<div class="lg-block"><dt>Binding signatures</dt><dd>${esc(L.binding)}</dd></div>` : ""}</div>
+    ${organs ? `<div class="financing"><h2>Corporate bodies</h2><div class="lg-organs">${organs}</div></div>` : ""}
+    <div class="financing"><h2>Permanent certificate &amp; documents</h2>${crcCode}<div class="lg-docs">${docs}</div></div>
+  </section>`;
 }
 
 // ---------- Sales (Power BI: Typology Report) ----------

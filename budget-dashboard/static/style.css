@@ -211,7 +211,26 @@ td.rm-track { position: relative; height: 34px; padding: 0;
 .rm-endkey { font-style: italic; }
 
 /* Sales: Typology Report */
-.page-sales, .page-financing { width: auto; max-width: 1100px; }
+.page-sales, .page-financing, .page-legal { width: auto; max-width: 1100px; }
+/* Legal Information */
+.page-legal .financing { width: auto; min-width: 0; }
+.page-legal .financing:first-of-type { margin-top: 8px; }
+.lg-block { margin-top: 16px; }
+.lg-block dt, .lg-code dt { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 3px; }
+.lg-block dd, .lg-code dd { margin: 0; font-size: 14px; line-height: 1.5; }
+.lg-organs { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px 32px; }
+.lg-organ h3 { margin: 0 0 6px; font-size: 13px; font-weight: 700; }
+.lg-organ ul { margin: 0; padding: 0; list-style: none; }
+.lg-organ li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--grid); font-size: 13.5px; }
+.lg-organ li small { color: var(--muted); white-space: nowrap; }
+.lg-code { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px 36px; margin-bottom: 16px; }
+.lg-pill { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; margin-left: 8px; }
+.lg-pill.ok { background: #e3f1e8; color: var(--pos); }
+.lg-pill.warn { background: #fff1d6; color: #9a6400; }
+.lg-pill.bad { background: #fde2df; color: var(--neg); }
+.lg-docs { display: flex; flex-wrap: wrap; gap: 10px; }
+.lg-doc { display: inline-block; border: 1px solid var(--orange); color: var(--orange); text-decoration: none; font-weight: 700; font-size: 13px; padding: 7px 14px; }
+.lg-doc:hover { background: var(--orange); color: #fff; }
 .page-financing .financing { margin-top: 8px; border-top: 0; padding-top: 0; width: auto; min-width: 0; }
 .banner.snap { background: #f4f6f8; border-left-color: var(--muted); }
 h2.sec { font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 8px 0 10px; }

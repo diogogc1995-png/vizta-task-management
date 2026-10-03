@@ -37,5 +37,11 @@
   "orion": {"projects": [
     {"project": "NOME NO QUADRO", "slides": ["overview", "commercial", "timeline", "variations"]},
     {"project": "PROJETO SÓ NO project_info.json", "slides": ["overview", "variations"]}
-  ]}
+  ]},
+  "legal": {
+    "folder": "%OneDriveCommercial%/.../N_Legal/Legal_VIZTA Portugal/1. CORPORATE/Sociedades",
+    "web_folder": "https://<empresa>.sharepoint.com/sites/<Site>/<Biblioteca>/N_Legal/Legal_VIZTA Portugal/1. CORPORATE/Sociedades",
+    "poll_seconds": 600,
+    "companies": {"NOME NO QUADRO": "Nome da pasta da sociedade"}
+  }
 }

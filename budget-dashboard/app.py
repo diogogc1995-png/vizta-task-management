@@ -22,6 +22,7 @@ import webbrowser
 from flask import Flask, abort, jsonify, request, send_file, send_from_directory
 
 import financing
+import legal
 import powerbi
 import roadmap
 from budget_parser import apply_versions, attach_budget_details, parse_file
@@ -131,6 +132,10 @@ class Store:
         self.version = ""
         self.data_src = data_sources(cfg)
         self.extra_sigs = {}  # cópias do SharePoint: chave do item -> cTag
+        # Informação societária (certidões permanentes): lida em segundo plano, PDFs em cache
+        self.legal, self.legal_error, self.legal_sig, self.legal_folder = {}, None, None, None
+        self.legal_cache = {}
+        self.legal_lock = threading.Lock()
 
     def data_path(self, key):
         """Caminho local de um ficheiro de dados (a cópia descarregada, se for um link do SharePoint)."""
@@ -152,7 +157,8 @@ class Store:
             [(k, e["sig"], e["error"]) for k, e in sorted(self.files.items())]
             + self.missing + sorted(self.source_errors.items())
             + [self.financing_sig, self.financing_error, self.info_sig, self.info_error,
-               self.snap_sig, self.snap_error, self.rm_sig, self.rm_error], default=str)
+               self.snap_sig, self.snap_error, self.rm_sig, self.rm_error,
+               self.legal_sig, self.legal_error], default=str)
         self.version = hashlib.sha1(state.encode()).hexdigest()[:12]
 
     def _refresh_financing(self):
@@ -258,6 +264,56 @@ class Store:
             self._refresh_financing()
             self._update_version()
 
+    def refresh_legal(self, client=None):
+        """Lê as certidões permanentes das sociedades (config.json -> "legal"). Demora: corre numa thread."""
+        conf = self.cfg.get("legal") or {}
+        if not conf.get("folder"):
+            return
+        with self.legal_lock:  # nunca duas leituras ao mesmo tempo
+            folder = conf["folder"]
+            try:
+                if is_url(folder):  # servidor: copia do SharePoint só certidões, estatutos e RCBE
+                    local = os.path.join(CACHE_DIR, "legal")
+                    if client is None:
+                        raise RuntimeError(sp_init_error or "SharePoint não configurado")
+                    for company in sorted(set((conf.get("companies") or {}).values())):
+                        for rel, it in client.walk(folder, company, lambda n: bool(legal.SKIP_DIRS.match(n))):
+                            if not legal.wanted_name(it["name"]):
+                                continue
+                            dest = os.path.join(local, company, *rel.split("/"))
+                            if self.extra_sigs.get(it["key"]) == it["sig"] and os.path.exists(dest):
+                                continue
+                            os.makedirs(os.path.dirname(dest), exist_ok=True)
+                            client.download(it, dest)
+                            if it.get("modified"):
+                                os.utime(dest, (it["modified"], it["modified"]))
+                            self.extra_sigs[it["key"]] = it["sig"]
+                else:
+                    local = _expand(folder)
+                data, err = legal.load({**conf, "folder": local}, self.legal_cache)
+            except Exception as e:  # mantém os últimos dados
+                data, err = self.legal, f"Legal: {type(e).__name__}: {e}"
+            sig = hashlib.sha1(json.dumps(data, sort_keys=True, default=str).encode()).hexdigest()[:12]
+            with self.lock:
+                self.legal, self.legal_error, self.legal_sig, self.legal_folder = data, err, sig, local
+                self._update_version()
+
+    def legal_view(self, name):
+        """Dados societários de um projeto para o browser: links do SharePoint em vez de caminhos locais."""
+        info = self.legal.get(financing.key(name)) if self.legal else None
+        if not info:
+            return None
+        conf = self.cfg.get("legal") or {}
+        web = conf.get("web_folder") or (conf["folder"] if is_url(conf.get("folder", "")) else None)
+        if web and is_url(conf.get("folder", "")) and "?" in web:
+            web = None  # link de partilha: não dá para montar o caminho dos ficheiros
+        out = {k: v for k, v in info.items() if not k.endswith("_file")}
+        for k in ("crc", "statutes", "rcbe"):
+            out[k + "_url"] = legal.web_link(info.get(k + "_file"), self.legal_folder, web)
+        if web and info.get("company"):
+            out["folder_url"] = legal.web_link(os.path.join(self.legal_folder, info["company"]), self.legal_folder, web)
+        return out
+
     def sync_sharepoint(self, client):
         """Ficheiros do SharePoint: compara o cTag de cada ficheiro e descarrega os que mudaram."""
         os.makedirs(CACHE_DIR, exist_ok=True)
@@ -331,6 +387,7 @@ class Store:
                     live = sales["data"].get(sk) if sk else None
                     snap = self.snap.get(sk) if sk and not live else None
                     projects.append({**detailed, "id": pid, "financing": fin, "info": self.info.get(k),
+                                     "legal": self.legal_view(p["name"]),
                                      "label": conf.get("label") or p["name"],
                                      "menu_group": conf.get("group"),
                                      "budget_missing": sheet if sheet and not budget else None,
@@ -356,6 +413,7 @@ class Store:
                                      "snapshot_error": self.snap_error},
                     "financing_error": self.financing_error,
                     "info_error": self.info_error,
+                    "legal_error": self.legal_error,
                     # entradas do project_info.json sem projeto no dashboard (p.ex. Turquesa, só no Summary)
                     "info_extra": [v for k, v in self.info.items() if k not in ids],
                     "roadmap": {"rows": [{**r, "project_id": ids.get(financing.key(r["project"])) if r.get("project") else None}
@@ -425,6 +483,16 @@ def build_menu(menu, ids):
     return {"menu": out, "menu_unmatched": unmatched}
 
 
+def legal_loop(client, interval):
+    """Certidões permanentes: primeira leitura logo no arranque, depois de tempos a tempos."""
+    while True:
+        try:
+            store.refresh_legal(client)
+        except Exception as e:
+            print(f"Erro na leitura das certidões: {e}", flush=True)
+        time.sleep(interval)
+
+
 def sharepoint_loop(client, interval):
     while True:
         time.sleep(interval)
@@ -440,7 +508,8 @@ sp_client = None
 sp_init_error = None
 uses_powerbi = bool(cfg["powerbi"].get("app_id") or cfg["powerbi"].get("dataset_id")
                     or cfg["powerbi"].get("workspace_id"))
-uses_sharepoint = any(is_url(s) for s in cfg["sources"]) or bool(store.remote_data())
+uses_sharepoint = (any(is_url(s) for s in cfg["sources"]) or bool(store.remote_data())
+                   or is_url((cfg.get("legal") or {}).get("folder", "")))
 if uses_sharepoint or uses_powerbi:
     try:
         sp_client = SharePointClient(cfg["sharepoint"], TOKEN_CACHE)
@@ -563,6 +632,10 @@ if __name__ == "__main__":
         interval = max(15, int(cfg["sharepoint"]["poll_seconds"]))
         threading.Thread(target=sharepoint_loop, args=(sp_client, interval), daemon=True).start()
         print(f"  SharePoint: verifica alterações a cada {interval}s")
+    if cfg.get("legal", {}).get("folder"):
+        interval = max(60, int(cfg["legal"].get("poll_seconds", 600)))
+        threading.Thread(target=legal_loop, args=(sp_client, interval), daemon=True).start()
+        print(f"  Legal: certidões permanentes lidas em segundo plano (a cada {interval}s)")
     if sales_store:
         sales_store.refresh()
         st = sales_store.state()

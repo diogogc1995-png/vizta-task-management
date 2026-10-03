@@ -121,6 +121,28 @@ Os dados de vendas vêm do CRM através do Power BI. A app usa a mesma conta Mic
 - O Power BI é lido a cada `poll_seconds`, por omissão 15 minutos.
 - **Enquanto não houver acesso automático**, a página Sales usa o `sales_snapshot.json`, um ficheiro local fora do Git. Tem o Typology Report transcrito do Power BI tal como lá aparece (unidades, totais, %, €/m²) e a data/hora em `_as_of`, que a página mostra como "Position as of …". Quando o Power BI estiver ligado, os dados automáticos têm prioridade.
 
+### Legal Information
+
+Dados societários da sociedade de cada projeto, lidos da **certidão permanente** mais recente na pasta
+"Sociedades" do Legal (`config.json` → `"legal"`).
+
+- `folder`: pasta "Sociedades" sincronizada (ou o link do SharePoint, no servidor).
+- `web_folder`: o endereço dessa pasta no SharePoint, usado para os links dos documentos.
+- `companies`: projeto (nome no quadro de Project Review) → nome da subpasta da sociedade.
+
+Em cada sociedade, a app procura os PDFs com "CRC" ou "Certidão Permanente" no nome, fora das pastas
+"old"/"Activos"/"Partilha". Usa a certidão mais recente que tenha os órgãos sociais e ignora as
+certidões de outras entidades guardadas na pasta.
+
+A página mostra:
+- firma, NIPC, natureza jurídica, sede, capital, CAE, objeto, forma de obrigar, mandato e órgãos sociais;
+- o código de acesso e a validade da certidão mais recente, com aviso nos últimos 60 dias;
+- os factos pendentes de registo;
+- links para a certidão, os estatutos, o RCBE e a pasta da sociedade.
+
+As certidões são lidas em segundo plano (a primeira leitura demora uns segundos) e relidas a cada
+`poll_seconds` (600 s); só os PDFs novos ou alterados voltam a ser lidos.
+
 ## Vizta Portfolio
 
 No topo do menu, o item "Vizta Portfolio" tem as páginas *Summary of all projects*, *Roadmap* e *Projects financing overview*.

@@ -204,6 +204,26 @@ class SharePointClient:
                     out.append(self._describe(child, drive_id))
         return out
 
+    def walk(self, share_url, child=None, skip_dir=None):
+        """(caminho relativo, item) de todos os ficheiros da pasta do link (ou da subpasta "child")."""
+        root = self.resolve(share_url)
+        drive_id = root.get("parentReference", {}).get("driveId")
+        if child:
+            root = next((c for c in self._children(drive_id, root["id"])
+                         if "folder" in c and c["name"].casefold() == child.casefold()), None)
+            if root is None:
+                raise GraphError(f"Pasta '{child}' não encontrada")
+        stack = [(root["id"], "")]
+        while stack:
+            item_id, rel = stack.pop()
+            for c in self._children(drive_id, item_id):
+                path = f"{rel}/{c['name']}" if rel else c["name"]
+                if "folder" in c:
+                    if not (skip_dir and skip_dir(c["name"])):
+                        stack.append((c["id"], path))
+                else:
+                    yield path, self._describe(c, drive_id)
+
     def download(self, item, dest):
         r = self._get(f"{GRAPH}/drives/{item['drive_id']}/items/{item['id']}/content", stream=True)
         tmp = dest + ".part"
