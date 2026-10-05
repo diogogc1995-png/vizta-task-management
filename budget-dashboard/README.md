@@ -223,14 +223,26 @@ não cabe é reduzido, nunca cortado).
   Sales Launch, Market Information e, por projeto, os slides definidos em `config.json` → `orion`:
   `overview`, `commercial`, `timeline`, `variations` (quadro do Project Review com os €/sqm da
   mesma folha e o financiamento do `financing.json`), `cost_per_item`, `contract`, `fees`.
-- O que o dashboard não tem (comentários, key variations, buyer profile, mercado, etc.) aparece
+- O que o dashboard não tem (comentários, buyer profile, mercado, etc.) aparece
   como caixa **To be provided**.
 - Projetos sem budget (p.ex. Turquesa) usam o `project_info.json`, incluindo `kpis_manual`
   (custos, receita, IRR, margem e preço médio, com a fonte).
+- **Key Variations** (slides de Project Review): caixa de texto editável. Grava sozinha ao escrever
+  e ao sair da caixa, no ficheiro `orion_notes.json` (fora do Git, por isso nunca é apagado por um
+  push; no servidor muda-se o caminho com `"data"` → `"orion_notes"`).
+  - Com várias pessoas a editar, fica sempre o último texto guardado; as outras páginas abertas
+    atualizam-se em poucos segundos.
+  - Enquanto alguém escreve numa caixa, a página dessa pessoa não é recarregada.
+  - **"X está a escrever…"**: enquanto alguém tem a caixa aberta, os outros veem o aviso com o nome
+    dessa pessoa, atualizado a cada 2 s.
+    - O browser de quem escreve dá sinal ao servidor a cada 4 s. O aviso desaparece quando a pessoa
+      sai da caixa ou fecha a página, ou ao fim de 12 s sem sinal (portátil fechado, rede em baixo).
+    - Os sinais ficam só em memória, sem nada gravado.
+    - O nome é pedido uma vez e fica guardado no browser.
 - Navegação: setas ‹ ›, pontos por baixo do slide, lista de slides no menu lateral, agenda
   clicável, teclado (← → / PageUp PageDown / espaço, Home / End) e deslizar no ecrã tátil.
 - **Present** (ou tecla F): ecrã inteiro, só o slide; Esc para sair.
-- **Export PDF** com a apresentação aberta: todos os slides, um por página (A4 horizontal).
+- **Export PDF** com a apresentação aberta: todos os slides, um por página 16:9.
 
 ## Subrubricas e menu
 

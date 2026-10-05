@@ -107,6 +107,52 @@ class SharePointSyncTest(unittest.TestCase):
         store.sync_data(client)  # nada mudou: não volta a descarregar
         self.assertEqual(sorted(client.downloads), ["a.jpg", "financing.json"])
 
+    def test_orion_notes_last_write_wins(self):
+        path = os.path.join(self.tmp, "notes", "orion_notes.json")
+        store = self.app.Store({**self.app.cfg, "data": {"orion_notes": path}})
+        v0 = store.version
+        a = store.save_note("nola.variations.key_variations", "Primeiro texto")
+        self.assertNotEqual(store.version, v0)  # quem tem a página aberta recebe a alteração
+        other = self.app.Store({**self.app.cfg, "data": {"orion_notes": path}})  # p.ex. outro processo
+        other.save_note("nola.variations.key_variations", "Texto mais recente")
+        other.save_note("core.variations.key_variations", "CORE")
+        store._refresh_notes()
+        self.assertEqual(store.notes["nola.variations.key_variations"]["text"], "Texto mais recente")
+        self.assertEqual(store.notes["core.variations.key_variations"]["text"], "CORE")
+        self.assertGreaterEqual(store.notes["nola.variations.key_variations"]["updated"], a["updated"])
+
+    def test_orion_notes_route(self):
+        path = os.path.join(self.tmp, "route_notes.json")
+        old = self.app.store
+        self.app.store = self.app.Store({**self.app.cfg, "data": {"orion_notes": path}})
+        try:
+            c = self.app.app.test_client()
+            r = c.post("/api/orion-notes", json={"key": "ary.variations.key_variations", "text": "Olá"})
+            self.assertEqual(r.status_code, 200)
+            self.assertEqual(r.get_json()["text"], "Olá")
+            with open(path, encoding="utf-8") as f:
+                self.assertEqual(json.load(f)["ary.variations.key_variations"]["text"], "Olá")
+            self.assertEqual(c.post("/api/orion-notes", data={"key": "x", "text": "y"}).status_code, 400)  # só JSON
+            self.assertEqual(c.post("/api/orion-notes", json={"key": "../x", "text": "y"}).status_code, 400)
+        finally:
+            self.app.store = old
+
+    def test_orion_presence(self):
+        c = self.app.app.test_client()
+        key = "nola.variations.key_variations"
+        c.post("/api/orion-presence", json={"client": "tab-aaaaaa", "key": key, "name": "Ana", "editing": True})
+        self.assertEqual(c.get("/api/orion-presence?client=tab-bbbbbb").get_json(), {key: ["Ana"]})
+        self.assertEqual(c.get("/api/orion-presence?client=tab-aaaaaa").get_json(), {})  # o próprio não se vê
+        c.post("/api/orion-presence", json={"client": "tab-aaaaaa", "key": key, "editing": False})
+        self.assertEqual(c.get("/api/orion-presence?client=tab-bbbbbb").get_json(), {})
+        # sinal antigo (browser fechado sem avisar) expira sozinho
+        c.post("/api/orion-presence", json={"client": "tab-cccccc", "key": key, "name": "Rui", "editing": True})
+        with self.app.presence_lock:
+            name, _ = self.app.presence[key]["tab-cccccc"]
+            self.app.presence[key]["tab-cccccc"] = (name, 0)
+        self.assertEqual(c.get("/api/orion-presence?client=tab-bbbbbb").get_json(), {})
+        self.assertEqual(c.post("/api/orion-presence", json={"client": "x", "key": key}).status_code, 400)
+
     def test_sync_downloads_only_when_changed(self):
         store = self.app.Store(self.app.cfg)
         client = FakeClient(self.xlsx)

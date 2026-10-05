@@ -100,6 +100,10 @@ também os links de partilha (`"sources"` e `"roadmap" → "file"`).
 
 Os registos ficam em `logs\app.log`.
 
+Os textos escritos na apresentação (Key Variations) ficam em `orion_notes.json`, na pasta da app. A
+identidade do application pool precisa de permissão de **escrita** nesse ficheiro, e o ficheiro deve
+entrar na cópia de segurança do servidor. Ao atualizar a app, nunca o apagar nem substituir.
+
 ## 5. Notas
 
 - **Atualizações**: o servidor verifica o SharePoint a cada `sharepoint.poll_seconds` (60 s por omissão)

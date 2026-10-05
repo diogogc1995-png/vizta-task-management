@@ -90,6 +90,11 @@ async function poll() {
     const res = await fetch("/api/version", { cache: "no-store" });
     const v = (await res.json()).version;
     if (v !== version) {
+      if (document.activeElement && document.activeElement.closest && document.activeElement.closest("[data-note]")) {
+        reloadAfterEdit = true;
+        setStatus(true);
+        return;
+      }
       const before = data ? Object.fromEntries(data.files.map((f) => [f.path, f.modified])) : {};
       await load();
       const changed = data.files.filter((f) => before[f.path] !== undefined && before[f.path] !== f.modified).map((f) => f.file);
@@ -180,6 +185,7 @@ function renderMain() {
   if (selectedId === ORION) {
     $("#main").innerHTML = banners() + orionHtml();
     fitSlides();
+    applyPresence();
     return;
   }
   if (selectedId === PORTFOLIO) {
@@ -291,12 +297,151 @@ function orionEndHtml() {
 
 function placeholderHtml(title, sub, boxes) {
   return `<div class="sl"><div class="sl-head"><h1>${esc(title)}</h1>${sub ? `<div class="sl-sub">${esc(sub)}</div>` : ""}</div>
-    <div class="sl-ph-grid n${boxes.length}">${boxes.map((b) => phBox(b)).join("")}</div></div>`;
+    <div class="sl-ph-grid n${boxes.length}">${boxes.map((b) => (typeof b === "string" ? phBox(b) : b.html)).join("")}</div></div>`;
 }
+
+// ---------- textos editáveis da apresentação (guardados no servidor; vence o último a guardar) ----------
+const noteSlug = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+function noteMeta(n) {
+  return n && n.updated ? `Saved ${fmtTime(n.updated)}` : "";
+}
+
+function noteBox(key, title) {
+  const n = (data.orion_notes || {})[key];
+  return `<div class="sl-box sl-note"><h3>${esc(title)}</h3>
+    <div class="sl-note-text" contenteditable="plaintext-only" spellcheck="false" data-note="${esc(key)}"
+      data-placeholder="Click to write…">${esc(n ? n.text : "")}</div>
+    <div class="sl-note-presence" data-note-presence="${esc(key)}" hidden></div>
+    <div class="sl-note-meta" data-note-meta="${esc(key)}">${noteMeta(n)}</div></div>`;
+}
+
+// ---------- "X está a escrever…": sinais ao servidor enquanto a caixa está aberta ----------
+const PRESENCE_BEAT_MS = 4000, PRESENCE_POLL_MS = 2000;
+const clientId = (() => {  // um id por separador do browser
+  try {
+    let id = sessionStorage.getItem("bd.clientId");
+    if (!id) sessionStorage.setItem("bd.clientId", (id = "c" + Math.random().toString(36).slice(2) + Date.now().toString(36)));
+    return id;
+  } catch (e) { return "c" + Math.random().toString(36).slice(2) + Date.now().toString(36); }
+})();
+let presenceMap = {};      // {chave: [nomes de quem está a escrever]} (sem o próprio separador)
+let presenceBeat = null;   // temporizador dos sinais enquanto se escreve
+let presenceKey = null;
+
+function userName() {
+  // no servidor com login Windows o nome pode vir daí; até lá pede-se uma vez e fica no browser
+  let n = loadPref("userName", "");
+  if (!n) {
+    n = (window.prompt("O teu nome, para os colegas verem quando estás a escrever:") || "").trim().slice(0, 60);
+    if (n) savePref("userName", n);
+  }
+  return n || "Alguém";
+}
+
+function sendPresence(key, editing) {
+  const body = JSON.stringify({ client: clientId, key, name: loadPref("userName", "") || "Alguém", editing });
+  if (!editing && navigator.sendBeacon) {  // funciona também ao fechar a página
+    navigator.sendBeacon("/api/orion-presence", new Blob([body], { type: "application/json" }));
+    return;
+  }
+  fetch("/api/orion-presence", { method: "POST", headers: { "Content-Type": "application/json" }, body }).catch(() => {});
+}
+
+function startEditing(el) {
+  const key = el.dataset.note;
+  if (presenceKey === key) return;
+  if (!loadPref("userName", "")) {
+    userName();  // a janela do nome tira o cursor da caixa: volta a pô-lo lá
+    setTimeout(() => el.focus(), 0);
+  }
+  presenceKey = key;
+  sendPresence(key, true);
+  clearInterval(presenceBeat);
+  presenceBeat = setInterval(() => sendPresence(key, true), PRESENCE_BEAT_MS);
+}
+
+function stopEditing() {
+  if (!presenceKey) return;
+  clearInterval(presenceBeat);
+  sendPresence(presenceKey, false);
+  presenceKey = null;
+}
+
+function applyPresence() {
+  document.querySelectorAll("[data-note-presence]").forEach((el) => {
+    const names = presenceMap[el.dataset.notePresence] || [];
+    el.hidden = !names.length;
+    el.innerHTML = names.length ? `<i></i>${esc(names.length === 1 ? names[0] : names.slice(0, -1).join(", ") + " e " + names[names.length - 1])}
+      ${names.length === 1 ? "está" : "estão"} a escrever…` : "";
+    const box = el.closest(".sl-note");
+    if (box) box.classList.toggle("busy", names.length > 0);
+  });
+}
+
+async function pollPresence() {
+  if (selectedId !== ORION || document.hidden) return;
+  try {
+    const res = await fetch(`/api/orion-presence?client=${encodeURIComponent(clientId)}`, { cache: "no-store" });
+    presenceMap = await res.json();
+    applyPresence();
+  } catch (e) { /* servidor em baixo: o estado geral já mostra o aviso */ }
+}
+setInterval(pollPresence, PRESENCE_POLL_MS);
+document.addEventListener("focusin", (e) => {
+  const el = e.target.closest && e.target.closest("[data-note]");
+  if (el) startEditing(el);
+});
+window.addEventListener("pagehide", stopEditing);
+
+const noteTimers = {};
+let reloadAfterEdit = false;  // chegaram dados novos enquanto se escrevia: atualiza ao sair da caixa
+
+async function saveNote(el) {
+  const key = el.dataset.note;
+  clearTimeout(noteTimers[key]);
+  const text = el.innerText.replace(/\n$/, "");
+  const cur = (data.orion_notes || {})[key];
+  if (cur ? cur.text === text : !text) return;  // nada mudou
+  document.querySelectorAll(`[data-note-meta="${CSS.escape(key)}"]`).forEach((m) => (m.textContent = "Saving…"));
+  try {
+    const res = await fetch("/api/orion-notes", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key, text }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const n = await res.json();
+    (data.orion_notes = data.orion_notes || {})[key] = { text: n.text, updated: n.updated };
+    version = n.version;  // a própria gravação não obriga a recarregar a página
+    document.querySelectorAll(`[data-note-meta="${CSS.escape(key)}"]`).forEach((m) => (m.textContent = noteMeta(n)));
+  } catch (err) {
+    document.querySelectorAll(`[data-note-meta="${CSS.escape(key)}"]`).forEach((m) => (m.textContent = "Not saved — server not reachable"));
+  }
+}
+
+document.addEventListener("input", (e) => {
+  const el = e.target.closest && e.target.closest("[data-note]");
+  if (!el) return;
+  startEditing(el);  // também ao escrever (se o clique não tiver dado o sinal)
+  clearTimeout(noteTimers[el.dataset.note]);
+  noteTimers[el.dataset.note] = setTimeout(() => saveNote(el), 800);
+});
+document.addEventListener("focusout", (e) => {
+  const el = e.target.closest && e.target.closest("[data-note]");
+  if (!el) return;
+  stopEditing();
+  saveNote(el).then(() => {
+    if (reloadAfterEdit && !document.activeElement.closest("[data-note]")) {
+      reloadAfterEdit = false;
+      load();
+    }
+  });
+});
 
 const phBox = (label, cls = "") => `<div class="sl-ph ${cls}"><span>${esc(label)}</span><small>To be provided</small></div>`;
 
 function projectSlideHtml(k, p, e, name) {
+  // texto editável "Key Variations": chave estável (nome do projeto + slide), igual no PC e no servidor
+  const kv = { html: noteBox(`${noteSlug(e.project)}.${k}.key_variations`, "Key Variations") };
   const sub = (kind) => (e.subtitles || {})[kind] || "";  // subtítulos do config.json (p.ex. vistas do NOLA)
   const ph = (boxes) => placeholderHtml(name, sub(k), boxes);
   if (k === "overview") {
@@ -305,12 +450,12 @@ function projectSlideHtml(k, p, e, name) {
   if (k === "commercial") return ph(["Typology report – units & amounts", "Commercial Project Status", "Buyer Profile", "PSPA / Reservation evolution"]);
   if (k === "timeline") return ph(["Project timeline", "Key points for discussion – Planning"]);
   if (k === "variations") {
-    return p ? prSlideHtml(p, name, p, sub(k)) : ph(["Project Review table", "Key Variations", "Financing", "Opportunities / Risks", "Sources & Uses"]);
+    return p ? prSlideHtml(p, name, p, sub(k), kv.html) : ph(["Project Review table", kv, "Financing", "Opportunities / Risks", "Sources & Uses"]);
   }
   if (k === "cost_per_item") {
     // segundo quadro da folha do Project Review (p.ex. NOLA: "effective cost per item view")
     const v = p && (p.views || [])[0];
-    return v ? prSlideHtml(p, name, v, sub(k)) : ph(["Effective cost per item view", "Key Variations", "Financing", "Opportunities / Risks"]);
+    return v ? prSlideHtml(p, name, v, sub(k), kv.html) : ph(["Effective cost per item view", kv, "Financing", "Opportunities / Risks"]);
   }
   if (k === "contract") return ph(["Construction contract – milestones & delivery dates"]);
   if (k === "fees") return ph(["VIZTA fees – milestones, amounts & status"]);
@@ -318,7 +463,7 @@ function projectSlideHtml(k, p, e, name) {
 }
 
 // Quadro do Project Review (colunas do Excel) + €/sqm da mesma folha + caixas de comentário
-function prSlideHtml(p, name, t = p, sub = "") {
+function prSlideHtml(p, name, t = p, sub = "", keyVariations = phBox("Key Variations")) {
   // t: quadro a mostrar (o principal ou outro da mesma folha, em p.views)
   const n = t.columns.length;
   // colunas de €/sqm sem nenhum valor diferente de zero (p.ex. "Park (Mandatory)") ficam de fora
@@ -351,7 +496,7 @@ function prSlideHtml(p, name, t = p, sub = "") {
     <div class="sl-pr-body">
       <div class="sl-pr-main"><table class="sl-prt"><thead>${head}</thead><tbody>${body}</tbody>${kpis}</table>
         <div class="sl-src">Source: ${esc(p.file || "")} › ${esc(p.sheet)}${t.footnote ? ` · ${esc(t.footnote)}` : ""}</div></div>
-      <div class="sl-pr-side">${phBox("Key Variations")}${slideFinancingHtml(p.financing)}${phBox("Opportunities / Risks")}${phBox("Sources & Uses", "small")}</div>
+      <div class="sl-pr-side">${keyVariations}${slideFinancingHtml(p.financing)}${phBox("Opportunities / Risks")}${phBox("Sources & Uses", "small")}</div>
     </div></div>`;
 }
 
@@ -1331,7 +1476,7 @@ document.addEventListener("click", (e) => {
 
 // Apresentação: setas / PageUp-PageDown / espaço, Home-End, F = ecrã inteiro; deslizar no ecrã tátil
 document.addEventListener("keydown", (e) => {
-  if (selectedId !== ORION || e.target.closest("input, select, textarea")) return;
+  if (selectedId !== ORION || e.target.closest("input, select, textarea") || e.target.isContentEditable) return;
   const map = { ArrowRight: "next", ArrowDown: "next", PageDown: "next", " ": "next", ArrowLeft: "prev", ArrowUp: "prev", PageUp: "prev", Home: "first", End: "last" };
   if (map[e.key]) {
     e.preventDefault();

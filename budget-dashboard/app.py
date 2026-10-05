@@ -11,6 +11,7 @@ Uso:  python app.py            (no PC: abre o browser, login com a tua conta)
 
 import glob
 import hashlib
+import re
 import io
 import json
 import os
@@ -36,6 +37,15 @@ FINANCING_PATH = os.environ.get("BUDGET_DASHBOARD_FINANCING") or os.path.join(BA
 INFO_PATH = os.environ.get("BUDGET_DASHBOARD_INFO") or os.path.join(BASE_DIR, "project_info.json")
 IMAGES_DIR = os.path.join(BASE_DIR, "project_images")
 SALES_SNAPSHOT_PATH = os.path.join(BASE_DIR, "sales_snapshot.json")
+# Textos escritos na apresentação Orion (p.ex. "Key Variations"): ficheiro de dados, fora do Git
+NOTES_PATH = os.environ.get("BUDGET_DASHBOARD_NOTES") or os.path.join(BASE_DIR, "orion_notes.json")
+NOTE_KEY = re.compile(r"^[\w.-]{1,120}$")
+NOTE_MAX = 5000
+# Quem está a escrever em cada caixa (só em memória; some se o browser deixar de dar sinal)
+PRESENCE_TTL = 12
+CLIENT_ID = re.compile(r"^[\w-]{6,64}$")
+presence = {}  # chave da caixa -> {id do separador do browser: (nome, instante do último sinal)}
+presence_lock = threading.Lock()
 IMAGE_EXT = (".jpg", ".jpeg", ".png", ".webp")
 # No servidor (IIS / HttpPlatformHandler a porta vem em HTTP_PLATFORM_PORT)
 SERVER_MODE = "--server" in sys.argv or bool(os.environ.get("HTTP_PLATFORM_PORT"))
@@ -141,6 +151,9 @@ class Store:
         # Ponto de situação (atas): pontos Pendente/Standby por projeto
         self.ps, self.ps_unmatched, self.ps_error, self.ps_sig, self.ps_files = {}, [], None, None, []
         self.ps_try = 0
+        # Textos da apresentação: {chave: {"text", "updated"}}; vence sempre o último guardado
+        self.notes, self.notes_sig = {}, None
+        self.notes_lock = threading.Lock()
 
     def data_path(self, key):
         """Caminho local de um ficheiro de dados (a cópia descarregada, se for um link do SharePoint)."""
@@ -163,7 +176,7 @@ class Store:
             + self.missing + sorted(self.source_errors.items())
             + [self.financing_sig, self.financing_error, self.info_sig, self.info_error,
                self.snap_sig, self.snap_error, self.rm_sig, self.rm_error,
-               self.legal_sig, self.legal_error, self.ps_sig, self.ps_error], default=str)
+               self.legal_sig, self.legal_error, self.ps_sig, self.ps_error, self.notes_sig], default=str)
         self.version = hashlib.sha1(state.encode()).hexdigest()[:12]
 
     def _refresh_financing(self):
@@ -194,6 +207,49 @@ class Store:
             self.snap_sig = sig
         self._refresh_roadmap()
         self._refresh_status()
+        self._refresh_notes()
+
+    def _notes_path(self):
+        return os.path.normpath(os.path.expandvars((self.cfg.get("data") or {}).get("orion_notes") or NOTES_PATH))
+
+    def _read_notes(self):
+        try:
+            with open(self._notes_path(), encoding="utf-8") as f:
+                raw = json.load(f)
+            return {k: v for k, v in raw.items() if isinstance(v, dict) and not k.startswith("_")}
+        except FileNotFoundError:
+            return {}
+        except (OSError, ValueError):
+            return self.notes  # ficheiro a meio de ser escrito: mantém o que já tinha
+
+    def _refresh_notes(self):
+        """Relê o ficheiro quando muda (p.ex. guardado por outro processo)."""
+        try:
+            st = os.stat(self._notes_path())
+            sig = (st.st_mtime_ns, st.st_size)
+        except OSError:
+            sig = None
+        if sig != self.notes_sig:
+            self.notes = self._read_notes()
+            self.notes_sig = sig
+
+    def save_note(self, key, text):
+        """Guarda o texto (vence o último a guardar). Escrita atómica para nunca deixar o ficheiro a meio."""
+        with self.notes_lock:
+            notes = self._read_notes()
+            notes[key] = {"text": text, "updated": time.time()}
+            path = self._notes_path()
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            tmp = path + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(notes, f, ensure_ascii=False, indent=1)
+            os.replace(tmp, path)
+            with self.lock:
+                self.notes = notes
+                st = os.stat(path)
+                self.notes_sig = (st.st_mtime_ns, st.st_size)
+                self._update_version()
+            return notes[key]
 
     def _refresh_status(self):
         """Atas do ponto de situação: relê quando algum ficheiro muda (ou de minuto a minuto após erro)."""
@@ -460,6 +516,7 @@ class Store:
                     "info_error": self.info_error,
                     "legal_error": self.legal_error,
                     "status_report": {"files": self.ps_files, "error": self.ps_error, "unmatched": self.ps_unmatched},
+                    "orion_notes": self.notes,
                     # entradas do project_info.json sem projeto no dashboard (p.ex. Turquesa, só no Summary)
                     "info_extra": [v for k, v in self.info.items() if k not in ids],
                     "roadmap": {"rows": [{**r, "project_id": ids.get(financing.key(r["project"])) if r.get("project") else None}
@@ -602,6 +659,55 @@ def full_version():
 def api_version():
     store.refresh()
     return jsonify({"version": full_version()})
+
+
+def _presence_now(exclude=None):
+    """{chave: [nomes]} de quem está a escrever, sem os sinais expirados nem o próprio separador."""
+    now = time.time()
+    out = {}
+    with presence_lock:
+        for key in list(presence):
+            for cid, (name, ts) in list(presence[key].items()):
+                if now - ts > PRESENCE_TTL:
+                    del presence[key][cid]
+            if not presence[key]:
+                del presence[key]
+                continue
+            names = sorted({n for cid, (n, _) in presence[key].items() if cid != exclude})
+            if names:
+                out[key] = names
+    return out
+
+
+@app.post("/api/orion-presence")
+def api_orion_presence_set():
+    """Sinal de "estou a escrever nesta caixa" ({"editing": true}) ou "saí" ({"editing": false})."""
+    body = request.get_json(silent=True, force=True)  # force: o navigator.sendBeacon do fecho da página
+    if not isinstance(body, dict) or not CLIENT_ID.match(str(body.get("client", ""))):
+        abort(400)
+    cid, key = body["client"], str(body.get("key", ""))
+    name = " ".join(str(body.get("name") or "Alguém").split())[:60] or "Alguém"
+    with presence_lock:
+        for k in list(presence):  # um separador só escreve numa caixa de cada vez
+            presence[k].pop(cid, None)
+        if body.get("editing") and NOTE_KEY.match(key):
+            presence.setdefault(key, {})[cid] = (name, time.time())
+    return jsonify({"ok": True})
+
+
+@app.get("/api/orion-presence")
+def api_orion_presence_get():
+    return jsonify(_presence_now(exclude=request.args.get("client")))
+
+
+@app.post("/api/orion-notes")
+def api_orion_notes():
+    """Guarda um texto da apresentação: {"key": "<slide>.key_variations", "text": "..."}."""
+    body = request.get_json(silent=True)  # só JSON (um formulário de outro site não consegue enviar isto)
+    if not isinstance(body, dict) or not NOTE_KEY.match(str(body.get("key", ""))) or not isinstance(body.get("text"), str):
+        abort(400)
+    note = store.save_note(body["key"], body["text"][:NOTE_MAX])
+    return jsonify({"key": body["key"], **note, "version": full_version()})
 
 
 @app.get("/api/projects")
