@@ -312,6 +312,22 @@ Passos, pedido ao IT e configuração do IIS: [deploy/DEPLOY.md](deploy/DEPLOY.m
 
 Para parar, fecha a janela ou carrega em Ctrl+C.
 
+### Arrancar sozinho com o Windows
+
+O atalho "Dashboard Budgets" na pasta de Arranque do Windows (`Win+R` → `shell:startup`) corre
+`start_dashboard.ps1` quando entras no PC.
+
+- O script arranca o dashboard em segundo plano, sem janela, se ainda não estiver a correr. Não abre o browser.
+- Os registos ficam em `%TEMP%\budget_app.log`.
+- Para parar o dashboard: Gestor de Tarefas → `python.exe`.
+- Para deixar de arrancar com o Windows: apaga o atalho da pasta de Arranque.
+
+O atalho aponta para:
+
+```bash
+powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "<pasta>\start_dashboard.ps1"
+```
+
 ## Notas
 
 - **Ficheiros com fórmulas e links externos.** A app lê os valores que o Excel guardou da última vez que o ficheiro foi gravado. Não recalcula nada. Se um valor estiver desatualizado no dashboard, também está no ficheiro.
