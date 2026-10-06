@@ -48,5 +48,9 @@
     "files": ["%OneDriveCommercial%/.../N_Operações/Road Map Proj/Vizta_PontoSituacaoProjetos_always updated.xlsx"],
     "sheet": "ATA",
     "projects": {"Nome do projeto na ata": "NOME NO QUADRO"}
+  },
+  "debt_summary": {
+    "file": "%OneDriveCommercial%/.../N_DFIN/FIN/01.Cash Flows/Vizta Debt Summary.xlsx",
+    "projects": {"Project (folha Financing)": {"project": "NOME NO QUADRO", "label": "Nome no slide"}}
   }
 }

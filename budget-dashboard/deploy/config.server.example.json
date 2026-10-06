@@ -49,5 +49,9 @@
     ],
     "sheet": "ATA",
     "projects": {}
+  },
+  "debt_summary": {
+    "file": "https://<empresa>.sharepoint.com/:x:/s/<Site>/<link-vizta-debt-summary>",
+    "projects": {}
   }
 }

@@ -27,6 +27,7 @@ import legal
 import powerbi
 import roadmap
 import status_report
+import debt_summary
 from budget_parser import apply_versions, attach_budget_details, parse_file
 from excel_export import build_workbook
 from sharepoint import SharePointClient, is_url
@@ -84,6 +85,7 @@ def data_sources(cfg):
         "sales_snapshot": d.get("sales_snapshot") or SALES_SNAPSHOT_PATH,
         "images": d.get("images") or IMAGES_DIR,
         "roadmap": (cfg.get("roadmap") or {}).get("file"),
+        "debt": (cfg.get("debt_summary") or {}).get("file"),
         **{f"ps{i}": f for i, f in enumerate((cfg.get("ponto_situacao") or {}).get("files", []))},
     }
 
@@ -151,6 +153,8 @@ class Store:
         # Ponto de situação (atas): pontos Pendente/Standby por projeto
         self.ps, self.ps_unmatched, self.ps_error, self.ps_sig, self.ps_files = {}, [], None, None, []
         self.ps_try = 0
+        # Vizta Debt Summary (DFIN): empréstimos bancários por projeto
+        self.debt, self.debt_error, self.debt_sig, self.debt_try = [], None, None, 0
         # Textos da apresentação: {chave: {"text", "updated"}}; vence sempre o último guardado
         self.notes, self.notes_sig = {}, None
         self.notes_lock = threading.Lock()
@@ -164,7 +168,7 @@ class Store:
             return _expand(src)
         if key == "images":
             return os.path.join(CACHE_DIR, "images")
-        ext = ".xlsx" if key == "roadmap" or key.startswith("ps") else ".json"
+        ext = ".xlsx" if key in ("roadmap", "debt") or key.startswith("ps") else ".json"
         return os.path.join(CACHE_DIR, "data", key + ext)
 
     def remote_data(self):
@@ -176,7 +180,8 @@ class Store:
             + self.missing + sorted(self.source_errors.items())
             + [self.financing_sig, self.financing_error, self.info_sig, self.info_error,
                self.snap_sig, self.snap_error, self.rm_sig, self.rm_error,
-               self.legal_sig, self.legal_error, self.ps_sig, self.ps_error, self.notes_sig], default=str)
+               self.legal_sig, self.legal_error, self.ps_sig, self.ps_error, self.notes_sig,
+               self.debt_sig, self.debt_error], default=str)
         self.version = hashlib.sha1(state.encode()).hexdigest()[:12]
 
     def _refresh_financing(self):
@@ -207,7 +212,49 @@ class Store:
             self.snap_sig = sig
         self._refresh_roadmap()
         self._refresh_status()
+        self._refresh_debt()
         self._refresh_notes()
+
+    def _refresh_debt(self):
+        """Vizta Debt Summary: relê quando o ficheiro muda (ou de minuto a minuto após erro)."""
+        path = self.data_path("debt")
+        if not path:
+            return
+        try:
+            st = os.stat(path)
+            sig = (st.st_mtime, st.st_size)
+        except OSError:
+            sig = None
+        retry = self.debt_error and time.time() - self.debt_try > 60
+        if sig == self.debt_sig and not retry:
+            return
+        self.debt_try = time.time()
+        if sig is None:
+            self.debt_error = "Vizta Debt Summary: ficheiro não encontrado"
+        else:
+            try:
+                loans, errors = debt_summary.read_file(path)
+                self.debt = loans
+                self.debt_error = ("Vizta Debt Summary: " + "; ".join(errors)) if errors else None
+            except Exception as e:  # ficheiro aberto/bloqueado: mantém os últimos dados
+                self.debt_error = f"Vizta Debt Summary: {type(e).__name__}: {e}"
+        self.debt_sig = sig
+
+    def debt_view(self, ids):
+        """Empréstimos com o projeto do dashboard (config.json -> "debt_summary" -> "projects")."""
+        conf = self.cfg.get("debt_summary") or {}
+        if not conf.get("file"):
+            return None
+        names = {financing.key(k): v for k, v in (conf.get("projects") or {}).items()}
+        loans = []
+        for ln in self.debt:
+            m = names.get(financing.key(ln.get("project") or ""))
+            m = {"project": m} if isinstance(m, str) else (m or {})
+            target = m.get("project") or ln.get("project") or ""
+            loans.append({**ln, "label": m.get("label") or ln.get("project"),
+                          "project_id": ids.get(financing.key(target))})
+        return {"loans": loans, "error": self.debt_error,
+                "modified": self.debt_sig[0] if self.debt_sig else None}
 
     def _notes_path(self):
         return os.path.normpath(os.path.expandvars((self.cfg.get("data") or {}).get("orion_notes") or NOTES_PATH))
@@ -527,6 +574,7 @@ class Store:
                                 "sheet": (self.cfg.get("roadmap") or {}).get("sheet")},
                     "financing_unmatched": sorted(c["project"] for k, c in self.financing.items()
                                                   if k not in matched),
+                    "debt": self.debt_view(ids),
                     "orion": build_orion(self.cfg.get("orion") or {}, ids, self.info),
                     **build_menu(self.cfg.get("menu", []), ids)}
 

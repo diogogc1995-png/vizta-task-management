@@ -16,6 +16,7 @@ const PORTFOLIO = "portfolio";
 const PORTFOLIO_PAGES = [["summary", "Summary of all projects"], ["roadmap", "Roadmap"], ["financing", "Projects financing overview"]];
 const REPORTS = "reports";        // "Reports Diogo"
 const REPORTS_PAGES = [["sales", "Sales Report"], ["cashflow", "Cashflow Vizta REM"]];
+const DEBT = "debt";              // "Vizta Debt Summary" (slides em carrossel, dados do DFIN)
 const ORION = "orion";            // apresentação "Project Review - Orion" (slides em carrossel)
 const validPage = (p, pg) => pg === "overview" || pagesOf(p).some(([k]) => k === pg);
 
@@ -83,8 +84,8 @@ async function load() {
     if (!PORTFOLIO_PAGES.some(([k]) => k === page)) page = PORTFOLIO_PAGES[0][0];
   } else if (selectedId === REPORTS) {
     if (!REPORTS_PAGES.some(([k]) => k === page)) page = REPORTS_PAGES[0][0];
-  } else if (selectedId === ORION) {
-    if (!orionSlides().some((sl) => sl.key === page)) page = "cover";
+  } else if (isDeck()) {
+    if (!deckSlides().some((sl) => sl.key === page)) page = "cover";
   } else if (!ids.includes(selectedId)) selectedId = ids[0] || null;
   render();
 }
@@ -174,7 +175,13 @@ function renderSidebar() {
   const reports = `<div class="side-title side-sep">Reports Diogo</div>
     <div class="pitem open">${REPORTS_PAGES.map(([k, label]) =>
       `<button type="button" class="ppage pf ${inRp && k === page ? "active" : ""}" data-id="${REPORTS}" data-page="${k}">${label}</button>`).join("")}</div>`;
-  $("#sidebar").innerHTML = portfolio + orion + reports + `<div class="side-title side-sep">Projects</div>` + (html || `<div class="proj">No projects</div>`);
+  // "Vizta Debt Summary": financiamentos bancários (apresentação)
+  const inDb = selectedId === DEBT;
+  const dslides = inDb ? debtSlides() : [{ key: "cover", title: "Presentation" }];
+  const debt = `<div class="side-title side-sep">Vizta Debt Summary</div>
+    <div class="pitem open">${dslides.map((sl, i) =>
+      `<button type="button" class="ppage pf ${inDb && sl.key === page ? "active" : ""}" data-id="${DEBT}" data-page="${sl.key}">${inDb ? `<span class="sl-n">${i + 1}</span>` : ""}${esc(sl.title)}</button>`).join("")}</div>`;
+  $("#sidebar").innerHTML = portfolio + orion + reports + debt + `<div class="side-title side-sep">Projects</div>` + (html || `<div class="proj">No projects</div>`);
 }
 
 function banners() {
@@ -191,7 +198,7 @@ function banners() {
 }
 
 function renderMain() {
-  if (selectedId === ORION) {
+  if (isDeck()) {
     $("#main").innerHTML = banners() + orionHtml();
     fitSlides();
     applyPresence();
@@ -244,6 +251,9 @@ function reviewQuarter(d = new Date()) {
   const q = Math.floor(d.getMonth() / 3);
   return q === 0 ? `Q4.${d.getFullYear() - 1}` : `Q${q}.${d.getFullYear()}`;
 }
+
+const isDeck = (id = selectedId) => id === ORION || id === DEBT;
+const deckSlides = () => (selectedId === DEBT ? debtSlides() : orionSlides());
 
 function orionSlides() {
   if (!data) return [];
@@ -570,12 +580,12 @@ function summaryChartsHtml(title) {
 }
 
 function orionHtml() {
-  const slides = orionSlides();
+  const slides = deckSlides();
   const i = Math.max(0, slides.findIndex((sl) => sl.key === page));
   const n = slides.length;
   return `<section class="deck" id="deck" style="--i:${i}">
     <div class="deck-bar no-print">
-      <div><div class="kicker">Project Review - Orion</div><h1>${esc(slides[i].title)}</h1></div>
+      <div><div class="kicker">${selectedId === DEBT ? "Vizta Debt Summary" : "Project Review - Orion"}</div><h1>${esc(slides[i].title)}</h1></div>
       <div class="deck-ctl">
         <button type="button" data-slide="prev" ${i === 0 ? "disabled" : ""} aria-label="Previous slide">‹</button>
         <span class="deck-count">${i + 1} / ${n}</span>
@@ -623,12 +633,12 @@ function toggleFull() {
 }
 
 function goSlide(to) {
-  const slides = orionSlides();
+  const slides = deckSlides();
   const i = slides.findIndex((sl) => sl.key === page);
   const j = to === "prev" ? i - 1 : to === "next" ? i + 1 : to === "first" ? 0 : to === "last" ? slides.length - 1 : +to;
   if (j < 0 || j >= slides.length || j === i) return;
   page = slides[j].key;
-  history.replaceState(null, "", "#" + ORION + "/" + page);
+  history.replaceState(null, "", "#" + selectedId + "/" + page);
   // carrossel: só desliza (sem voltar a desenhar os slides) e atualiza os controlos
   const deck = $("#deck");
   if (!deck) return render();
@@ -726,6 +736,196 @@ function cashflowReportHtml() {
   return `<section class="report portfolio">
     <div class="report-head"><div><div class="kicker">Reports Diogo</div><h1>Cashflow Vizta REM</h1></div></div>
     <div class="empty"><p>Content to be defined.</p></div></section>`;
+}
+
+// ---------- Vizta Debt Summary (financiamentos bancários; Excel do DFIN) ----------
+// Valores do "Vizta Debt Summary.xlsx" (folhas Financing / Interests). O que não está no Excel (taxa de
+// juro, garantias, equity recap, prazo, pipeline) fica em branco por agora.
+const MONTHS_EN = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const eur = (v) => (typeof v === "number" ? `€ ${fmtNum(Math.round(v))}` : "–");
+const eurM = (v) => (typeof v === "number" ? (v / 1e6).toFixed(1) : "–");
+const pct1 = (v) => (typeof v === "number" ? `${(v * 100).toFixed(1)}%` : "–");
+const dmy = (iso) => (iso ? iso.split("-").reverse().join("/") : "–");
+
+function debtLoans() {
+  return ((data && data.debt) || {}).loans || [];
+}
+
+function debtAsOf() {
+  const dates = debtLoans().map((l) => l.last_drawdown).filter(Boolean).sort();
+  return dates.length ? dates[dates.length - 1] : null;
+}
+
+function debtStatus(l) {
+  return l.repaid ? "Repaid" : /drawn|financ/i.test(l.status || "") ? "Financed" : l.status || "–";
+}
+
+function debtSlides() {
+  if (!data) return [];
+  const S = (key, title, html, bleed) => ({ key, title, html, bleed });
+  const out = [
+    S("cover", "Cover", debtCoverHtml),
+    S("glance", "Portfolio at a glance", debtGlanceHtml),
+    S("facilities", "Financed facilities", debtFacilitiesHtml),
+  ];
+  debtLoans().forEach((l, i) => {
+    const key = "l-" + noteSlug(l.sheet || l.project || String(i));
+    out.push(S(key, debtTitle(l), () => debtLoanHtml(l)));
+    out.push(S(key + "-detail", `${debtTitle(l)} · utilization`, () => debtDetailHtml(l)));
+  });
+  out.push(S("pipeline", "Negotiation pipeline", () => placeholderHtml("Negotiation Pipeline", "Projects without a contracted facility yet",
+    ["Projects in negotiation"])));
+  return out;
+}
+
+const debtTitle = (l) => l.label || l.project || l.sheet;
+
+function debtCoverHtml() {
+  const d = debtAsOf();
+  const asOf = d ? `${+d.slice(8, 10)} ${MONTHS_EN[+d.slice(5, 7) - 1]} ${d.slice(0, 4)}` : "–";
+  return `<div class="sl-cover"><div class="sl-cover-logo">${slideLogo()}</div>
+    <h1>Financing <span>Summary</span></h1>
+    <div class="dt-cover-sub">Bank financing portfolio - financed, closing and in-negotiation projects</div>
+    <div class="sl-cover-date">Status as of ${asOf}</div></div>`;
+}
+
+function debtGlanceHtml() {
+  const loans = debtLoans();
+  const live = loans.filter((l) => !l.repaid);
+  const sum = (arr, f) => arr.reduce((a, l) => a + (typeof f(l) === "number" ? f(l) : 0), 0);
+  const facility = sum(live, (l) => l.loan), drawn = sum(live, (l) => l.drawn), avail = sum(live, (l) => l.available);
+  const cost = sum(live, (l) => l.total_cost);
+  const byId = Object.fromEntries(allProjects().map((p) => [p.id, p]));
+  const gdvs = live.map((l) => (l.project_id && byId[l.project_id] ? lastValue(byId[l.project_id], /^TOTAL REVENUE/i) : null));
+  const gdv = gdvs.every((v) => typeof v === "number") ? gdvs.reduce((a, b) => a + b, 0) * 1000 : null;
+  const counts = {};
+  for (const l of loans) counts[debtStatus(l)] = (counts[debtStatus(l)] || 0) + 1;
+  const card = (big, label, sub) => `<div class="dt-card"><div class="dt-big">${big}</div><div class="dt-lbl">${label}</div><div class="dt-sub">${sub}</div></div>`;
+  return `<div class="sl"><div class="sl-head"><h1>VIZTA Portfolio — At a Glance</h1>
+      <div class="sl-sub">Status as of ${dmy(debtAsOf())} · facilities in the Vizta Debt Summary</div></div>
+    <div class="dt-cards">
+      ${card(loans.length, "bank facilities", Object.entries(counts).map(([k, n]) => `${n} ${k.toLowerCase()}`).join(" · "))}
+      ${card(`€${eurM(facility)}M`, "secured facilities", `${live.length} projects · cost €${eurM(cost)}M${gdv ? ` · GDV €${eurM(gdv)}M` : ""}`)}
+      ${card(`€${eurM(drawn)}M`, "amount drawn", `Current LTC ${pct1(cost ? drawn / cost : null)} of financed-op cost`)}
+      ${card(`€${eurM(avail)}M`, "undrawn headroom", `Max LTC ${pct1(cost ? facility / cost : null)} of financed-op cost`)}
+    </div>
+    <div class="dt-take">${phBox("Key takeaways")}</div></div>`;
+}
+
+function debtFacilitiesHtml() {
+  const loans = debtLoans();
+  const byId = Object.fromEntries(allProjects().map((p) => [p.id, p]));
+  const loc = (l) => {
+    const info = (l.project_id && byId[l.project_id] && byId[l.project_id].info) || {};
+    return esc((info.location || "").split("|")[0].trim() || "–");
+  };
+  const live = loans.filter((l) => !l.repaid);
+  const sum = (f) => live.reduce((a, l) => a + (typeof f(l) === "number" ? f(l) : 0), 0);
+  const rows = loans.map((l) => `<tr class="${l.repaid ? "dt-repaid" : ""}"><td class="lbl"><b>${esc(debtTitle(l))}</b></td><td class="lbl">${loc(l)}</td>
+    <td class="lbl">${esc(l.bank || "–")}</td><td class="lbl"><span class="dt-st ${l.repaid ? "rep" : ""}">${esc(debtStatus(l))}</span></td>
+    <td>${eurM(l.loan)}</td><td>${eurM(l.drawn)}</td><td>${eurM(l.available)}</td><td>${pct1(l.ltc)}</td><td>${pct1(l.lthc)}</td><td></td></tr>`).join("");
+  const drawable = loans.filter((l) => typeof l.approved === "number" && typeof l.loan === "number" && Math.abs(l.approved - l.loan) > 1);
+  const notes = ["LTC = Facility ÷ Total cost · LTHC = Facility ÷ Hard costs · Available = Facility − Drawn (outstanding)",
+    ...(drawable.length ? [`${drawable.map((l) => esc(debtTitle(l))).join(" and ")} shown at the drawable loan amount (${drawable.map((l) => `€${eurM(l.loan)}M`).join(" / ")}), against approved facilities of ${drawable.map((l) => `€${eurM(l.approved)}M`).join(" / ")}`] : []),
+    ...loans.filter((l) => l.repaid).map((l) => `${esc(debtTitle(l))}: ${esc(l.status)} — Drawn/Available reflect the nil outstanding balance (historical drawdown €${eurM(l.totals.utilization)}M)`)];
+  return `<div class="sl"><div class="sl-head"><h1>Financed &amp; Contract-Closing Facilities</h1>
+      <div class="sl-sub">Figures in €M, gross (incl. VAT) · status as of ${dmy(debtAsOf())}</div></div>
+    <table class="dt-tbl"><thead><tr><th class="lbl">Project</th><th class="lbl">Location</th><th class="lbl">Bank</th><th class="lbl">Status</th>
+      <th>Facility</th><th>Drawn</th><th>Available</th><th>LTC</th><th>LTHC</th><th>Spread</th></tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr><td class="lbl">TOTAL</td><td class="lbl" colspan="3">${live.length} active facilities</td><td>${eurM(sum((l) => l.loan))}</td>
+        <td>${eurM(sum((l) => l.drawn))}</td><td>${eurM(sum((l) => l.available))}</td><td colspan="3"></td></tr></tfoot></table>
+    <div class="dt-note">${notes.join("  ·  ")}</div></div>`;
+}
+
+// Gráfico: acumulado das faturas de obra (com IVA) e das utilizações do empréstimo, por mês
+function debtChartSvg(l) {
+  const ym = (iso) => iso.slice(0, 7);
+  const months = [...new Set([...l.invoices.map((x) => ym(x.date)), ...l.utilizations.map((x) => ym(x.date))])].sort();
+  if (!months.length) return `<div class="dt-chart-empty">No invoices or drawdowns yet</div>`;
+  const all = [];
+  for (let [y, m] = months[0].split("-").map(Number); ; m++) {
+    if (m > 12) { m = 1; y++; }
+    const k = `${y}-${String(m).padStart(2, "0")}`;
+    all.push(k);
+    if (k >= months[months.length - 1]) break;
+  }
+  let ci = 0, cu = 0;
+  const pts = all.map((k) => {
+    ci += l.invoices.filter((x) => ym(x.date) === k).reduce((a, x) => a + x.amount, 0);
+    cu += l.utilizations.filter((x) => ym(x.date) === k).reduce((a, x) => a + x.utilization, 0);
+    return { k, ci, cu };
+  });
+  const W = 860, H = 300, L = 70, R = 12, T = 14, B = 34;
+  const max = Math.max(...pts.map((p) => Math.max(p.ci, p.cu)), typeof l.loan === "number" ? l.loan : 0) * 1.05 || 1;
+  const step = (W - L - R) / pts.length, bw = Math.max(2, step * 0.62);
+  const y = (v) => T + (H - T - B) * (1 - v / max);
+  const ticks = 4;
+  const grid = Array.from({ length: ticks + 1 }, (_, i) => {
+    const v = (max / ticks) * i;
+    return `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" class="dt-grid"/><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${(v / 1e6).toFixed(1)}M</text>`;
+  }).join("");
+  const every = Math.ceil(pts.length / 12);
+  const bars = pts.map((p, i) => `<rect x="${L + i * step + (step - bw) / 2}" y="${y(p.ci)}" width="${bw}" height="${Math.max(0, H - B - y(p.ci))}" class="dt-bar"/>
+    ${i % every === 0 ? `<text x="${L + i * step + step / 2}" y="${H - B + 16}" text-anchor="middle">${p.k.slice(5, 7)}/${p.k.slice(2, 4)}</text>` : ""}`).join("");
+  const line = pts.map((p, i) => `${i ? "L" : "M"}${(L + i * step + step / 2).toFixed(1)},${y(p.cu).toFixed(1)}`).join(" ");
+  const cap = typeof l.loan === "number" ? `<line x1="${L}" x2="${W - R}" y1="${y(l.loan)}" y2="${y(l.loan)}" class="dt-cap"/>
+    <text x="${W - R}" y="${y(l.loan) - 6}" text-anchor="end" class="dt-cap-t">Loan amount €${eurM(l.loan)}M</text>` : "";
+  return `<svg class="dt-chart" viewBox="0 0 ${W} ${H}">${grid}${bars}${cap}<path d="${line}" class="dt-line"/></svg>
+    <div class="dt-legend"><span><i class="bar"></i>Construction invoices (cumulative, incl. VAT)</span><span><i class="line"></i>Loan drawdown (cumulative)</span></div>`;
+}
+
+function debtLoanHtml(l) {
+  const used = typeof l.loan === "number" && l.loan ? l.totals.utilization / l.loan : null;
+  const fact = (k, v) => `<div class="dt-fact"><dt>${k}</dt><dd>${v}</dd></div>`;
+  const drawable = typeof l.approved === "number" && typeof l.loan === "number" && Math.abs(l.approved - l.loan) > 1;
+  const facts = [
+    fact("Project", esc(l.project || "–")),
+    fact("Lender", esc(l.bank || "–")),
+    fact(drawable ? "Loan amount (drawable)" : "Loan amount", eur(l.loan) + (drawable ? `<small>approved ${eur(l.approved)}</small>` : "")),
+    fact("Financing term", ""),
+    fact("LTC / LTHC", `${pct1(l.ltc)} / ${pct1(l.lthc)}`),
+    ...(l.repaid ? [fact("Status", esc(l.status)), fact("Total historical drawdown", eur(l.totals.utilization))]
+      : [fact("Cumulative drawn", eur(l.totals.utilization)), fact("Available", eur(l.available))]),
+    fact("Latest work completion % · last drawdown", `${pct1(l.work_pct)} · ${dmy(l.last_drawdown)}`),
+  ].join("");
+  const bar = l.repaid ? `<div class="dt-prog"><div class="dt-prog-bar"><i style="width:100%"></i></div><b>100% of facility repaid to ${esc(l.bank || "the bank")}</b></div>`
+    : `<div class="dt-prog"><div class="dt-prog-bar"><i style="width:${Math.min(100, (used || 0) * 100)}%"></i></div><b>${pct1(used)} of facility drawn</b></div>`;
+  const box = (t) => `<div class="sl-box dt-empty"><h3>${t}</h3></div>`;
+  return `<div class="sl"><div class="sl-head"><h1>${esc(debtTitle(l))}</h1><div class="sl-sub">${esc(l.company || "")} · ${esc(l.bank || "")}</div></div>
+    <div class="dt-loan">
+      <div class="dt-left"><dl class="dt-facts">${facts}</dl>${bar}
+        <div class="dt-chart-box"><h3>Cumulative drawdown vs. construction invoices (€) by month</h3>${debtChartSvg(l)}</div></div>
+      <div class="dt-right">${box("Interest rate")}${box("Security package")}${box("Possible equity recap")}</div>
+    </div></div>`;
+}
+
+function debtDetailHtml(l) {
+  const uses = l.utilizations;
+  const table = (rows) => `<table class="dt-tbl dt-uses"><thead><tr><th class="lbl">Utilization date</th><th>Utilization (€)</th><th>Drawdown (€)</th><th>Stamp duty (€)</th></tr></thead>
+    <tbody>${rows.map((u) => `<tr><td class="lbl">${dmy(u.date)}</td><td>${fmtNum(Math.round(u.utilization))}</td><td>${typeof u.drawdown === "number" ? fmtNum(Math.round(u.drawdown)) : "–"}</td>
+      <td>${u.stamp ? fmtNum(Math.round(u.stamp)) : "-"}</td></tr>`).join("")}</tbody></table>`;
+  const half = Math.ceil(uses.length / 2);
+  const tables = !uses.length ? `<div class="dt-chart-empty">No drawdowns yet</div>`
+    : uses.length > 12 ? `<div class="dt-two">${table(uses.slice(0, half))}${table(uses.slice(half))}</div>` : table(uses);
+  // juros: do primeiro trimestre até ao trimestre atual (ou ao seguinte ao último cobrado, se for depois)
+  const qi = (q) => { const m = /^Q(\d) (\d{4})$/.exec(q); return m ? +m[2] * 4 + +m[1] - 1 : 0; };
+  const now = new Date(), cur = now.getFullYear() * 4 + Math.floor(now.getMonth() / 3);
+  const ints = l.interests || [];
+  const lastCharged = Math.max(-1, ...ints.map((x, i) => (typeof x.charged === "number" ? i : -1)));
+  const upTo = Math.max(lastCharged + 1, ints.findIndex((x) => qi(x.quarter) >= cur));
+  const shown = ints.slice(0, upTo + 1);
+  const qLabel = (q) => q.replace(/^(Q\d) \d{2}(\d{2})$/, "$1'$2");
+  const interest = shown.length ? `<table class="dt-tbl dt-int"><thead><tr><th class="lbl">Quarter</th><th>Interest charged (€)</th></tr></thead>
+    <tbody>${shown.map((x) => `<tr><td class="lbl">${qLabel(x.quarter)}</td><td>${typeof x.charged === "number" ? fmtNum(Math.round(x.charged)) : "—"}</td></tr>`).join("")}</tbody></table>`
+    : `<div class="dt-chart-empty">No interest data</div>`;
+  return `<div class="sl"><div class="sl-head"><h1>${esc(debtTitle(l))} <small>Utilization Detail</small></h1>
+      <div class="sl-sub">${esc(l.company || "")} · ${esc(l.bank || "")} · Loan amount ${eur(l.loan)}</div></div>
+    <div class="dt-detail">
+      <div class="dt-d-left">${tables}
+        <div class="dt-tot">Total to date · Utilization ${eur(l.totals.utilization)} · Drawdown ${eur(l.totals.drawdown)} · Stamp duty ${eur(l.totals.stamp)}</div></div>
+      <div class="dt-d-right"><h3>Quarterly interest</h3>${interest}<div class="sl-box dt-empty"><h3>Notes</h3></div></div>
+    </div></div>`;
 }
 
 // ---------- Vizta Portfolio (conteúdo a definir) ----------
@@ -1543,9 +1743,9 @@ document.addEventListener("click", (e) => {
 
   const pdf = e.target.closest("[data-pdf]");
   if (pdf) {
-    if (selectedId === ORION) {
+    if (isDeck()) {
       // apresentação: todos os slides, um por página 16:9 (297 × 167 mm, sem margens), como um PPT
-      const slides = orionSlides();
+      const slides = deckSlides();
       $("#print-area").innerHTML = slides.map((sl, k) => slideHtml(sl, k)).join("");
       document.body.classList.add("print-all", "print-deck");
       const pg = document.createElement("style");
@@ -1576,7 +1776,7 @@ document.addEventListener("click", (e) => {
 
 // Apresentação: setas / PageUp-PageDown / espaço, Home-End, F = ecrã inteiro; deslizar no ecrã tátil
 document.addEventListener("keydown", (e) => {
-  if (selectedId !== ORION || e.target.closest("input, select, textarea") || e.target.isContentEditable) return;
+  if (!isDeck() || e.target.closest("input, select, textarea") || e.target.isContentEditable) return;
   const map = { ArrowRight: "next", ArrowDown: "next", PageDown: "next", " ": "next", ArrowLeft: "prev", ArrowUp: "prev", PageUp: "prev", Home: "first", End: "last" };
   if (map[e.key]) {
     e.preventDefault();
@@ -1592,8 +1792,8 @@ $("#main").addEventListener("touchend", (e) => {
   if (Math.abs(dx) > 50) goSlide(dx < 0 ? "next" : "prev");
 });
 let fitTimer;
-window.addEventListener("resize", () => { clearTimeout(fitTimer); fitTimer = setTimeout(() => selectedId === ORION && fitSlides(), 100); });
-document.addEventListener("fullscreenchange", () => selectedId === ORION && setTimeout(fitSlides, 50));
+window.addEventListener("resize", () => { clearTimeout(fitTimer); fitTimer = setTimeout(() => isDeck() && fitSlides(), 100); });
+document.addEventListener("fullscreenchange", () => isDeck() && setTimeout(fitSlides, 50));
 // PDF da apresentação: a largura da página em px depende do browser e da escala do ecrã,
 // por isso a escala dos slides é recalculada já com o layout de impressão.
 matchMedia("print").addEventListener("change", (e) => {

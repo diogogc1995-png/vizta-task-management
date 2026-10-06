@@ -164,6 +164,25 @@ A página mostra:
 
 A app relê as atas quando os ficheiros mudam.
 
+## Vizta Debt Summary
+
+Apresentação em slides (como o Project Review - Orion, com export para PDF) dos financiamentos bancários,
+a partir do `Vizta Debt Summary.xlsx` do DFIN, configurado em `config.json` → `"debt_summary"`:
+
+- `file`: o ficheiro Excel (caminho sincronizado ou link do SharePoint, no servidor);
+- `projects`: "Project" da folha Financing → `project` (nome no quadro de Project Review, para a
+  localização e o GDV) e `label` (nome nos slides).
+
+Cada folha `Financing <projeto>` é um empréstimo: cabeçalho (empresa, banco, montante aprovado e
+utilizável, custos, LTC/LTHC, estado) e a tabela de autos de obra e utilizações. A folha
+`Interests <projeto>` dá os juros cobrados pelo banco por trimestre. Os rótulos e colunas são
+encontrados pelo texto. Um estado "Repaid…" conta como reembolsado (em dívida e disponível a zero).
+
+Slides: capa, resumo do portefólio, tabela das facilities, e por empréstimo uma ficha (dados, % utilizado,
+gráfico das faturas de obra vs utilizações acumuladas por mês) e o detalhe das utilizações e juros; no fim,
+o pipeline de negociação. O que não está no Excel (taxa de juro, garantias, equity recap, prazo,
+key takeaways, pipeline) fica em branco por agora.
+
 ## Vizta Portfolio
 
 No topo do menu, o item "Vizta Portfolio" tem as páginas *Summary of all projects*, *Roadmap* e *Projects financing overview*.
