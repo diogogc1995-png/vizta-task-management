@@ -178,7 +178,7 @@ utilizável, custos, LTC/LTHC, estado) e a tabela de autos de obra e utilizaçõ
 `Interests <projeto>` dá os juros cobrados pelo banco por trimestre. Os rótulos e colunas são
 encontrados pelo texto. Um estado "Repaid…" conta como reembolsado (em dívida e disponível a zero).
 
-Slides: capa, resumo do portefólio, tabela das facilities, e por empréstimo uma ficha (dados, % utilizado,
+Fica no menu "Reports Diogo", como *Vizta Debt Summary - Presentation*. Slides: capa, resumo do portefólio, tabela das facilities, e por empréstimo uma ficha (dados, % utilizado,
 gráfico das faturas de obra vs utilizações acumuladas por mês) e o detalhe das utilizações e juros; no fim,
 o pipeline de negociação. O que não está no Excel (taxa de juro, garantias, equity recap, prazo,
 key takeaways, pipeline) fica em branco por agora.

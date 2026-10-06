@@ -172,16 +172,15 @@ function renderSidebar() {
       `<button type="button" class="ppage pf ${inOr && sl.key === page ? "active" : ""}" data-id="${ORION}" data-page="${sl.key}">${inOr ? `<span class="sl-n">${i + 1}</span>` : ""}${esc(sl.title)}</button>`).join("")}</div>`;
   // "Reports Diogo": relatórios transversais (vendas, cashflow)
   const inRp = selectedId === REPORTS;
+  // + "Vizta Debt Summary - Presentation" (financiamentos bancários; a lista de slides abre quando selecionada)
+  const inDb = selectedId === DEBT;
+  const dslides = inDb ? debtSlides().map((sl, i) =>
+    `<button type="button" class="ppage pf sub ${sl.key === page ? "active" : ""}" data-id="${DEBT}" data-page="${sl.key}"><span class="sl-n">${i + 1}</span>${esc(sl.title)}</button>`).join("") : "";
   const reports = `<div class="side-title side-sep">Reports Diogo</div>
     <div class="pitem open">${REPORTS_PAGES.map(([k, label]) =>
-      `<button type="button" class="ppage pf ${inRp && k === page ? "active" : ""}" data-id="${REPORTS}" data-page="${k}">${label}</button>`).join("")}</div>`;
-  // "Vizta Debt Summary": financiamentos bancários (apresentação)
-  const inDb = selectedId === DEBT;
-  const dslides = inDb ? debtSlides() : [{ key: "cover", title: "Presentation" }];
-  const debt = `<div class="side-title side-sep">Vizta Debt Summary</div>
-    <div class="pitem open">${dslides.map((sl, i) =>
-      `<button type="button" class="ppage pf ${inDb && sl.key === page ? "active" : ""}" data-id="${DEBT}" data-page="${sl.key}">${inDb ? `<span class="sl-n">${i + 1}</span>` : ""}${esc(sl.title)}</button>`).join("")}</div>`;
-  $("#sidebar").innerHTML = portfolio + orion + reports + debt + `<div class="side-title side-sep">Projects</div>` + (html || `<div class="proj">No projects</div>`);
+      `<button type="button" class="ppage pf ${inRp && k === page ? "active" : ""}" data-id="${REPORTS}" data-page="${k}">${label}</button>`).join("")}
+      <button type="button" class="ppage pf ${inDb ? "active" : ""}" data-id="${DEBT}" data-page="cover">Vizta Debt Summary - Presentation</button>${dslides}</div>`;
+  $("#sidebar").innerHTML = portfolio + orion + reports + `<div class="side-title side-sep">Projects</div>` + (html || `<div class="proj">No projects</div>`);
 }
 
 function banners() {
