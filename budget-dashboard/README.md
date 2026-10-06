@@ -216,21 +216,20 @@ A 1.ª coluna (Investment Committee / Acquisition) fica fixa. O **Δ é sempre R
 
 Entrada própria no menu lateral, com dois relatórios.
 
-**Sales Report**: um quadro com todos os projetos, pela ordem do menu, com subtotais por grupo e o
-total. Valores em k€.
+**Sales Report**: um quadro com todos os projetos, pela ordem do menu, e o total. Valores em k€.
 
 | Coluna | Origem |
 |---|---|
 | Business plan | TOTAL REVENUE, coluna mais recente do Project Review |
 | Power BI | Typology Report: "TOTAL Project Amount" + "Extras" (quando o relatório tem extras, p.ex. CORE), coluna € Resi+Retail (leitura automática ou snapshot); 0 € aparece como "–" |
-| Δ BP vs Power BI | Business plan − Power BI |
+| Δ BP vs Power BI | Power BI − Business plan (verde quando é positivo) |
 | Commissions: Budget | Rubrica 511 (External sales fees) da folha de budget, coluna do último Project Review |
 | Commissions: Awarded | Rubrica 511, coluna "Signed commitments" |
-| Commissions: Available | Budget − Awarded |
+| Commissions: Available | Budget − Awarded (com IVA incluído) |
 | Commissions % of sales | Budget / Business plan |
 
 Quando várias fases partilham um projeto no Power BI (p.ex. as fases do JCR), o valor do Power BI só
-aparece no subtotal do grupo, para não ser contado várias vezes.
+entra no total, para não ser contado várias vezes.
 
 **Cashflow Vizta REM**: página criada, com o conteúdo ainda por definir.
 

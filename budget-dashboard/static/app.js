@@ -667,7 +667,7 @@ function salesReportHtml() {
     const shared = p.sales_name && share[p.sales_name] > 1;
     const pb = shared ? null : pbi(p);
     return { id: p.id, name: p.label || p.name, bp, pb, sharedPb: shared ? pbi(p) : null, salesName: p.sales_name,
-      diff: typeof bp === "number" && typeof pb === "number" ? bp - pb : null,
+      diff: typeof bp === "number" && typeof pb === "number" ? pb - bp : null,  // Power BI − Business plan
       cb: c.budget, cs: c.signed, ca: c.available, cpct: typeof c.budget === "number" && bp ? c.budget / bp : null };
   };
   const sum = (rows, key) => {
@@ -679,7 +679,7 @@ function salesReportHtml() {
     const shared = [...new Set(rows.filter((r) => r.sharedPb !== null).map((r) => r.salesName))];
     t.pb = sum(rows, "pb");
     for (const n of shared) t.pb = (t.pb || 0) + rows.find((r) => r.salesName === n).sharedPb;
-    t.diff = typeof t.bp === "number" && typeof t.pb === "number" && rows.every((r) => r.pb !== null || r.sharedPb !== null) ? t.bp - t.pb : null;
+    t.diff = typeof t.bp === "number" && typeof t.pb === "number" && rows.every((r) => r.pb !== null || r.sharedPb !== null) ? t.pb - t.bp : null;
     t.cpct = typeof t.cb === "number" && t.bp ? t.cb / t.bp : null;
     t.cls = cls;
     return t;
@@ -693,7 +693,6 @@ function salesReportHtml() {
     const rows = (m.item ? [m.item] : m.items).map((id) => byId[id]).filter(Boolean).map(row);
     all.push(...rows);
     body += rows.map(line).join("");
-    if (m.group && rows.length > 1) body += line(totalOf(rows, `Total ${m.group}`, "sr-sub"));
   }
   body += line(totalOf(all, "Total", "sr-total"));
   const src = ps.configured && ps.updated ? `Power BI live · ${fmtTime(ps.updated)}`
@@ -703,12 +702,12 @@ function salesReportHtml() {
       <div class="src">Values in k€ · ${src}</div></div></div>
     <div class="t-scroll"><table class="sr">
       <thead><tr><th class="lbl" rowspan="2">Project</th><th colspan="3">Sales</th><th colspan="4" class="sr-c">Agent commissions (511 – external sales fees)</th></tr>
-        <tr><th>Business plan<small>Total revenue</small></th><th>Power BI<small>Total project amount + extras</small></th><th>Δ BP vs Power BI</th>
+        <tr><th>Business plan<small>Total revenue</small></th><th>Power BI<small>Total project amount + extras</small></th><th>Δ BP vs Power BI<small>Power BI − BP</small></th>
           <th class="sr-c">Budget<small>last Project Review</small></th><th class="sr-c">Awarded<small>signed commitments</small></th>
-          <th class="sr-c">Available<small>budget − awarded</small></th><th>Commissions<small>% of sales</small></th></tr></thead>
+          <th class="sr-c">Available<small>budget − awarded · VAT incl.</small></th><th>Commissions<small>% of sales</small></th></tr></thead>
       <tbody>${body}</tbody></table></div>
     <div class="sm-foot">Business plan: TOTAL REVENUE, most recent column of each Project Review. Power BI: Typology Report,
-      "TOTAL Project Amount" plus "Extras" when the report has them (€ Resi+Retail; 0 € is shown as "–"); projects that share one Power BI project (e.g. JCR phases) only show it in the group total.
+      "TOTAL Project Amount" plus "Extras" when the report has them (€ Resi+Retail; 0 € is shown as "–"); projects that share one Power BI project (e.g. JCR phases) only count it in the total. Δ = Power BI − Business plan.
       Commissions: budget sheet, line 511.</div>
   </section>`;
 }

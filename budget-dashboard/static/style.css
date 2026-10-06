@@ -158,6 +158,7 @@ table.sr th.lbl, table.sr td.lbl { text-align: left; }
 table.sr td { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--grid); white-space: nowrap; }
 table.sr .sr-c { background: var(--peach-pale); }
 table.sr td.neg { color: var(--neg); }
+table.sr td.pos { color: var(--pos); font-weight: 700; }
 table.sr tr.sr-sub td { font-weight: 700; background: #f4f4f4; }
 table.sr tr.sr-sub td.sr-c { background: #fbeee4; }
 table.sr tr.sr-total td { font-weight: 700; color: var(--orange); border-top: 2px solid var(--orange); border-bottom: 0; font-size: 14.5px; }
