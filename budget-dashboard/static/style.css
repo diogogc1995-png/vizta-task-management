@@ -648,6 +648,16 @@ table.rm .rm-grp-row th { padding-bottom: 0; }
   .fin-grid dd, .fin-dist { font-size: 11px; }
   table.pr tr.subrow td { font-size: 10px; }
   table.pr tr.rubric .chev { display: none; }
+  /* Sales Report: cabe na largura da página A4 (sem barra de scroll cortada) */
+  .t-scroll { overflow: visible; }
+  .sales-report { max-width: none; }
+  table.sr { min-width: 0; width: 100%; table-layout: auto; font-size: 10px; }
+  table.sr th { font-size: 9px; padding: 4px 5px; }
+  table.sr th small { font-size: 8px; }
+  table.sr thead tr:first-child th { font-size: 8.5px; letter-spacing: .03em; }
+  table.sr td { padding: 4px 5px; }
+  table.sr td.lbl { white-space: normal; }
+  table.sr tr.sr-total td { font-size: 10.5px; }
   body.print-deck .print-only { position: static; }
   body.print-deck .print-only .slide { width: 100%; height: auto; aspect-ratio: 16 / 8.98;  /* um pouco menos alto que a página 16:9: não passa para a seguinte */
     break-after: page; page-break-after: always; break-inside: avoid; }
