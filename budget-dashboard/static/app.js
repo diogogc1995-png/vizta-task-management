@@ -14,6 +14,8 @@ const pagesOf = (p) => PAGES.filter(([k]) => k === "kpis" || (k === "financing" 
   || (k === "legal" && p.legal) || (k === "status" && p.status_items));
 const PORTFOLIO = "portfolio";
 const PORTFOLIO_PAGES = [["summary", "Summary of all projects"], ["roadmap", "Roadmap"], ["financing", "Projects financing overview"]];
+const REPORTS = "reports";        // "Reports Diogo"
+const REPORTS_PAGES = [["sales", "Sales Report"], ["cashflow", "Cashflow Vizta REM"]];
 const ORION = "orion";            // apresentação "Project Review - Orion" (slides em carrossel)
 const validPage = (p, pg) => pg === "overview" || pagesOf(p).some(([k]) => k === pg);
 
@@ -79,6 +81,8 @@ async function load() {
   const ids = orderedProjects().map((p) => p.id);
   if (selectedId === PORTFOLIO) {
     if (!PORTFOLIO_PAGES.some(([k]) => k === page)) page = PORTFOLIO_PAGES[0][0];
+  } else if (selectedId === REPORTS) {
+    if (!REPORTS_PAGES.some(([k]) => k === page)) page = REPORTS_PAGES[0][0];
   } else if (selectedId === ORION) {
     if (!orionSlides().some((sl) => sl.key === page)) page = "cover";
   } else if (!ids.includes(selectedId)) selectedId = ids[0] || null;
@@ -165,7 +169,12 @@ function renderSidebar() {
   const orion = `<div class="side-title side-sep">Project Review - Orion</div>
     <div class="pitem open">${slides.map((sl, i) =>
       `<button type="button" class="ppage pf ${inOr && sl.key === page ? "active" : ""}" data-id="${ORION}" data-page="${sl.key}">${inOr ? `<span class="sl-n">${i + 1}</span>` : ""}${esc(sl.title)}</button>`).join("")}</div>`;
-  $("#sidebar").innerHTML = portfolio + orion + `<div class="side-title side-sep">Projects</div>` + (html || `<div class="proj">No projects</div>`);
+  // "Reports Diogo": relatórios transversais (vendas, cashflow)
+  const inRp = selectedId === REPORTS;
+  const reports = `<div class="side-title side-sep">Reports Diogo</div>
+    <div class="pitem open">${REPORTS_PAGES.map(([k, label]) =>
+      `<button type="button" class="ppage pf ${inRp && k === page ? "active" : ""}" data-id="${REPORTS}" data-page="${k}">${label}</button>`).join("")}</div>`;
+  $("#sidebar").innerHTML = portfolio + orion + reports + `<div class="side-title side-sep">Projects</div>` + (html || `<div class="proj">No projects</div>`);
 }
 
 function banners() {
@@ -190,6 +199,10 @@ function renderMain() {
   }
   if (selectedId === PORTFOLIO) {
     $("#main").innerHTML = banners() + portfolioHtml(page);
+    return;
+  }
+  if (selectedId === REPORTS) {
+    $("#main").innerHTML = banners() + (page === "cashflow" ? cashflowReportHtml() : salesReportHtml());
     return;
   }
   const p = allProjects().find((x) => x.id === selectedId);
@@ -626,6 +639,80 @@ function goSlide(to) {
   deck.querySelectorAll("[data-slide=next]").forEach((b) => (b.disabled = j === slides.length - 1));
   deck.querySelectorAll(".deck-dots button").forEach((b, k) => b.classList.toggle("on", k === j));
   renderSidebar();
+}
+
+// ---------- Reports Diogo ----------
+// Sales Report: vendas do BP (TOTAL REVENUE do Project Review), Total Project Amount do Power BI
+// e comissões de mediadores (rubrica 511 do budget). Valores em k€.
+function salesReportHtml() {
+  const k = (v) => (typeof v === "number" ? fmtNum(v) : "–");
+  const pct = (v) => (typeof v === "number" ? `${(v * 100).toFixed(1).replace(".", ",")}%` : "–");
+  const ps = data.sales_status || {};
+  // Power BI: linha "TOTAL Project Amount", coluna € Resi+Retail (em €, aqui em k€)
+  const pbi = (p) => {
+    const r = ((p.sales || {}).amount_rows || []).find((x) => /^total project amount/i.test(x.label || ""));
+    return r && typeof r.resi_retail === "number" ? r.resi_retail / 1000 : null;
+  };
+  // um projeto do Power BI partilhado por várias fases (p.ex. JCR) só conta no subtotal do grupo
+  const byId = Object.fromEntries(allProjects().map((p) => [p.id, p]));
+  const share = {};
+  for (const p of allProjects()) if (p.sales_name) share[p.sales_name] = (share[p.sales_name] || 0) + 1;
+  const row = (p) => {
+    const c = p.commissions || {};
+    const bp = lastValue(p, /^TOTAL REVENUE/i);
+    const shared = p.sales_name && share[p.sales_name] > 1;
+    const pb = shared ? null : pbi(p);
+    return { id: p.id, name: p.label || p.name, bp, pb, sharedPb: shared ? pbi(p) : null, salesName: p.sales_name,
+      diff: typeof bp === "number" && typeof pb === "number" ? bp - pb : null,
+      cb: c.budget, cs: c.signed, ca: c.available, cpct: typeof c.budget === "number" && bp ? c.budget / bp : null };
+  };
+  const sum = (rows, key) => {
+    const vals = rows.map((r) => r[key]).filter((v) => typeof v === "number");
+    return vals.length ? vals.reduce((a, b) => a + b, 0) : null;
+  };
+  const totalOf = (rows, label, cls) => {
+    const t = { name: label, bp: sum(rows, "bp"), cb: sum(rows, "cb"), cs: sum(rows, "cs"), ca: sum(rows, "ca") };
+    const shared = [...new Set(rows.filter((r) => r.sharedPb !== null).map((r) => r.salesName))];
+    t.pb = sum(rows, "pb");
+    for (const n of shared) t.pb = (t.pb || 0) + rows.find((r) => r.salesName === n).sharedPb;
+    t.diff = typeof t.bp === "number" && typeof t.pb === "number" && rows.every((r) => r.pb !== null || r.sharedPb !== null) ? t.bp - t.pb : null;
+    t.cpct = typeof t.cb === "number" && t.bp ? t.cb / t.bp : null;
+    t.cls = cls;
+    return t;
+  };
+  const line = (r) => `<tr class="${r.cls || ""}"><td class="lbl">${r.id ? `<button type="button" class="rm-link" data-id="${r.id}">${esc(r.name)}</button>` : esc(r.name)}</td>
+    <td>${k(r.bp)}</td><td>${k(r.pb)}</td><td class="${typeof r.diff === "number" && Math.round(r.diff) !== 0 ? (r.diff < 0 ? "neg" : "pos") : ""}">${k(r.diff)}</td>
+    <td class="sr-c">${k(r.cb)}</td><td class="sr-c">${k(r.cs)}</td><td class="sr-c">${k(r.ca)}</td><td>${pct(r.cpct)}</td></tr>`;
+  let body = "";
+  const all = [];
+  for (const m of data.menu || []) {
+    const rows = (m.item ? [m.item] : m.items).map((id) => byId[id]).filter(Boolean).map(row);
+    all.push(...rows);
+    body += rows.map(line).join("");
+    if (m.group && rows.length > 1) body += line(totalOf(rows, `Total ${m.group}`, "sr-sub"));
+  }
+  body += line(totalOf(all, "Total", "sr-total"));
+  const src = ps.configured && ps.updated ? `Power BI live · ${fmtTime(ps.updated)}`
+    : ps.snapshot_as_of ? `Power BI snapshot · ${esc(ps.snapshot_as_of)}` : "Power BI not available";
+  return `<section class="report portfolio sales-report">
+    <div class="report-head"><div><div class="kicker">Reports Diogo</div><h1>Sales Report</h1>
+      <div class="src">Values in k€ · ${src}</div></div></div>
+    <div class="t-scroll"><table class="sr">
+      <thead><tr><th class="lbl" rowspan="2">Project</th><th colspan="3">Sales</th><th colspan="4" class="sr-c">Agent commissions (511 – external sales fees)</th></tr>
+        <tr><th>Business plan<small>Total revenue</small></th><th>Power BI<small>Total project amount</small></th><th>Δ BP vs Power BI</th>
+          <th class="sr-c">Budget<small>last Project Review</small></th><th class="sr-c">Awarded<small>signed commitments</small></th>
+          <th class="sr-c">Available<small>budget − awarded</small></th><th>Commissions<small>% of sales</small></th></tr></thead>
+      <tbody>${body}</tbody></table></div>
+    <div class="sm-foot">Business plan: TOTAL REVENUE, most recent column of each Project Review. Power BI: Typology Report,
+      "TOTAL Project Amount" (€ Resi+Retail); projects that share one Power BI project (e.g. JCR phases) only show it in the group total.
+      Commissions: budget sheet, line 511.</div>
+  </section>`;
+}
+
+function cashflowReportHtml() {
+  return `<section class="report portfolio">
+    <div class="report-head"><div><div class="kicker">Reports Diogo</div><h1>Cashflow Vizta REM</h1></div></div>
+    <div class="empty"><p>Content to be defined.</p></div></section>`;
 }
 
 // ---------- Vizta Portfolio (conteúdo a definir) ----------

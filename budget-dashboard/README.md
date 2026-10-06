@@ -212,6 +212,28 @@ A 1.ª coluna (Investment Committee / Acquisition) fica fixa. O **Δ é sempre R
 - Os KPIs da Orion também mudam com a versão escolhida, quando a folha tem o bloco de KPIs para essa versão. Caso contrário mostram "—". As notas (Margin w/out internal fees, …) só aparecem na versão do quadro.
 - O browser lembra a escolha de cada projeto. "Reset to Project Review" volta ao padrão. O PDF e o Excel exportados saem com as versões escolhidas.
 
+## Reports Diogo
+
+Entrada própria no menu lateral, com dois relatórios.
+
+**Sales Report**: um quadro com todos os projetos, pela ordem do menu, com subtotais por grupo e o
+total. Valores em k€.
+
+| Coluna | Origem |
+|---|---|
+| Business plan | TOTAL REVENUE, coluna mais recente do Project Review |
+| Power BI | Typology Report, linha "TOTAL Project Amount", coluna € Resi+Retail (leitura automática ou snapshot) |
+| Δ BP vs Power BI | Business plan − Power BI |
+| Commissions: Budget | Rubrica 511 (External sales fees) da folha de budget, coluna do último Project Review |
+| Commissions: Awarded | Rubrica 511, coluna "Signed commitments" |
+| Commissions: Available | Budget − Awarded |
+| Commissions % of sales | Budget / Business plan |
+
+Quando várias fases partilham um projeto no Power BI (p.ex. as fases do JCR), o valor do Power BI só
+aparece no subtotal do grupo, para não ser contado várias vezes.
+
+**Cashflow Vizta REM**: página criada, com o conteúdo ainda por definir.
+
 ## Project Review - Orion (apresentação)
 
 Entrada própria no menu lateral. Mostra os slides como uma apresentação em carrossel:

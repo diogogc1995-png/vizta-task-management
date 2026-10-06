@@ -501,7 +501,23 @@ def attach_budget_details(project, budget):
             bkpis = {kpi["label"]: rows_k.get(kpi["label"].lower()) for kpi in project.get("kpis", [])}
             break
 
+    # Comissões de mediadores (rubrica 511 "External sales fees"): orçamento na coluna do budget do
+    # Project Review mais recente, adjudicado em "Signed commitments", disponível = orçamento − adjudicado
+    commissions = None
+    signed_k = next((k for k, col in enumerate(bcols) if (col.get("group") or "").upper().startswith("COST")
+                     and col["lines"] and "signed" in col["lines"][0].lower()), None)
+    c511 = next((c for r in budget["rows"] for c in [r, *r.get("children", [])] if _code_str(c.get("code")) == "511"), None)
+    last_k = next((k for k in reversed(mapping) if k is not None), None)
+    if c511 and last_k is not None:
+        num = lambda v: float(v) if _is_number(v) else 0.0
+        bud = num(c511["values"][last_k])
+        signed = num(c511["values"][signed_k]) if signed_k is not None else None
+        commissions = {"code": "511", "label": c511["label"], "budget": bud, "signed": signed,
+                       "available": bud - signed if signed is not None else None,
+                       "budget_column": " ".join(bcols[last_k]["lines"])}
+
     return {**project, "rows": rows, "versions": versions, "version_default": mapping, "bkpis": bkpis,
+            "commissions": commissions,
             "budget_link": {"sheet": budget["sheet"],
                             "columns": [bcols[k]["lines"] if k is not None else None for k in mapping],
                             "delta": ("column" if delta_k is not None else "difference" if delta_is_diff else None)}}

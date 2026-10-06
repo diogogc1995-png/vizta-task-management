@@ -220,6 +220,7 @@ class ParserTest(unittest.TestCase):
         self.assertEqual(q["rows"][2]["children"][0]["code"], "321.1")
         self.assertNotIn("children", project["rows"][0])  # o original não é alterado
 
+
         # Versões: colunas BUDGET (incl. escondida) e o TOTAL; linhas ligadas ao budget
         self.assertEqual([v["col"] for v in q["versions"]], [0, 1, 2, 3])  # aqui todas são do grupo BUDGET
         self.assertEqual(q["version_default"], [2, 3, 1])
@@ -244,5 +245,21 @@ class ParserTest(unittest.TestCase):
         self.assertTrue(ws.row_dimensions[6].hidden)
 
 
+    def test_commissions_511(self):
+        # rubrica 511 (comissões de mediadores): orçamento na coluna do último PR, adjudicado em "Signed commitments"
+        project = {"name": "X", "columns": [{"lines": ["Investment Committee"]}, {"lines": ["Project Review", "21/10/2026"]}],
+                   "rows": [{"label": l, "kind": "line", "percent": False, "values": v, "delta": None}
+                            for l, v in [("1- Land costs", [100, 120]), ("2- Charges", [20, 30]), ("9-Marketing cost", [50, 60])]]}
+        col = lambda group, *lines: {"group": group, "lines": list(lines), "hidden": False, "percent": False}
+        budget = {"sheet": "BUDGET", "columns": [col("BUDGET", "Investment Comittee"), col("BUDGET", "Project Review 21/10/2026"),
+                                                 col("COST OF THE PROJECT", "Signed commitments"), col("COST OF THE PROJECT", "TOTAL")],
+                  "rows": [
+                      {"label": "1- Land costs", "kind": "rubric", "values": [100, 120, 80, 120], "children": []},
+                      {"label": "2- Charges", "kind": "rubric", "values": [20, 30, 10, 30], "children": []},
+                      {"label": "9-Marketing cost", "kind": "rubric", "values": [50, 60, 25, 60], "children": [
+                          {"label": "External sales fees", "code": 511.0, "values": [40, 45, 18, 45]}]},
+                  ]}
+        c = attach_budget_details(project, budget)["commissions"]
+        self.assertEqual((c["label"], c["budget"], c["signed"], c["available"]), ("External sales fees", 45, 18, 27))
 if __name__ == "__main__":
     unittest.main()
