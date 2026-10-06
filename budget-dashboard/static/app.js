@@ -657,6 +657,11 @@ function salesReportHtml() {
     const v = (r.resi_retail + (ex && typeof ex.resi_retail === "number" ? ex.resi_retail : 0)) / 1000;
     return v ? v : null;  // 0 € no Power BI (p.ex. Magnolia, escrituras sem valor): "–", fora da diferença
   };
+  // Power BI: "TOTAL Available Amount" (disponíveis + off-market), € Resi+Retail, em k€
+  const pbiAvail = (p) => {
+    const r = ((p.sales || {}).amount_rows || []).find((x) => /^total available amount/i.test(x.label || ""));
+    return r && typeof r.resi_retail === "number" && r.resi_retail ? r.resi_retail / 1000 : null;
+  };
   // um projeto do Power BI partilhado por várias fases (p.ex. JCR) só conta no subtotal do grupo
   const byId = Object.fromEntries(allProjects().map((p) => [p.id, p]));
   const share = {};
@@ -666,7 +671,8 @@ function salesReportHtml() {
     const bp = lastValue(p, /^TOTAL REVENUE/i);
     const shared = p.sales_name && share[p.sales_name] > 1;
     const pb = shared ? null : pbi(p);
-    return { id: p.id, name: p.label || p.name, bp, pb, sharedPb: shared ? pbi(p) : null, salesName: p.sales_name,
+    const av = shared ? null : pbiAvail(p);
+    return { av, apct: typeof c.available === "number" && av ? c.available / av : null, id: p.id, name: p.label || p.name, bp, pb, sharedPb: shared ? pbi(p) : null, salesName: p.sales_name,
       diff: typeof bp === "number" && typeof pb === "number" ? pb - bp : null,  // Power BI − Business plan
       cb: c.budget, cs: c.signed, ca: c.available, cpct: typeof c.budget === "number" && bp ? c.budget / bp : null };
   };
@@ -681,12 +687,14 @@ function salesReportHtml() {
     for (const n of shared) t.pb = (t.pb || 0) + rows.find((r) => r.salesName === n).sharedPb;
     t.diff = typeof t.bp === "number" && typeof t.pb === "number" && rows.every((r) => r.pb !== null || r.sharedPb !== null) ? t.pb - t.bp : null;
     t.cpct = typeof t.cb === "number" && t.bp ? t.cb / t.bp : null;
+    const both = rows.filter((r) => typeof r.ca === "number" && typeof r.av === "number");  // só projetos com os dois valores
+    t.apct = both.length ? sum(both, "ca") / sum(both, "av") : null;
     t.cls = cls;
     return t;
   };
   const line = (r) => `<tr class="${r.cls || ""}"><td class="lbl">${r.id ? `<button type="button" class="rm-link" data-id="${r.id}">${esc(r.name)}</button>` : esc(r.name)}</td>
     <td>${k(r.bp)}</td><td>${k(r.pb)}</td><td class="${typeof r.diff === "number" && Math.round(r.diff) !== 0 ? (r.diff < 0 ? "neg" : "pos") : ""}">${k(r.diff)}</td>
-    <td class="sr-c">${k(r.cb)}</td><td class="sr-c">${k(r.cs)}</td><td class="sr-c">${k(r.ca)}</td><td>${pct(r.cpct)}</td></tr>`;
+    <td class="sr-c">${k(r.cb)}</td><td class="sr-c">${k(r.cs)}</td><td class="sr-c">${k(r.ca)}</td><td>${pct(r.cpct)}</td><td>${pct(r.apct)}</td></tr>`;
   let body = "";
   const all = [];
   for (const m of data.menu || []) {
@@ -701,14 +709,16 @@ function salesReportHtml() {
     <div class="report-head"><div><div class="kicker">Reports Diogo</div><h1>Sales Report</h1>
       <div class="src">Values in k€ · ${src}</div></div></div>
     <div class="t-scroll"><table class="sr">
-      <thead><tr><th class="lbl" rowspan="2">Project</th><th colspan="3">Sales</th><th colspan="4" class="sr-c">Agent commissions (511 – external sales fees)</th></tr>
+      <thead><tr><th class="lbl" rowspan="2">Project</th><th colspan="3">Sales</th><th colspan="5" class="sr-c">Agent commissions (511 – external sales fees)</th></tr>
         <tr><th>Business plan<small>Total revenue</small></th><th>Power BI<small>Total project amount + extras</small></th><th>Δ BP vs Power BI<small>Power BI − BP</small></th>
           <th class="sr-c">Budget<small>last Project Review</small></th><th class="sr-c">Awarded<small>signed commitments</small></th>
-          <th class="sr-c">Available<small>budget − awarded · VAT incl.</small></th><th>Commissions<small>% of sales</small></th></tr></thead>
+          <th class="sr-c">Available<small>budget − awarded · VAT incl.</small></th><th>Commissions<small>% of sales</small></th>
+          <th>Available<small>% of available amount</small></th></tr></thead>
       <tbody>${body}</tbody></table></div>
     <div class="sm-foot">Business plan: TOTAL REVENUE, most recent column of each Project Review. Power BI: Typology Report,
       "TOTAL Project Amount" plus "Extras" when the report has them (€ Resi+Retail; 0 € is shown as "–"); projects that share one Power BI project (e.g. JCR phases) only count it in the total. Δ = Power BI − Business plan.
-      Commissions: budget sheet, line 511.</div>
+      Commissions: budget sheet, line 511. Commissions % of sales = commissions budget ÷ Business plan total revenue.
+      Available % of available amount = available commissions ÷ Power BI "TOTAL Available Amount" (available to sell + off-market, € Resi+Retail); the total only counts projects that have both values.</div>
   </section>`;
 }
 
