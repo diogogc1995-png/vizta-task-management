@@ -654,7 +654,8 @@ function salesReportHtml() {
     const r = rows.find((x) => /^total project amount/i.test(x.label || ""));
     if (!r || typeof r.resi_retail !== "number") return null;
     const ex = rows.find((x) => /^extras?$/i.test((x.label || "").trim()));
-    return (r.resi_retail + (ex && typeof ex.resi_retail === "number" ? ex.resi_retail : 0)) / 1000;
+    const v = (r.resi_retail + (ex && typeof ex.resi_retail === "number" ? ex.resi_retail : 0)) / 1000;
+    return v ? v : null;  // 0 € no Power BI (p.ex. Magnolia, escrituras sem valor): "–", fora da diferença
   };
   // um projeto do Power BI partilhado por várias fases (p.ex. JCR) só conta no subtotal do grupo
   const byId = Object.fromEntries(allProjects().map((p) => [p.id, p]));
@@ -707,7 +708,7 @@ function salesReportHtml() {
           <th class="sr-c">Available<small>budget − awarded</small></th><th>Commissions<small>% of sales</small></th></tr></thead>
       <tbody>${body}</tbody></table></div>
     <div class="sm-foot">Business plan: TOTAL REVENUE, most recent column of each Project Review. Power BI: Typology Report,
-      "TOTAL Project Amount" plus "Extras" when the report has them (€ Resi+Retail); projects that share one Power BI project (e.g. JCR phases) only show it in the group total.
+      "TOTAL Project Amount" plus "Extras" when the report has them (€ Resi+Retail; 0 € is shown as "–"); projects that share one Power BI project (e.g. JCR phases) only show it in the group total.
       Commissions: budget sheet, line 511.</div>
   </section>`;
 }
