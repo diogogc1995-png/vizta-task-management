@@ -222,7 +222,7 @@ total. Valores em k€.
 | Coluna | Origem |
 |---|---|
 | Business plan | TOTAL REVENUE, coluna mais recente do Project Review |
-| Power BI | Typology Report, linha "TOTAL Project Amount", coluna € Resi+Retail (leitura automática ou snapshot) |
+| Power BI | Typology Report: "TOTAL Project Amount" + "Extras" (quando o relatório tem extras, p.ex. CORE), coluna € Resi+Retail (leitura automática ou snapshot) |
 | Δ BP vs Power BI | Business plan − Power BI |
 | Commissions: Budget | Rubrica 511 (External sales fees) da folha de budget, coluna do último Project Review |
 | Commissions: Awarded | Rubrica 511, coluna "Signed commitments" |

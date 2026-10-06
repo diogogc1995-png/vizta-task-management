@@ -648,10 +648,13 @@ function salesReportHtml() {
   const k = (v) => (typeof v === "number" ? fmtNum(v) : "–");
   const pct = (v) => (typeof v === "number" ? `${(v * 100).toFixed(1).replace(".", ",")}%` : "–");
   const ps = data.sales_status || {};
-  // Power BI: linha "TOTAL Project Amount", coluna € Resi+Retail (em €, aqui em k€)
+  // Power BI: "TOTAL Project Amount" + "Extras" (quando o relatório os tem), coluna € Resi+Retail (em €, aqui em k€)
   const pbi = (p) => {
-    const r = ((p.sales || {}).amount_rows || []).find((x) => /^total project amount/i.test(x.label || ""));
-    return r && typeof r.resi_retail === "number" ? r.resi_retail / 1000 : null;
+    const rows = (p.sales || {}).amount_rows || [];
+    const r = rows.find((x) => /^total project amount/i.test(x.label || ""));
+    if (!r || typeof r.resi_retail !== "number") return null;
+    const ex = rows.find((x) => /^extras?$/i.test((x.label || "").trim()));
+    return (r.resi_retail + (ex && typeof ex.resi_retail === "number" ? ex.resi_retail : 0)) / 1000;
   };
   // um projeto do Power BI partilhado por várias fases (p.ex. JCR) só conta no subtotal do grupo
   const byId = Object.fromEntries(allProjects().map((p) => [p.id, p]));
@@ -699,12 +702,12 @@ function salesReportHtml() {
       <div class="src">Values in k€ · ${src}</div></div></div>
     <div class="t-scroll"><table class="sr">
       <thead><tr><th class="lbl" rowspan="2">Project</th><th colspan="3">Sales</th><th colspan="4" class="sr-c">Agent commissions (511 – external sales fees)</th></tr>
-        <tr><th>Business plan<small>Total revenue</small></th><th>Power BI<small>Total project amount</small></th><th>Δ BP vs Power BI</th>
+        <tr><th>Business plan<small>Total revenue</small></th><th>Power BI<small>Total project amount + extras</small></th><th>Δ BP vs Power BI</th>
           <th class="sr-c">Budget<small>last Project Review</small></th><th class="sr-c">Awarded<small>signed commitments</small></th>
           <th class="sr-c">Available<small>budget − awarded</small></th><th>Commissions<small>% of sales</small></th></tr></thead>
       <tbody>${body}</tbody></table></div>
     <div class="sm-foot">Business plan: TOTAL REVENUE, most recent column of each Project Review. Power BI: Typology Report,
-      "TOTAL Project Amount" (€ Resi+Retail); projects that share one Power BI project (e.g. JCR phases) only show it in the group total.
+      "TOTAL Project Amount" plus "Extras" when the report has them (€ Resi+Retail); projects that share one Power BI project (e.g. JCR phases) only show it in the group total.
       Commissions: budget sheet, line 511.</div>
   </section>`;
 }
