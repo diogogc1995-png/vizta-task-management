@@ -737,3 +737,8 @@ table.dt-uses td, table.dt-int td { padding: 7px 10px; }
 .dt-right > .sl-note { flex: 1; min-height: 110px; }
 .dt-right > .dt-box:last-child { flex: 2.2; font-size: 12.5px; overflow: visible; }
 .dt-right > .dt-box:last-child li { margin-bottom: 3px; line-height: 1.3; }
+.dt-check { list-style: none; padding-left: 0 !important; }
+.dt-check li { position: relative; padding-left: 20px; }
+.dt-check li::before { content: "✓"; position: absolute; left: 0; color: var(--orange); font-weight: 800; }
+.dt-pipe.cl { border-top-color: #e0a100; }
+.dt-pipe-sign { margin-top: 10px; display: inline-block; padding: 4px 12px; background: #fff; border: 1px solid var(--orange); color: var(--orange); font-weight: 700; font-size: 15px; }

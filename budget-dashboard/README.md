@@ -187,7 +187,12 @@ taxa de juro (indexante + spread), o equity recap (distribuições permitidas) e
 no Excel: com `stage` "Contract …" entram como *Contract closing* (resumo e tabela); os restantes em
 negociação vão para o pipeline, com custo total e GDV do Project Review.
 
-Key takeaways, Security package e Notes são texto editável nos slides, guardado no servidor como os Key
+Os textos dos slides estão em inglês: o equity recap e o security package vêm do bloco `"en"` de cada
+contrato no `financing.json` (`distributions`, `security`); sem `security`, a caixa fica como texto
+editável. `expected_signing` mostra a data prevista de assinatura no pipeline (contratos em fecho também
+aparecem lá, como cartões *Contract closing*). "CGD" aparece como "Caixa Geral de Depósitos".
+
+Key takeaways (e o Security package sem dados) são texto editável nos slides, guardado no servidor como os Key
 Variations do Orion (`orion_notes.json`, chaves `debt.*`; vence o último a guardar, com o aviso
 "X está a escrever…").
 
