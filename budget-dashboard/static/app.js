@@ -653,6 +653,8 @@ function goSlide(to) {
 // ---------- Reports Diogo ----------
 // Sales Report: vendas do BP (TOTAL REVENUE do Project Review), Total Project Amount do Power BI
 // e comissões de mediadores (rubrica 511 do budget). Valores em k€.
+const SALES_REPORT_EXCLUDE = ["Flower Tower Magnolia", "Nexae"];  // projetos fora do Sales Report
+
 function salesReportHtml() {
   const k = (v) => (typeof v === "number" ? fmtNum(v) : "–");
   const pct = (v) => (typeof v === "number" ? `${(v * 100).toFixed(1).replace(".", ",")}%` : "–");
@@ -707,7 +709,8 @@ function salesReportHtml() {
   let body = "";
   const all = [];
   for (const m of data.menu || []) {
-    const rows = (m.item ? [m.item] : m.items).map((id) => byId[id]).filter(Boolean).map(row);
+    const rows = (m.item ? [m.item] : m.items).map((id) => byId[id]).filter(Boolean)
+      .filter((p) => !SALES_REPORT_EXCLUDE.some((n) => n.toLowerCase() === (p.name || "").toLowerCase())).map(row);
     all.push(...rows);
     body += rows.map(line).join("");
   }
