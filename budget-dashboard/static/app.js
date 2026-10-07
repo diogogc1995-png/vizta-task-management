@@ -776,7 +776,7 @@ const debtFin = (l) => {
   return (p && p.financing) || {};
 };
 const finRate = (f) => (f.index || typeof f.spread === "number"
-  ? [esc(f.index || ""), typeof f.spread === "number" ? `${String(f.spread).replace(".", ",")}% spread` : ""].filter(Boolean).join(" + ") : "");
+  ? [esc((f.index || "").replace(/\s*\(floor[^)]*\)/i, "")), typeof f.spread === "number" ? `${String(f.spread).replace(".", ",")}% spread` : ""].filter(Boolean).join(" + ") : "");
 const fmtMY = (d) => `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getFullYear()).slice(2)}`;
 function finTerm(f) {
   if (!f.term_months) return "";
@@ -871,10 +871,7 @@ function debtFacilitiesHtml() {
     + closing.map((p) => `<tr><td class="lbl"><b>${esc(p.label || p.name)}</b></td><td class="lbl">${esc(((p.info || {}).location || "").split("|")[0].trim() || "–")}</td>
     <td class="lbl">${esc(bankName(p.financing.bank) || "–")}</td><td class="lbl"><span class="dt-st cl">Contract closing</span></td>
     <td>${eurM(p.financing.amount)}</td><td>-</td><td>${eurM(p.financing.amount)}</td><td>–</td><td>–</td><td>${spread(p.financing)}</td></tr>`).join("");
-  const drawable = loans.filter((l) => typeof l.approved === "number" && typeof l.loan === "number" && Math.abs(l.approved - l.loan) > 1);
-  const notes = ["LTC = Facility ÷ Total cost · LTHC = Facility ÷ Hard costs · Available = Facility − Drawn (outstanding)",
-    ...(drawable.length ? [`${drawable.map((l) => esc(debtTitle(l))).join(" and ")} shown at the drawable loan amount (${drawable.map((l) => `€${eurM(l.loan)}M`).join(" / ")}), against approved facilities of ${drawable.map((l) => `€${eurM(l.approved)}M`).join(" / ")}`] : []),
-    ...loans.filter((l) => l.repaid).map((l) => `${esc(debtTitle(l))}: ${esc(l.status)} — Drawn/Available reflect the nil outstanding balance (historical drawdown €${eurM(l.totals.utilization)}M)`)];
+  const notes = ["LTC = Facility ÷ Total cost · LTHC = Facility ÷ Hard costs · Available = Facility − Drawn"];
   return `<div class="sl"><div class="sl-head"><h1>Financed &amp; Contract-Closing Facilities</h1>
       <div class="sl-sub">Figures in €M, gross (incl. VAT) · status as of ${dmy(debtAsOf())}</div></div>
     <table class="dt-tbl"><thead><tr><th class="lbl">Project</th><th class="lbl">Location</th><th class="lbl">Bank</th><th class="lbl">Status</th>
@@ -943,7 +940,7 @@ function debtLoanHtml(l) {
   const en = f.en || {};
   const d = en.distributions;
   const recap = d ? `${typeof d.max === "number" ? `<p class="dt-recap-max">Up to ${eur(d.max)}</p>` : ""}
-    ${(d.conditions || []).length ? `<ul>${d.conditions.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>` : ""}${d.note ? `<p class="dt-muted">${esc(d.note)}</p>` : ""}` : "";
+    ${(d.conditions || []).length ? `<ul>${d.conditions.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>` : ""}` : "";
   const rate = finRate(f);
   const slug = noteSlug(l.sheet || l.project);
   return `<div class="sl"><div class="sl-head"><h1>${esc(debtTitle(l))}</h1><div class="sl-sub">${esc(l.company || "")} · ${esc(bankName(l.bank))}</div></div>
@@ -963,7 +960,7 @@ function debtPipelineHtml() {
   const cards = [...closing.map((p) => [p, true]), ...pipeline.map((p) => [p, false])].map(([p, isClosing]) => {
     const f = p.financing;
     const offers = (f.offers || []).map((o) => esc(bankName(o.bank))).join(" · ");
-    return `<div class="dt-pipe ${isClosing ? "cl" : ""}"><span class="dt-st ${isClosing ? "cl" : ""}">${isClosing ? "Contract closing" : "In negotiation"}</span><h3>${esc(p.label || p.name)}</h3>
+    return `<div class="dt-pipe ${isClosing ? "cl" : ""}"><span class="dt-st ${isClosing ? "cl" : ""}">${isClosing ? "Contract closing" : "In negotiation"}</span><h3>${esc((p.label || p.name).replace(/^Phase (\d+)\b.*$/i, "Jardins $1"))}</h3>
       <div class="dt-muted">${esc(((p.info || {}).location || "").split("|")[0].trim())}</div>
       <div class="dt-pipe-kpi">Total cost ${m(lastValue(p, /^TOTAL COST/i))} · GDV ${m(lastValue(p, /^TOTAL REVENUE/i))}</div>
       ${f.bank || f.amount ? `<div class="dt-pipe-row"><b>${esc(bankName(f.bank))}</b>${f.amount ? ` · €${eurM(f.amount)}M` : ""}${finRate(f) ? ` · ${finRate(f)}` : ""}</div>` : ""}
