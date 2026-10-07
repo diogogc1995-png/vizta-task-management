@@ -968,11 +968,8 @@ function debtPipelineHtml() {
       ${f.expected_signing ? `<div class="dt-pipe-sign">Expected signing: ${dmy(f.expected_signing)}</div>` : ""}
       ${f.stage ? `<p class="dt-muted">${esc(f.stage)}</p>` : ""}</div>`;
   }).join("");
-  const note = closing.length ? `${closing.map((p) => esc(p.label || p.name)).join(" and ")} ${closing.length > 1 ? "are" : "is"} already in contract negotiation
-    - awaiting final formalization before entering the utilization phase.` : "";
   return `<div class="sl"><div class="sl-head"><h1>Negotiation Pipeline</h1><div class="sl-sub">Projects without a contracted facility yet</div></div>
-    <div class="dt-pipes">${cards || `<div class="dt-chart-empty">No projects in negotiation</div>`}</div>
-    ${note ? `<div class="dt-tot">${note}</div>` : ""}</div>`;
+    <div class="dt-pipes">${cards || `<div class="dt-chart-empty">No projects in negotiation</div>`}</div></div>`;
 }
 
 function debtDetailHtml(l) {
