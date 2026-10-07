@@ -743,3 +743,5 @@ table.dt-uses td, table.dt-int td { padding: 7px 10px; }
 .dt-pipe.cl { border-top-color: #e0a100; }
 .dt-pipe-sign { margin-top: 10px; display: inline-block; padding: 4px 12px; background: #fff; border: 1px solid var(--orange); color: var(--orange); font-weight: 700; font-size: 15px; }
 .dt-take .sl-note-meta, .dt-right .sl-note-meta { display: none; }
+.pr-view { margin-top: 36px; padding-top: 22px; border-top: 2px solid var(--peach); }
+.pr-view-title { margin: 0 0 14px; font-size: 20px; color: var(--orange); }

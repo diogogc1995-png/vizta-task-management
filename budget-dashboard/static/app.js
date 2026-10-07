@@ -1672,7 +1672,33 @@ function reportHtml(orig) {
     ${tools}
     <table class="pr"><thead>${head}</thead><tbody>${body}</tbody></table>
     ${notes}${kpis}${after}
+    ${(orig.views || []).map((v, i) => viewTableHtml(orig, v, i)).join("")}
   </section>`;
+}
+
+// Outros quadros da mesma folha do Project Review (p.ex. NOLA: "effective cost per item view")
+function viewTableHtml(p, t, i) {
+  const e = ((data.orion || {}).projects || []).find((x) => x.id === p.id) || {};
+  const title = (i === 0 && (e.subtitles || {}).cost_per_item) || `Additional view ${i + 1}`;
+  const n = t.columns.length, latest = n - 1;
+  const head = `<tr><th class="lbl">${esc(p.name)}</th>${t.columns
+    .map((c, k) => `<th class="${k === latest ? "latest" : ""}">${c.lines.map(esc).join("<br>")}</th>`).join("")}<th class="delta">Δ</th></tr>`;
+  let prev = null;
+  const body = `<tr class="spacer"><td></td>${"<td></td>".repeat(n)}<td></td></tr>` + t.rows.map((r) => {
+    const cls = [r.kind === "line" ? "" : r.kind, r.kind !== "line" && prev === "line" ? "first-total" : ""].join(" ").trim();
+    prev = r.kind;
+    return `<tr class="${cls}"><td class="lbl">${esc(r.label)}</td>${r.values
+      .map((v, k) => `<td class="${k === latest ? "latest" : ""}">${fmt(v, r.percent)}</td>`).join("")}<td class="delta">${fmt(r.delta, r.percent)}</td></tr>`;
+  }).join("");
+  const pill = (x) => `<span class="pill"><span>${esc(x.label)}</span><span>${fmt(x.value, x.percent)}</span></span>`;
+  const notes = t.footnote || (t.notes || []).length
+    ? `<div class="notes"><span class="fn">${esc(t.footnote || "")}</span><span>${(t.notes || []).map(pill).join("")}</span></div>` : "";
+  const kpis = (t.kpis || []).length
+    ? `<div class="kpis"><h2>${esc(t.kpi_title || "KPIs")}</h2><table class="kpi"><tbody>${t.kpis
+        .map((k) => `<tr><td class="lbl">${esc(k.label)}</td>${k.values
+          .map((lines) => `<td>${lines.length ? lines.map(esc).join("<br>") : "—"}</td>`).join("")}</tr>`).join("")}</tbody></table></div>` : "";
+  return `<div class="pr-view"><h2 class="pr-view-title">${esc(title.charAt(0).toUpperCase() + title.slice(1))}</h2>
+    <table class="pr"><thead>${head}</thead><tbody>${body}</tbody></table>${notes}${kpis}</div>`;
 }
 
 function financingHtml(f) {

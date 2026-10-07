@@ -10,10 +10,9 @@ os nomes vêm de config.json → "roadmap" → "rows".
 import datetime as dt
 import os
 import re
-import shutil
 import tempfile
 
-from budget_parser import _load
+from budget_parser import _load, copy_shared
 
 HEADERS = {
     "pspa": r"^PSPA$",
@@ -111,7 +110,7 @@ def load(path, sheet, rows_conf):
     fd, tmp = tempfile.mkstemp(suffix=os.path.splitext(path)[1])
     os.close(fd)
     try:
-        shutil.copyfile(path, tmp)
+        copy_shared(path, tmp)
         wb = _load(tmp)
         try:
             if sheet not in wb.sheetnames:

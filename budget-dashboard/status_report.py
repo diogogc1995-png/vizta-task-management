@@ -8,11 +8,10 @@ repetidos em mais de um ficheiro (mesmo projeto, título e descrição) contam u
 import datetime as dt
 import os
 import re
-import shutil
 import tempfile
 import unicodedata
 
-from budget_parser import _load
+from budget_parser import _load, copy_shared
 
 OPEN = ("pendente", "standby")
 # campo -> padrões do cabeçalho (sem acentos, minúsculas)
@@ -109,7 +108,7 @@ def read_file(path, sheet="ATA"):
     fd, tmp = tempfile.mkstemp(suffix=os.path.splitext(path)[1])
     os.close(fd)
     try:
-        shutil.copyfile(path, tmp)
+        copy_shared(path, tmp)
         wb = _load(tmp)
         try:
             ws = wb[sheet] if sheet in wb.sheetnames else wb.worksheets[0]

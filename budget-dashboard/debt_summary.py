@@ -9,11 +9,10 @@ posição. Valores em €.
 import datetime as dt
 import os
 import re
-import shutil
 import tempfile
 import unicodedata
 
-from budget_parser import _load
+from budget_parser import _load, copy_shared
 
 # rótulo do cabeçalho (sem acentos, minúsculas, sem ":" / ">") -> campo
 HEADER = {
@@ -139,7 +138,7 @@ def read_file(path):
     fd, tmp = tempfile.mkstemp(suffix=os.path.splitext(path)[1])
     os.close(fd)
     try:
-        shutil.copyfile(path, tmp)
+        copy_shared(path, tmp)
         wb = _load(tmp)
         try:
             names = wb.sheetnames

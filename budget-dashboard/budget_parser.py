@@ -616,6 +616,34 @@ def _strip_defined_names(path):
     shutil.move(out, path)
 
 
+def copy_shared(path, dest):
+    """Copia um ficheiro que pode estar aberto por outro programa.
+
+    No Windows, um Excel aberto por alguém (ou o OneDrive) pode ter o ficheiro com acesso de
+    eliminação, e o open() do Python (que não partilha esse acesso) falha com PermissionError;
+    nesse caso abre-se com partilha de leitura, escrita e eliminação, como faz o Explorador.
+    """
+    try:
+        shutil.copyfile(path, dest)
+        return
+    except PermissionError:
+        if os.name != "nt":
+            raise
+    import ctypes
+    import msvcrt
+    from ctypes import wintypes
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.CreateFileW.restype = wintypes.HANDLE
+    k32.CreateFileW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, wintypes.LPVOID,
+                                wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
+    GENERIC_READ, SHARE_ALL, OPEN_EXISTING = 0x80000000, 0x7, 3
+    h = k32.CreateFileW(os.path.abspath(path), GENERIC_READ, SHARE_ALL, None, OPEN_EXISTING, 0x80, None)
+    if h in (None, wintypes.HANDLE(-1).value):
+        raise PermissionError(ctypes.get_last_error(), "Permission denied", path)
+    with open(msvcrt.open_osfhandle(h, os.O_RDONLY | os.O_BINARY), "rb") as src, open(dest, "wb") as out:
+        shutil.copyfileobj(src, out)
+
+
 def _load(tmp):
     try:
         return openpyxl.load_workbook(tmp, data_only=True, read_only=True)
@@ -638,7 +666,7 @@ def parse_file(path, include_hidden=False):
     fd, tmp = tempfile.mkstemp(suffix=os.path.splitext(path)[1])
     os.close(fd)
     try:
-        shutil.copyfile(path, tmp)
+        copy_shared(path, tmp)
         wb = _load(tmp)
         try:
             projects, budget_sheets = [], []
