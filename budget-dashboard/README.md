@@ -178,10 +178,18 @@ utilizável, custos, LTC/LTHC, estado) e a tabela de autos de obra e utilizaçõ
 `Interests <projeto>` dá os juros cobrados pelo banco por trimestre. Os rótulos e colunas são
 encontrados pelo texto. Um estado "Repaid…" conta como reembolsado (em dívida e disponível a zero).
 
-Fica no menu "Reports Diogo", como *Vizta Debt Summary - Presentation*. Slides: capa, resumo do portefólio, tabela das facilities, e por empréstimo uma ficha (dados, % utilizado,
-gráfico das faturas de obra vs utilizações acumuladas por mês) e o detalhe das utilizações e juros; no fim,
-o pipeline de negociação. O que não está no Excel (taxa de juro, garantias, equity recap, prazo,
-key takeaways, pipeline) fica em branco por agora.
+Fica no menu "Reports Diogo", como *Vizta Debt Summary - Presentation*. Slides: capa, resumo do portefólio,
+tabela das facilities, e por empréstimo uma ficha (dados, % utilizado, gráfico das faturas de obra vs
+utilizações acumuladas por mês) e o detalhe das utilizações e juros; no fim, o pipeline de negociação.
+
+Da aba Financing de cada projeto (`financing.json`) vêm o prazo (meses e datas a partir da assinatura), a
+taxa de juro (indexante + spread), o equity recap (distribuições permitidas) e os projetos sem empréstimo
+no Excel: com `stage` "Contract …" entram como *Contract closing* (resumo e tabela); os restantes em
+negociação vão para o pipeline, com custo total e GDV do Project Review.
+
+Key takeaways, Security package e Notes são texto editável nos slides, guardado no servidor como os Key
+Variations do Orion (`orion_notes.json`, chaves `debt.*`; vence o último a guardar, com o aviso
+"X está a escrever…").
 
 ## Vizta Portfolio
 

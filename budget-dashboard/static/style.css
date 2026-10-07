@@ -720,3 +720,20 @@ table.dt-uses td, table.dt-int td { padding: 7px 10px; }
 .ppage.pf.sub { padding-left: 52px; font-size: 12.5px; color: var(--muted); }
 .ppage.pf.sub.active { color: var(--orange); }
 .ppage.pf.sub::before { left: 39px; }
+.dt-st.cl { background: #fff3d6; color: #9a6400; }
+.dt-box { font-size: 14px; }
+.dt-box ul { margin: 4px 0 0; padding-left: 18px; }
+.dt-box li { margin-bottom: 4px; line-height: 1.35; }
+.dt-rate { margin: 4px 0 0; font-size: 20px; font-weight: 700; color: var(--ink); }
+.dt-recap-max { margin: 0 0 4px; font-size: 17px; font-weight: 700; color: var(--ink); }
+.dt-muted { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+.dt-take .sl-note { flex: 1; }
+.dt-pipes { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; align-content: start; }
+.dt-pipe { background: var(--peach-pale); border-top: 5px solid var(--orange); padding: 18px 20px; font-size: 15px; }
+.dt-pipe h3 { margin: 10px 0 2px; font-size: 26px; color: var(--orange); }
+.dt-pipe-kpi { margin-top: 12px; font-size: 17px; font-weight: 700; color: var(--ink); }
+.dt-pipe-row { margin-top: 8px; color: var(--ink); }
+.dt-right > .sl-box:first-child { flex: none; }
+.dt-right > .sl-note { flex: 1; min-height: 110px; }
+.dt-right > .dt-box:last-child { flex: 2.2; font-size: 12.5px; overflow: visible; }
+.dt-right > .dt-box:last-child li { margin-bottom: 3px; line-height: 1.3; }

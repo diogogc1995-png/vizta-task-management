@@ -402,7 +402,7 @@ function applyPresence() {
 }
 
 async function pollPresence() {
-  if (selectedId !== ORION || document.hidden) return;
+  if (!isDeck() || document.hidden) return;
   try {
     const res = await fetch(`/api/orion-presence?client=${encodeURIComponent(clientId)}`, { cache: "no-store" });
     presenceMap = await res.json();
@@ -738,8 +738,9 @@ function cashflowReportHtml() {
 }
 
 // ---------- Vizta Debt Summary (financiamentos bancários; Excel do DFIN) ----------
-// Valores do "Vizta Debt Summary.xlsx" (folhas Financing / Interests). O que não está no Excel (taxa de
-// juro, garantias, equity recap, prazo, pipeline) fica em branco por agora.
+// Valores do "Vizta Debt Summary.xlsx" (folhas Financing / Interests); condições dos contratos (taxa, prazo,
+// distribuições) e projetos em negociação vêm da aba Financing dos projetos (financing.json). Os campos de
+// notas são texto editável, guardado no servidor como os Key Variations do Orion.
 const MONTHS_EN = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const eur = (v) => (typeof v === "number" ? `€ ${fmtNum(Math.round(v))}` : "–");
 const eurM = (v) => (typeof v === "number" ? (v / 1e6).toFixed(1) : "–");
@@ -754,6 +755,34 @@ function debtAsOf() {
   const dates = debtLoans().map((l) => l.last_drawdown).filter(Boolean).sort();
   return dates.length ? dates[dates.length - 1] : null;
 }
+
+// Contratos da aba Financing: em fecho de contrato (stage "Contract …") ou ainda em negociação
+function debtNegotiations() {
+  const ids = new Set(debtLoans().map((l) => l.project_id).filter(Boolean));
+  const out = { closing: [], pipeline: [] };
+  for (const p of orderedProjects()) {
+    const f = p.financing;
+    if (!f || ids.has(p.id) || !f.status || /signed/i.test(f.status)) continue;
+    (/^contract/i.test(f.stage || "") ? out.closing : out.pipeline).push(p);
+  }
+  return out;
+}
+
+const debtFin = (l) => {
+  const p = l.project_id ? allProjects().find((x) => x.id === l.project_id) : null;
+  return (p && p.financing) || {};
+};
+const finRate = (f) => (f.index || typeof f.spread === "number"
+  ? [esc(f.index || ""), typeof f.spread === "number" ? `${String(f.spread).replace(".", ",")}% spread` : ""].filter(Boolean).join(" + ") : "");
+const fmtMY = (d) => `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getFullYear()).slice(2)}`;
+function finTerm(f) {
+  if (!f.term_months) return "";
+  if (!f.signed) return `${f.term_months}m`;
+  const a = new Date(f.signed + "T00:00:00"), b = new Date(a);
+  b.setMonth(b.getMonth() + f.term_months);
+  return `${f.term_months}m · ${fmtMY(a)}–${fmtMY(b)}`;
+}
+const debtNote = (key, title) => noteBox(`debt.${key}`, title);
 
 function debtStatus(l) {
   return l.repaid ? "Repaid" : /drawn|financ/i.test(l.status || "") ? "Financed" : l.status || "–";
@@ -772,8 +801,7 @@ function debtSlides() {
     out.push(S(key, debtTitle(l), () => debtLoanHtml(l)));
     out.push(S(key + "-detail", `${debtTitle(l)} · utilization`, () => debtDetailHtml(l)));
   });
-  out.push(S("pipeline", "Negotiation pipeline", () => placeholderHtml("Negotiation Pipeline", "Projects without a contracted facility yet",
-    ["Projects in negotiation"])));
+  out.push(S("pipeline", "Negotiation pipeline", debtPipelineHtml));
   return out;
 }
 
@@ -791,24 +819,33 @@ function debtCoverHtml() {
 function debtGlanceHtml() {
   const loans = debtLoans();
   const live = loans.filter((l) => !l.repaid);
+  const neg = debtNegotiations();
   const sum = (arr, f) => arr.reduce((a, l) => a + (typeof f(l) === "number" ? f(l) : 0), 0);
-  const facility = sum(live, (l) => l.loan), drawn = sum(live, (l) => l.drawn), avail = sum(live, (l) => l.available);
-  const cost = sum(live, (l) => l.total_cost);
+  // contratados (financiados + em fecho de contrato): montante, utilizado e custo total (Excel; BP para os em fecho)
+  const facility = sum(live, (l) => l.loan) + sum(neg.closing, (p) => p.financing.amount);
+  const drawn = sum(live, (l) => l.drawn);
+  const avail = facility - drawn;
   const byId = Object.fromEntries(allProjects().map((p) => [p.id, p]));
-  const gdvs = live.map((l) => (l.project_id && byId[l.project_id] ? lastValue(byId[l.project_id], /^TOTAL REVENUE/i) : null));
+  const bp = (p, re) => (p ? lastValue(p, re) : null);
+  const cost = sum(live, (l) => l.total_cost) + sum(neg.closing, (p) => (bp(p, /^TOTAL COST/i) || 0) * 1000);
+  const gdvs = [...live.map((l) => bp(byId[l.project_id], /^TOTAL REVENUE/i)), ...neg.closing.map((p) => bp(p, /^TOTAL REVENUE/i))];
   const gdv = gdvs.every((v) => typeof v === "number") ? gdvs.reduce((a, b) => a + b, 0) * 1000 : null;
   const counts = {};
   for (const l of loans) counts[debtStatus(l)] = (counts[debtStatus(l)] || 0) + 1;
+  if (neg.closing.length) counts["Contract closing"] = neg.closing.length;
+  if (neg.pipeline.length) counts["In negotiation"] = neg.pipeline.length;
+  const nProj = loans.length + neg.closing.length + neg.pipeline.length;
+  const secured = live.length + neg.closing.length;
   const card = (big, label, sub) => `<div class="dt-card"><div class="dt-big">${big}</div><div class="dt-lbl">${label}</div><div class="dt-sub">${sub}</div></div>`;
   return `<div class="sl"><div class="sl-head"><h1>VIZTA Portfolio — At a Glance</h1>
-      <div class="sl-sub">Status as of ${dmy(debtAsOf())} · facilities in the Vizta Debt Summary</div></div>
+      <div class="sl-sub">Status as of ${dmy(debtAsOf())} (financed + contract-closing facilities)</div></div>
     <div class="dt-cards">
-      ${card(loans.length, "bank facilities", Object.entries(counts).map(([k, n]) => `${n} ${k.toLowerCase()}`).join(" · "))}
-      ${card(`€${eurM(facility)}M`, "secured facilities", `${live.length} projects · cost €${eurM(cost)}M${gdv ? ` · GDV €${eurM(gdv)}M` : ""}`)}
+      ${card(nProj, "projects with bank financing", Object.entries(counts).map(([k, n]) => `${n} ${k.toLowerCase()}`).join(" · "))}
+      ${card(`€${eurM(facility)}M`, "secured facilities", `${secured} projects · cost €${eurM(cost)}M${gdv ? ` · GDV €${eurM(gdv)}M` : ""}`)}
       ${card(`€${eurM(drawn)}M`, "amount drawn", `Current LTC ${pct1(cost ? drawn / cost : null)} of financed-op cost`)}
       ${card(`€${eurM(avail)}M`, "undrawn headroom", `Max LTC ${pct1(cost ? facility / cost : null)} of financed-op cost`)}
     </div>
-    <div class="dt-take">${phBox("Key takeaways")}</div></div>`;
+    <div class="dt-take">${debtNote("key_takeaways", "Key takeaways")}</div></div>`;
 }
 
 function debtFacilitiesHtml() {
@@ -819,10 +856,16 @@ function debtFacilitiesHtml() {
     return esc((info.location || "").split("|")[0].trim() || "–");
   };
   const live = loans.filter((l) => !l.repaid);
+  const closing = debtNegotiations().closing;
+  const spread = (f) => (typeof f.spread === "number" ? `${f.spread.toFixed(3).replace(/0$/, "")}%` : "");
   const sum = (f) => live.reduce((a, l) => a + (typeof f(l) === "number" ? f(l) : 0), 0);
+  const cAmt = closing.reduce((a, p) => a + (p.financing.amount || 0), 0);
   const rows = loans.map((l) => `<tr class="${l.repaid ? "dt-repaid" : ""}"><td class="lbl"><b>${esc(debtTitle(l))}</b></td><td class="lbl">${loc(l)}</td>
     <td class="lbl">${esc(l.bank || "–")}</td><td class="lbl"><span class="dt-st ${l.repaid ? "rep" : ""}">${esc(debtStatus(l))}</span></td>
-    <td>${eurM(l.loan)}</td><td>${eurM(l.drawn)}</td><td>${eurM(l.available)}</td><td>${pct1(l.ltc)}</td><td>${pct1(l.lthc)}</td><td></td></tr>`).join("");
+    <td>${eurM(l.loan)}</td><td>${eurM(l.drawn)}</td><td>${eurM(l.available)}</td><td>${pct1(l.ltc)}</td><td>${pct1(l.lthc)}</td><td>${spread(debtFin(l))}</td></tr>`).join("")
+    + closing.map((p) => `<tr><td class="lbl"><b>${esc(p.label || p.name)}</b></td><td class="lbl">${esc(((p.info || {}).location || "").split("|")[0].trim() || "–")}</td>
+    <td class="lbl">${esc(p.financing.bank || "–")}</td><td class="lbl"><span class="dt-st cl">Contract closing</span></td>
+    <td>${eurM(p.financing.amount)}</td><td>-</td><td>${eurM(p.financing.amount)}</td><td>–</td><td>–</td><td>${spread(p.financing)}</td></tr>`).join("");
   const drawable = loans.filter((l) => typeof l.approved === "number" && typeof l.loan === "number" && Math.abs(l.approved - l.loan) > 1);
   const notes = ["LTC = Facility ÷ Total cost · LTHC = Facility ÷ Hard costs · Available = Facility − Drawn (outstanding)",
     ...(drawable.length ? [`${drawable.map((l) => esc(debtTitle(l))).join(" and ")} shown at the drawable loan amount (${drawable.map((l) => `€${eurM(l.loan)}M`).join(" / ")}), against approved facilities of ${drawable.map((l) => `€${eurM(l.approved)}M`).join(" / ")}`] : []),
@@ -832,8 +875,8 @@ function debtFacilitiesHtml() {
     <table class="dt-tbl"><thead><tr><th class="lbl">Project</th><th class="lbl">Location</th><th class="lbl">Bank</th><th class="lbl">Status</th>
       <th>Facility</th><th>Drawn</th><th>Available</th><th>LTC</th><th>LTHC</th><th>Spread</th></tr></thead>
       <tbody>${rows}</tbody>
-      <tfoot><tr><td class="lbl">TOTAL</td><td class="lbl" colspan="3">${live.length} active facilities</td><td>${eurM(sum((l) => l.loan))}</td>
-        <td>${eurM(sum((l) => l.drawn))}</td><td>${eurM(sum((l) => l.available))}</td><td colspan="3"></td></tr></tfoot></table>
+      <tfoot><tr><td class="lbl">TOTAL</td><td class="lbl" colspan="3">${live.length + closing.length} facilities (excl. repaid)</td><td>${eurM(sum((l) => l.loan) + cAmt)}</td>
+        <td>${eurM(sum((l) => l.drawn))}</td><td>${eurM(sum((l) => l.available) + cAmt)}</td><td colspan="3"></td></tr></tfoot></table>
     <div class="dt-note">${notes.join("  ·  ")}</div></div>`;
 }
 
@@ -875,6 +918,7 @@ function debtChartSvg(l) {
 }
 
 function debtLoanHtml(l) {
+  const f = debtFin(l);
   const used = typeof l.loan === "number" && l.loan ? l.totals.utilization / l.loan : null;
   const fact = (k, v) => `<div class="dt-fact"><dt>${k}</dt><dd>${v}</dd></div>`;
   const drawable = typeof l.approved === "number" && typeof l.loan === "number" && Math.abs(l.approved - l.loan) > 1;
@@ -882,7 +926,7 @@ function debtLoanHtml(l) {
     fact("Project", esc(l.project || "–")),
     fact("Lender", esc(l.bank || "–")),
     fact(drawable ? "Loan amount (drawable)" : "Loan amount", eur(l.loan) + (drawable ? `<small>approved ${eur(l.approved)}</small>` : "")),
-    fact("Financing term", ""),
+    fact("Financing term", esc(finTerm(f))),
     fact("LTC / LTHC", `${pct1(l.ltc)} / ${pct1(l.lthc)}`),
     ...(l.repaid ? [fact("Status", esc(l.status)), fact("Total historical drawdown", eur(l.totals.utilization))]
       : [fact("Cumulative drawn", eur(l.totals.utilization)), fact("Available", eur(l.available))]),
@@ -890,13 +934,39 @@ function debtLoanHtml(l) {
   ].join("");
   const bar = l.repaid ? `<div class="dt-prog"><div class="dt-prog-bar"><i style="width:100%"></i></div><b>100% of facility repaid to ${esc(l.bank || "the bank")}</b></div>`
     : `<div class="dt-prog"><div class="dt-prog-bar"><i style="width:${Math.min(100, (used || 0) * 100)}%"></i></div><b>${pct1(used)} of facility drawn</b></div>`;
-  const box = (t) => `<div class="sl-box dt-empty"><h3>${t}</h3></div>`;
+  const box = (t, html) => `<div class="sl-box dt-box"><h3>${t}</h3>${html || ""}</div>`;
+  const d = f.distributions;
+  const recap = d ? `${typeof d.max === "number" ? `<p class="dt-recap-max">Up to ${eur(d.max)}</p>` : ""}
+    ${(d.conditions || []).length ? `<ul>${d.conditions.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>` : ""}${d.note ? `<p class="dt-muted">${esc(d.note)}</p>` : ""}` : "";
+  const rate = finRate(f);
+  const slug = noteSlug(l.sheet || l.project);
   return `<div class="sl"><div class="sl-head"><h1>${esc(debtTitle(l))}</h1><div class="sl-sub">${esc(l.company || "")} · ${esc(l.bank || "")}</div></div>
     <div class="dt-loan">
       <div class="dt-left"><dl class="dt-facts">${facts}</dl>${bar}
         <div class="dt-chart-box"><h3>Cumulative drawdown vs. construction invoices (€) by month</h3>${debtChartSvg(l)}</div></div>
-      <div class="dt-right">${box("Interest rate")}${box("Security package")}${box("Possible equity recap")}</div>
+      <div class="dt-right">${box("Interest rate", rate ? `<p class="dt-rate">${rate}</p>` : "")}${debtNote(`${slug}.security`, "Security package")}
+        ${box("Possible equity recap", recap)}</div>
     </div></div>`;
+}
+
+function debtPipelineHtml() {
+  const { closing, pipeline } = debtNegotiations();
+  const m = (k) => (typeof k === "number" ? `€${(k / 1000).toFixed(1)}M` : "–");
+  const cards = pipeline.map((p) => {
+    const f = p.financing;
+    const offers = (f.offers || []).map((o) => esc(o.bank)).join(" · ");
+    return `<div class="dt-pipe"><span class="dt-st">In negotiation</span><h3>${esc(p.label || p.name)}</h3>
+      <div class="dt-muted">${esc(((p.info || {}).location || "").split("|")[0].trim())}</div>
+      <div class="dt-pipe-kpi">Total cost ${m(lastValue(p, /^TOTAL COST/i))} · GDV ${m(lastValue(p, /^TOTAL REVENUE/i))}</div>
+      ${f.bank || f.amount ? `<div class="dt-pipe-row"><b>${esc(f.bank || "")}</b>${f.amount ? ` · €${eurM(f.amount)}M` : ""}${finRate(f) ? ` · ${finRate(f)}` : ""}</div>` : ""}
+      ${offers ? `<div class="dt-pipe-row"><b>Offers:</b> ${offers}</div>` : ""}
+      ${f.stage ? `<p class="dt-muted">${esc(f.stage)}</p>` : ""}</div>`;
+  }).join("");
+  const note = closing.length ? `${closing.map((p) => `${esc(p.label || p.name)} (${esc(p.financing.bank || "")}, €${eurM(p.financing.amount)}M)`).join(" and ")}
+    ${closing.length > 1 ? "are" : "is"} already in contract negotiation - awaiting final formalization before entering the utilization phase.` : "";
+  return `<div class="sl"><div class="sl-head"><h1>Negotiation Pipeline</h1><div class="sl-sub">Projects without a contracted facility yet</div></div>
+    <div class="dt-pipes">${cards || `<div class="dt-chart-empty">No projects in negotiation</div>`}</div>
+    ${note ? `<div class="dt-tot">${note}</div>` : ""}</div>`;
 }
 
 function debtDetailHtml(l) {
@@ -923,7 +993,7 @@ function debtDetailHtml(l) {
     <div class="dt-detail">
       <div class="dt-d-left">${tables}
         <div class="dt-tot">Total to date · Utilization ${eur(l.totals.utilization)} · Drawdown ${eur(l.totals.drawdown)} · Stamp duty ${eur(l.totals.stamp)}</div></div>
-      <div class="dt-d-right"><h3>Quarterly interest</h3>${interest}<div class="sl-box dt-empty"><h3>Notes</h3></div></div>
+      <div class="dt-d-right"><h3>Quarterly interest</h3>${interest}${debtNote(`${noteSlug(l.sheet || l.project)}.notes`, "Notes")}</div>
     </div></div>`;
 }
 
