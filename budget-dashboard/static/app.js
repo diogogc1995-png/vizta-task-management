@@ -1014,7 +1014,7 @@ function debtDetailHtml(l) {
 function strategicSlides() {
   const r = data && data.strategic;
   if (!r || !(r.slides || []).length) {
-    return [{ key: "cover", title: "Strategic Report", html: () => placeholderHtml("Strategic Report", "No report yet", ["Waiting for the first weekly update"]) }];
+    return [{ key: "cover", title: "Strategic Report", html: () => placeholderHtml("Strategic Report", "Ainda sem relatório", ["À espera da primeira atualização semanal"]) }];
   }
   return r.slides.map((s, i) => ({ key: s.key || `s${i}`, title: s.nav || s.title, html: () => strategicSlideHtml(r, s), bleed: false }));
 }
@@ -1074,7 +1074,7 @@ function strategicSlideHtml(r, s) {
     return `<div class="sl-cover"><div class="sl-cover-logo">${slideLogo()}</div>
       <h1>${esc(s.title || "Strategic")} <span>${esc(s.highlight || "Report")}</span></h1>
       ${s.subtitle ? `<div class="dt-cover-sub">${esc(s.subtitle)}</div>` : ""}
-      <div class="sl-cover-date">${esc(r.edition || "")}${r.as_of ? ` · data as of ${dmy(r.as_of)}` : ""}</div></div>`;
+      <div class="sl-cover-date">${esc(r.edition || "")}${r.as_of ? ` · dados a ${dmy(r.as_of)}` : ""}</div></div>`;
   }
   const cols = s.columns || 1;
   return `<div class="sl"><div class="sl-head"><h1>${esc(s.title)}</h1>${s.subtitle ? `<div class="sl-sub">${esc(s.subtitle)}</div>` : ""}</div>
