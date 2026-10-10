@@ -960,7 +960,7 @@ function debtPipelineHtml() {
   const cards = [...closing.map((p) => [p, true]), ...pipeline.map((p) => [p, false])].map(([p, isClosing]) => {
     const f = p.financing;
     const offers = (f.offers || []).map((o) => esc(bankName(o.bank))).join(" · ");
-    return `<div class="dt-pipe ${isClosing ? "cl" : ""}"><span class="dt-st ${isClosing ? "cl" : ""}">${isClosing ? "Contract closing" : "In negotiation"}</span><h3>${esc((p.label || p.name).replace(/^Phase (\d+)\b.*$/i, "Jardins $1"))}</h3>
+    return `<div class="dt-pipe ${isClosing ? "cl" : ""}"><span class="dt-st ${isClosing ? "cl" : ""}">${isClosing ? "Contract closing" : "In negotiation"}</span><h3>${esc((p.label || p.name).replace(/\s+-\s+Lote\b.*$/i, ""))}</h3>
       <div class="dt-muted">${esc(((p.info || {}).location || "").split("|")[0].trim())}</div>
       <div class="dt-pipe-kpi">Total cost ${m(lastValue(p, /^TOTAL COST/i))} · GDV ${m(lastValue(p, /^TOTAL REVENUE/i))}</div>
       ${f.bank || f.amount ? `<div class="dt-pipe-row"><b>${esc(bankName(f.bank))}</b>${f.amount ? ` · €${eurM(f.amount)}M` : ""}${finRate(f) ? ` · ${finRate(f)}` : ""}</div>` : ""}
