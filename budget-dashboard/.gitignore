@@ -23,3 +23,5 @@ certs/
 # Textos escritos na apresentação Orion (Key Variations)
 orion_notes.json
 orion_notes.json.tmp
+# Strategic report (escrito pela tarefa semanal; análise interna)
+strategic_report.json

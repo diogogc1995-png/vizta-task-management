@@ -17,6 +17,7 @@ const PORTFOLIO_PAGES = [["summary", "Summary of all projects"], ["roadmap", "Ro
 const REPORTS = "reports";        // "Reports Diogo"
 const REPORTS_PAGES = [["sales", "Sales Report"], ["cashflow", "Cashflow Vizta REM"]];
 const DEBT = "debt";              // "Vizta Debt Summary" (slides em carrossel, dados do DFIN)
+const STRATEGIC = "strategic";    // "Strategic Report" (strategic_report.json, atualizado pela tarefa semanal)
 const ORION = "orion";            // apresentação "Project Review - Orion" (slides em carrossel)
 const validPage = (p, pg) => pg === "overview" || pagesOf(p).some(([k]) => k === pg);
 
@@ -176,10 +177,15 @@ function renderSidebar() {
   const inDb = selectedId === DEBT;
   const dslides = inDb ? debtSlides().map((sl, i) =>
     `<button type="button" class="ppage pf sub ${sl.key === page ? "active" : ""}" data-id="${DEBT}" data-page="${sl.key}"><span class="sl-n">${i + 1}</span>${esc(sl.title)}</button>`).join("") : "";
+  // + "Strategic Report" (mercado PT e mundial, projeções e recomendações; atualizado pela tarefa semanal)
+  const inSt = selectedId === STRATEGIC;
+  const sslides = inSt ? strategicSlides().map((sl, i) =>
+    `<button type="button" class="ppage pf sub ${sl.key === page ? "active" : ""}" data-id="${STRATEGIC}" data-page="${sl.key}"><span class="sl-n">${i + 1}</span>${esc(sl.title)}</button>`).join("") : "";
   const reports = `<div class="side-title side-sep">Reports Diogo</div>
     <div class="pitem open">${REPORTS_PAGES.map(([k, label]) =>
       `<button type="button" class="ppage pf ${inRp && k === page ? "active" : ""}" data-id="${REPORTS}" data-page="${k}">${label}</button>`).join("")}
-      <button type="button" class="ppage pf ${inDb ? "active" : ""}" data-id="${DEBT}" data-page="cover">Vizta Debt Summary - Presentation</button>${dslides}</div>`;
+      <button type="button" class="ppage pf ${inDb ? "active" : ""}" data-id="${DEBT}" data-page="cover">Vizta Debt Summary - Presentation</button>${dslides}
+      <button type="button" class="ppage pf ${inSt ? "active" : ""}" data-id="${STRATEGIC}" data-page="cover">Strategic Report</button>${sslides}</div>`;
   $("#sidebar").innerHTML = portfolio + orion + reports + `<div class="side-title side-sep">Projects</div>` + (html || `<div class="proj">No projects</div>`);
 }
 
@@ -251,8 +257,9 @@ function reviewQuarter(d = new Date()) {
   return q === 0 ? `Q4.${d.getFullYear() - 1}` : `Q${q}.${d.getFullYear()}`;
 }
 
-const isDeck = (id = selectedId) => id === ORION || id === DEBT;
-const deckSlides = () => (selectedId === DEBT ? debtSlides() : orionSlides());
+const isDeck = (id = selectedId) => id === ORION || id === DEBT || id === STRATEGIC;
+const deckSlides = () => (selectedId === DEBT ? debtSlides() : selectedId === STRATEGIC ? strategicSlides() : orionSlides());
+const DECK_NAMES = { [ORION]: "Project Review - Orion", [DEBT]: "Vizta Debt Summary", [STRATEGIC]: "Strategic Report" };
 
 function orionSlides() {
   if (!data) return [];
@@ -584,7 +591,7 @@ function orionHtml() {
   const n = slides.length;
   return `<section class="deck" id="deck" style="--i:${i}">
     <div class="deck-bar no-print">
-      <div><div class="kicker">${selectedId === DEBT ? "Vizta Debt Summary" : "Project Review - Orion"}</div><h1>${esc(slides[i].title)}</h1></div>
+      <div><div class="kicker">${DECK_NAMES[selectedId] || ""}</div><h1>${esc(slides[i].title)}</h1></div>
       <div class="deck-ctl">
         <button type="button" data-slide="prev" ${i === 0 ? "disabled" : ""} aria-label="Previous slide">‹</button>
         <span class="deck-count">${i + 1} / ${n}</span>
@@ -998,6 +1005,80 @@ function debtDetailHtml(l) {
         <div class="dt-tot">Total to date · Utilization ${eur(l.totals.utilization)} · Drawdown ${eur(l.totals.drawdown)} · Stamp duty ${eur(l.totals.stamp)}</div></div>
       <div class="dt-d-right"><h3>Quarterly interest</h3>${interest}</div>
     </div></div>`;
+}
+
+// ---------- Strategic Report (strategic_report.json) ----------
+// O conteúdo (dados de mercado, análise, cenários e recomendações) é escrito pela tarefa semanal no ficheiro
+// strategic_report.json; aqui só se desenha. Cada slide tem blocos genéricos: kpis, bullets, table, bars,
+// scenarios, text e callout, distribuídos numa grelha de "columns" colunas (cada bloco pode ter "span").
+function strategicSlides() {
+  const r = data && data.strategic;
+  if (!r || !(r.slides || []).length) {
+    return [{ key: "cover", title: "Strategic Report", html: () => placeholderHtml("Strategic Report", "No report yet", ["Waiting for the first weekly update"]) }];
+  }
+  return r.slides.map((s, i) => ({ key: s.key || `s${i}`, title: s.nav || s.title, html: () => strategicSlideHtml(r, s), bleed: false }));
+}
+
+function stSrc(r, ids) {
+  const list = [].concat(ids || []).map((id) => (r.sources || []).find((x) => x.id === id)).filter(Boolean);
+  return list.length ? `<span class="st-src">${list.map((x) => esc(x.name)).join(" · ")}</span>` : "";
+}
+
+const stTrend = (t) => (t === "up" ? "▲" : t === "down" ? "▼" : t === "flat" ? "▬" : "");
+
+function stBlockHtml(r, b) {
+  const head = b.title ? `<h3>${esc(b.title)}</h3>` : "";
+  const item = (x) => (typeof x === "string" ? esc(x) : `${x.strong ? `<b>${esc(x.strong)}</b> ` : ""}${esc(x.text || "")}${stSrc(r, x.source)}`);
+  switch (b.type) {
+    case "kpis":
+      return `<div class="st-kpis n${Math.min(b.items.length, 6)}">${b.items.map((k) => `<div class="st-kpi ${k.tone || ""}">
+        <div class="st-kpi-v">${esc(k.value)}${k.trend ? `<i class="st-tr ${k.trend}">${stTrend(k.trend)}</i>` : ""}</div>
+        <div class="st-kpi-l">${esc(k.label)}</div>${k.note ? `<div class="st-kpi-n">${esc(k.note)}</div>` : ""}${stSrc(r, k.source)}</div>`).join("")}</div>`;
+    case "bullets":
+      return `<div class="st-box">${head}<ul class="st-ul">${b.items.map((x) => `<li>${item(x)}</li>`).join("")}</ul></div>`;
+    case "numbered":
+      return `<div class="st-box">${head}<ol class="st-ol">${b.items.map((x) => `<li>${item(x)}</li>`).join("")}</ol></div>`;
+    case "text":
+      return `<div class="st-box">${head}<p class="st-p">${esc(b.text)}</p>${stSrc(r, b.source)}</div>`;
+    case "callout":
+      return `<div class="st-callout">${esc(b.text)}</div>`;
+    case "table":
+      return `<div class="st-box">${head}<table class="st-tbl"><thead><tr>${b.columns.map((c, i) => `<th class="${i ? "" : "lbl"}">${esc(c)}</th>`).join("")}</tr></thead>
+        <tbody>${b.rows.map((row) => `<tr class="${row._cls || ""}">${(row.cells || row).map((c, i) => `<td class="${i && /^[\s€≈+\-–\d.,%*]/.test(String(c ?? "–")) ? "" : "lbl"}">${esc(c ?? "–")}</td>`).join("")}</tr>`).join("")}</tbody></table>
+        ${b.note ? `<div class="st-note">${esc(b.note)}</div>` : ""}${stSrc(r, b.source)}</div>`;
+    case "bars": {
+      // barras horizontais: uma linha por categoria, uma barra por série
+      const all = b.series.flatMap((s) => s.values).filter((v) => typeof v === "number");
+      const max = Math.max(...all.map(Math.abs), 0) || 1;
+      const fmtV = (v) => (typeof v === "number" ? `${v.toLocaleString("pt-PT", { maximumFractionDigits: b.decimals ?? 1, minimumFractionDigits: b.decimals ?? 0 })}${b.unit || ""}` : "–");
+      return `<div class="st-box">${head}
+        ${b.series.length > 1 ? `<div class="st-legend">${b.series.map((s, j) => `<span><i class="c${j}"></i>${esc(s.name)}</span>`).join("")}</div>` : ""}
+        <div class="st-bars">${b.categories.map((c, i) => `<div class="st-bar-row ${(b.highlight || []).includes(c) ? "hl" : ""}"><span class="st-bar-l">${esc(c)}</span><span class="st-bar-g">${b.series.map((s, j) => {
+          const v = s.values[i];
+          return `<span class="st-bar-t"><span class="st-bar c${j}" style="width:${typeof v === "number" ? Math.max(1, Math.abs(v) / max * 100) : 0}%"></span></span><span class="st-bar-v">${fmtV(v)}</span>`;
+        }).join("")}</span></div>`).join("")}</div>${b.note ? `<div class="st-note">${esc(b.note)}</div>` : ""}${stSrc(r, b.source)}</div>`;
+    }
+    case "scenarios":
+      return `<div class="st-scen n${b.items.length}">${b.items.map((s) => `<div class="st-sc ${s.tone || ""}">
+        <div class="st-sc-h"><b>${esc(s.name)}</b>${s.probability ? `<span>${esc(s.probability)}</span>` : ""}</div>
+        ${s.headline ? `<p class="st-sc-t">${esc(s.headline)}</p>` : ""}
+        ${(s.metrics || []).length ? `<dl class="st-sc-m">${s.metrics.map((m) => `<div><dt>${esc(m.label)}</dt><dd>${esc(m.value)}</dd></div>`).join("")}</dl>` : ""}
+        ${(s.bullets || []).length ? `<ul class="st-ul">${s.bullets.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}</div>`).join("")}</div>`;
+    default:
+      return "";
+  }
+}
+
+function strategicSlideHtml(r, s) {
+  if (s.layout === "cover") {
+    return `<div class="sl-cover"><div class="sl-cover-logo">${slideLogo()}</div>
+      <h1>${esc(s.title || "Strategic")} <span>${esc(s.highlight || "Report")}</span></h1>
+      ${s.subtitle ? `<div class="dt-cover-sub">${esc(s.subtitle)}</div>` : ""}
+      <div class="sl-cover-date">${esc(r.edition || "")}${r.as_of ? ` · data as of ${dmy(r.as_of)}` : ""}</div></div>`;
+  }
+  const cols = s.columns || 1;
+  return `<div class="sl"><div class="sl-head"><h1>${esc(s.title)}</h1>${s.subtitle ? `<div class="sl-sub">${esc(s.subtitle)}</div>` : ""}</div>
+    <div class="st-grid c${cols}">${(s.blocks || []).map((b) => `<div class="st-cell" style="grid-column: span ${Math.min(b.span || 1, cols)}">${stBlockHtml(r, b)}</div>`).join("")}</div></div>`;
 }
 
 // ---------- Vizta Portfolio (conteúdo a definir) ----------

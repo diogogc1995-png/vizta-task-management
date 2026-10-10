@@ -40,6 +40,7 @@ IMAGES_DIR = os.path.join(BASE_DIR, "project_images")
 SALES_SNAPSHOT_PATH = os.path.join(BASE_DIR, "sales_snapshot.json")
 # Textos escritos na apresentação Orion (p.ex. "Key Variations"): ficheiro de dados, fora do Git
 NOTES_PATH = os.environ.get("BUDGET_DASHBOARD_NOTES") or os.path.join(BASE_DIR, "orion_notes.json")
+STRATEGIC_PATH = os.path.join(BASE_DIR, "strategic_report.json")
 NOTE_KEY = re.compile(r"^[\w.-]{1,120}$")
 NOTE_MAX = 5000
 # Quem está a escrever em cada caixa (só em memória; some se o browser deixar de dar sinal)
@@ -155,6 +156,7 @@ class Store:
         self.ps_try = 0
         # Vizta Debt Summary (DFIN): empréstimos bancários por projeto
         self.debt, self.debt_error, self.debt_sig, self.debt_try = [], None, None, 0
+        self.strategic, self.strategic_error, self.strategic_sig = None, None, None
         # Textos da apresentação: {chave: {"text", "updated"}}; vence sempre o último guardado
         self.notes, self.notes_sig = {}, None
         self.notes_lock = threading.Lock()
@@ -181,7 +183,7 @@ class Store:
             + [self.financing_sig, self.financing_error, self.info_sig, self.info_error,
                self.snap_sig, self.snap_error, self.rm_sig, self.rm_error,
                self.legal_sig, self.legal_error, self.ps_sig, self.ps_error, self.notes_sig,
-               self.debt_sig, self.debt_error], default=str)
+               self.debt_sig, self.debt_error, self.strategic_sig, self.strategic_error], default=str)
         self.version = hashlib.sha1(state.encode()).hexdigest()[:12]
 
     def _refresh_financing(self):
@@ -213,6 +215,7 @@ class Store:
         self._refresh_roadmap()
         self._refresh_status()
         self._refresh_debt()
+        self._refresh_strategic()
         self._refresh_notes()
 
     def _refresh_debt(self):
@@ -255,6 +258,28 @@ class Store:
                           "project_id": ids.get(financing.key(target))})
         return {"loans": loans, "error": self.debt_error,
                 "modified": self.debt_sig[0] if self.debt_sig else None}
+
+    def _refresh_strategic(self):
+        """Strategic report (strategic_report.json, escrito pela tarefa semanal): relê quando muda."""
+        path = os.path.normpath(os.path.expandvars((self.cfg.get("data") or {}).get("strategic_report") or STRATEGIC_PATH))
+        try:
+            st = os.stat(path)
+            sig = (st.st_mtime_ns, st.st_size)
+        except OSError:
+            sig = None
+        if sig == self.strategic_sig:
+            return
+        self.strategic_sig = sig
+        if sig is None:
+            self.strategic, self.strategic_error = None, None
+            return
+        try:
+            with open(path, encoding="utf-8") as f:
+                self.strategic = json.load(f)
+            self.strategic_error = None
+        except (OSError, ValueError) as e:  # a meio de ser escrito: mantém a última versão válida
+            self.strategic_error = f"Strategic report: {type(e).__name__}: {e}"
+            self.strategic_sig = None
 
     def _notes_path(self):
         return os.path.normpath(os.path.expandvars((self.cfg.get("data") or {}).get("orion_notes") or NOTES_PATH))
@@ -564,6 +589,7 @@ class Store:
                     "legal_error": self.legal_error,
                     "status_report": {"files": self.ps_files, "error": self.ps_error, "unmatched": self.ps_unmatched},
                     "orion_notes": self.notes,
+                    "strategic": self.strategic, "strategic_error": self.strategic_error,
                     # entradas do project_info.json sem projeto no dashboard (p.ex. Turquesa, só no Summary)
                     "info_extra": [v for k, v in self.info.items() if k not in ids],
                     "roadmap": {"rows": [{**r, "project_id": ids.get(financing.key(r["project"])) if r.get("project") else None}

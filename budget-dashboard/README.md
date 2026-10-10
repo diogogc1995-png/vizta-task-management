@@ -196,6 +196,19 @@ Key takeaways (e o Security package sem dados) são texto editável nos slides, 
 Variations do Orion (`orion_notes.json`, chaves `debt.*`; vence o último a guardar, com o aviso
 "X está a escrever…").
 
+## Strategic Report
+
+Apresentação em slides (menu "Reports Diogo" → *Strategic Report*) com a leitura do mercado residencial
+português e mundial, a comparação Vizta vs mercado, cenários a 12–24 meses e recomendações para discussão
+interna. O conteúdo vem de `strategic_report.json` (confidencial, fora do Git), escrito por uma tarefa
+agendada do Claude que corre todas as segundas de manhã: visita as fontes (INE, idealista, Confidencial
+Imobiliário, Diário Imobiliário, APPII, CFP, FT, Bloomberg, ...), lê os dados internos do dashboard
+(`/api/projects`) e reescreve o relatório. O dashboard relê o ficheiro quando muda.
+
+Estrutura: `sources` (fontes e estado de acesso), `history` (indicadores-chave por semana, para gráficos de
+evolução) e `slides`, cada um com blocos genéricos (`kpis`, `bullets`/`numbered`, `text`, `callout`,
+`table`, `bars`, `scenarios`) numa grelha de 1–3 colunas.
+
 ## Vizta Portfolio
 
 No topo do menu, o item "Vizta Portfolio" tem as páginas *Summary of all projects*, *Roadmap* e *Projects financing overview*.
