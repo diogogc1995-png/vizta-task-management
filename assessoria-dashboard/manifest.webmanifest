@@ -1,0 +1,9 @@
+{
+  "name": "Assessoria DC & HC",
+  "short_name": "DC & HC",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f4f4f1",
+  "theme_color": "#1f3a5f",
+  "icons": [{ "src": "assets/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
