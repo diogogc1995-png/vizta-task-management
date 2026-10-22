@@ -29,6 +29,8 @@ function savePref(k, v) {
   try { localStorage.setItem("bd." + k, JSON.stringify(v)); } catch (e) { /* sem storage */ }
 }
 const openGroups = new Set(loadPref("openGroups", []));
+const closedGroups = new Set();  // grupos fechados à mão, mesmo com o projeto selecionado lá dentro
+const collapsedProj = new Set();  // projetos selecionados com o submenu recolhido (seta)
 const openRubrics = new Set();               // rubricas abertas: `${projectId}|${índice da linha}`
 
 const $ = (sel) => document.querySelector(sel);
@@ -145,15 +147,16 @@ function renderSidebar() {
   // Cada projeto tem um dropdown com as suas páginas (Project KPIs / Financing / Sales)
   const btn = (p, sub) => {
     const sel = p.id === selectedId;
-    const pages = sel ? `<div class="proj-pages">${pagesOf(p).map(([k, label]) =>
+    const open = sel && !collapsedProj.has(p.id);
+    const pages = open ? `<div class="proj-pages">${pagesOf(p).map(([k, label]) =>
       `<button type="button" class="ppage ${sub ? "sub" : ""} ${k === page ? "active" : ""}" data-id="${p.id}" data-page="${k}">${label}</button>`).join("")}</div>` : "";
-    return `<div class="pitem ${sel ? "open" : ""}"><button type="button" class="proj ${sub ? "sub" : ""} ${sel ? "active" : ""} ${sel && page === "overview" ? "current" : ""}"
+    return `<div class="pitem ${open ? "open" : ""}"><button type="button" class="proj ${sub ? "sub" : ""} ${sel ? "active" : ""} ${sel && page === "overview" ? "current" : ""}"
       data-id="${p.id}" title="${esc(p.file)} › ${esc(p.sheet)}"><span>${esc(p.label || p.name)}</span><span class="chev" aria-hidden="true"></span></button>${pages}</div>`;
   };
   const html = (data.menu || []).map((m) => {
     if (m.item) return byId[m.item] ? btn(byId[m.item], false) : "";
     const items = m.items.map((id) => byId[id]).filter(Boolean);
-    const open = openGroups.has(m.group) || items.some((p) => p.id === selectedId);
+    const open = !closedGroups.has(m.group) && (openGroups.has(m.group) || items.some((p) => p.id === selectedId));
     return `<div class="mgroup ${open ? "open" : ""}">
       <button type="button" class="mgroup-head ${items.some((p) => p.id === selectedId) ? "has-active" : ""}" data-group="${esc(m.group)}">
         <span>${esc(m.group)}</span><span class="chev" aria-hidden="true"></span></button>
@@ -1935,7 +1938,8 @@ $("#sidebar").addEventListener("click", (e) => {
     const wrap = g.parentElement;
     const open = !wrap.classList.contains("open");
     wrap.classList.toggle("open", open);
-    if (open) openGroups.add(g.dataset.group); else openGroups.delete(g.dataset.group);
+    if (open) { openGroups.add(g.dataset.group); closedGroups.delete(g.dataset.group); }
+    else { openGroups.delete(g.dataset.group); closedGroups.add(g.dataset.group); }
     savePref("openGroups", [...openGroups]);
     return;
   }
@@ -1946,7 +1950,14 @@ $("#sidebar").addEventListener("click", (e) => {
   }
   const b = e.target.closest(".proj[data-id]");
   if (!b) return;
+  // Seta do projeto selecionado: recolhe / volta a abrir o submenu, sem mudar de página
+  if (e.target.closest(".chev") && b.dataset.id === selectedId) {
+    if (collapsedProj.has(b.dataset.id)) collapsedProj.delete(b.dataset.id); else collapsedProj.add(b.dataset.id);
+    renderSidebar();
+    return;
+  }
   // Projeto: abre o dropdown das páginas e mostra o resumo do projeto
+  collapsedProj.delete(b.dataset.id);
   select(b.dataset.id, "overview");
 });
 
