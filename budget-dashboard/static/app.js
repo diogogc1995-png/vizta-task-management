@@ -409,7 +409,7 @@ function applyPresence() {
 }
 
 async function pollPresence() {
-  if (!isDeck() || document.hidden) return;
+  if (document.hidden || !document.querySelector("[data-note-presence]")) return;
   try {
     const res = await fetch(`/api/orion-presence?client=${encodeURIComponent(clientId)}`, { cache: "no-store" });
     presenceMap = await res.json();
@@ -429,7 +429,7 @@ let reloadAfterEdit = false;  // chegaram dados novos enquanto se escrevia: atua
 async function saveNote(el) {
   const key = el.dataset.note;
   clearTimeout(noteTimers[key]);
-  const text = el.innerText.replace(/\n$/, "");
+  const text = (el.tagName === "TEXTAREA" ? el.value : el.innerText).replace(/\n$/, "");
   const cur = (data.orion_notes || {})[key];
   if (cur ? cur.text === text : !text) return;  // nada mudou
   document.querySelectorAll(`[data-note-meta="${CSS.escape(key)}"]`).forEach((m) => (m.textContent = "Saving…"));
@@ -1753,9 +1753,91 @@ function reportHtml(orig) {
     ${tools}
     <table class="pr"><thead>${head}</thead><tbody>${body}</tbody></table>
     ${notes}${kpis}${after}
+    ${prNotesHtml(orig)}
     ${(orig.views || []).map((v, i) => viewTableHtml(orig, v, i)).join("")}
   </section>`;
 }
+
+// ---------- Notas do Project Review (aba Project KPIs) ----------
+// Uma nota por Project Review (data da coluna mais recente do quadro), guardada no servidor como os
+// Key Variations (orion_notes.json, chave "kpi.<projeto>.<AAAA-MM-DD>"; vence o último a guardar).
+// Escrita com marcação simples: "# título", "## subtítulo", "- item" (2 espaços por nível), **negrito**.
+function prReviewDate(p) {
+  const c = p.columns[p.columns.length - 1];
+  const m = c && c.lines.join(" ").match(/(\d{1,2})\s*\/\s*(\d{1,2})\s*\/\s*(\d{4})/);
+  return m ? `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}` : null;
+}
+
+function mdHtml(text) {
+  const inline = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/(^|[^*])\*([^*]+)\*/g, "$1<i>$2</i>");
+  let html = "", depth = 0, para = [];
+  const flush = () => { if (para.length) { html += `<p>${para.map(inline).join("<br>")}</p>`; para = []; } };
+  const setDepth = (d) => {
+    while (depth < d) { html += "<ul>"; depth++; }
+    while (depth > d) { html += "</ul>"; depth--; }
+  };
+  for (const raw of String(text || "").replace(/\t/g, "  ").split("\n")) {
+    const li = raw.match(/^(\s*)[-*•◦]\s+(.*)$/);
+    if (li) {
+      flush();
+      setDepth(Math.floor(li[1].length / 2) + 1);
+      html += `<li>${inline(li[2])}</li>`;
+      continue;
+    }
+    const h = raw.match(/^(#{1,3})\s+(.*)$/);
+    if (h) { flush(); setDepth(0); html += `<h${h[1].length + 2}>${inline(h[2])}</h${h[1].length + 2}>`; continue; }
+    if (!raw.trim()) { flush(); setDepth(0); continue; }
+    if (depth) setDepth(0);
+    para.push(raw.trim());
+  }
+  flush();
+  setDepth(0);
+  return html;
+}
+
+const prNoteEditing = new Set();  // chaves das notas abertas para edição
+
+function prNotesHtml(p) {
+  const date = prReviewDate(p);
+  if (!date) return "";
+  const prefix = `kpi.${noteSlug(p.name)}.`;
+  const key = prefix + date;
+  const notes = data.orion_notes || {};
+  const n = notes[key];
+  const editing = prNoteEditing.has(key);
+  const body = editing
+    ? `<textarea class="prn-text" data-note="${esc(key)}" spellcheck="false" placeholder="# Título&#10;- item&#10;  - sub-item&#10;**negrito**">${esc(n ? n.text : "")}</textarea>
+       <div class="prn-help">Marcação: <code># título</code> · <code>## subtítulo</code> · <code>- item</code> (2 espaços por nível) · <code>**negrito**</code></div>`
+    : n && n.text ? `<div class="prn-md">${mdHtml(n.text)}</div>` : `<div class="prn-empty">No notes for this Project Review yet.</div>`;
+  const older = Object.keys(notes).filter((k) => k.startsWith(prefix) && k !== key && notes[k].text).sort().reverse();
+  return `<div class="pr-notes" data-prn="${esc(key)}">
+    <div class="prn-head"><h2>Notes <span>Project Review ${dmy(date)}</span></h2>
+      <button type="button" class="prn-btn no-print" data-prn-edit="${esc(key)}">${editing ? "Done" : n && n.text ? "Edit" : "Add notes"}</button></div>
+    ${body}
+    <div class="prn-foot"><span class="sl-note-presence" data-note-presence="${esc(key)}" hidden></span><span class="sl-note-meta" data-note-meta="${esc(key)}">${noteMeta(n)}</span></div>
+    ${older.map((k) => `<details class="prn-old"><summary>Project Review ${dmy(k.slice(prefix.length))}</summary><div class="prn-md">${mdHtml(notes[k].text)}</div></details>`).join("")}
+  </div>`;
+}
+
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-prn-edit]");
+  if (!b) return;
+  const key = b.dataset.prnEdit;
+  const ta = document.querySelector(`textarea[data-note="${CSS.escape(key)}"]`);
+  const done = () => {
+    if (prNoteEditing.has(key)) prNoteEditing.delete(key); else prNoteEditing.add(key);
+    renderMain();
+    const t = document.querySelector(`textarea[data-note="${CSS.escape(key)}"]`);
+    if (t) { t.focus(); t.style.height = Math.max(240, t.scrollHeight + 4) + "px"; }
+  };
+  if (ta) saveNote(ta).then(done); else done();
+});
+document.addEventListener("input", (e) => {
+  if (e.target.classList && e.target.classList.contains("prn-text")) {
+    e.target.style.height = "auto";
+    e.target.style.height = Math.max(240, e.target.scrollHeight + 4) + "px";
+  }
+});
 
 // Outros quadros da mesma folha do Project Review (p.ex. NOLA: "effective cost per item view")
 function viewTableHtml(p, t, i) {

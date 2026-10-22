@@ -196,6 +196,15 @@ Key takeaways (e o Security package sem dados) são texto editável nos slides, 
 Variations do Orion (`orion_notes.json`, chaves `debt.*`; vence o último a guardar, com o aviso
 "X está a escrever…").
 
+## Notas do Project Review
+
+Na aba *Project KPIs* de cada projeto há um bloco **Notes** por baixo do quadro, ligado ao Project Review
+mais recente do quadro (a data da última coluna). Carrega-se em *Edit* / *Add notes*, escreve-se com marcação
+simples (`# título`, `## subtítulo`, `- item` com 2 espaços por nível, `**negrito**`) e *Done* mostra o texto
+formatado. Guarda sozinho no servidor (`orion_notes.json`, chave `kpi.<projeto>.<AAAA-MM-DD>`), vence o
+último a guardar e aparece o aviso "X está a escrever…". Quando chega um Project Review novo, começa uma nota
+nova; as anteriores ficam por baixo, para consulta.
+
 ## Strategic Report
 
 Apresentação em slides (menu "Reports Diogo" → *Strategic Report*) com a leitura do mercado residencial

@@ -42,7 +42,7 @@ SALES_SNAPSHOT_PATH = os.path.join(BASE_DIR, "sales_snapshot.json")
 NOTES_PATH = os.environ.get("BUDGET_DASHBOARD_NOTES") or os.path.join(BASE_DIR, "orion_notes.json")
 STRATEGIC_PATH = os.path.join(BASE_DIR, "strategic_report.json")
 NOTE_KEY = re.compile(r"^[\w.-]{1,120}$")
-NOTE_MAX = 5000
+NOTE_MAX = 20000
 # Quem está a escrever em cada caixa (só em memória; some se o browser deixar de dar sinal)
 PRESENCE_TTL = 12
 CLIENT_ID = re.compile(r"^[\w-]{6,64}$")
