@@ -1753,8 +1753,8 @@ function reportHtml(orig) {
     ${tools}
     <table class="pr"><thead>${head}</thead><tbody>${body}</tbody></table>
     ${notes}${kpis}${after}
-    ${prNotesHtml(orig)}
     ${(orig.views || []).map((v, i) => viewTableHtml(orig, v, i)).join("")}
+    ${prNotesHtml(orig)}
   </section>`;
 }
 
