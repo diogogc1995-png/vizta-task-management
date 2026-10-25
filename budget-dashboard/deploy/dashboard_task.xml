@@ -44,8 +44,8 @@
   </Settings>
   <Actions Context="Author">
     <Exec>
-      <Command>powershell.exe</Command>
-      <Arguments>-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "__DIR__\start_dashboard.ps1"</Arguments>
+      <Command>wscript.exe</Command>
+      <Arguments>"__DIR__\start_dashboard.vbs"</Arguments>
       <WorkingDirectory>__DIR__</WorkingDirectory>
     </Exec>
   </Actions>

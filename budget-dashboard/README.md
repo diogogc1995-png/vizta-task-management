@@ -391,6 +391,8 @@ Para parar, fecha a janela ou carrega em Ctrl+C.
 
 A tarefa "Dashboard Budgets (manter ligado)" do Agendador de Tarefas do Windows (só do utilizador, sem
 administrador) corre `start_dashboard.ps1` ao entrar no PC, ao acordar da suspensão e de 5 em 5 minutos.
+Corre através de `start_dashboard.vbs` (wscript), para não abrir nenhuma janela: o PowerShell sozinho
+mostra a consola por um instante, mesmo com `-WindowStyle Hidden`.
 
 - O script arranca o dashboard em segundo plano, sem janela, se ainda não estiver a correr; se já estiver, não faz nada. Não abre o browser.
 - Os registos ficam em `%TEMP%\budget_app.log` (e `budget_app.err.log`).
