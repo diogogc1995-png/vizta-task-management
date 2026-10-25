@@ -45,8 +45,8 @@
   <Actions Context="Author">
     <Exec>
       <Command>powershell.exe</Command>
-      <Arguments>-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\Apps\vizta-task-management\budget-dashboard\start_dashboard.ps1"</Arguments>
-      <WorkingDirectory>C:\Apps\vizta-task-management\budget-dashboard</WorkingDirectory>
+      <Arguments>-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "__DIR__\start_dashboard.ps1"</Arguments>
+      <WorkingDirectory>__DIR__</WorkingDirectory>
     </Exec>
   </Actions>
 </Task>

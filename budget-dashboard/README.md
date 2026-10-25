@@ -387,20 +387,21 @@ Passos, pedido ao IT e configuração do IIS: [deploy/DEPLOY.md](deploy/DEPLOY.m
 
 Para parar, fecha a janela ou carrega em Ctrl+C.
 
-### Arrancar sozinho com o Windows
+### Arrancar sozinho com o Windows (e manter ligado)
 
-O atalho "Dashboard Budgets" na pasta de Arranque do Windows (`Win+R` → `shell:startup`) corre
-`start_dashboard.ps1` quando entras no PC.
+A tarefa "Dashboard Budgets (manter ligado)" do Agendador de Tarefas do Windows (só do utilizador, sem
+administrador) corre `start_dashboard.ps1` ao entrar no PC, ao acordar da suspensão e de 5 em 5 minutos.
 
-- O script arranca o dashboard em segundo plano, sem janela, se ainda não estiver a correr. Não abre o browser.
-- Os registos ficam em `%TEMP%\budget_app.log`.
-- Para parar o dashboard: Gestor de Tarefas → `python.exe`.
-- Para deixar de arrancar com o Windows: apaga o atalho da pasta de Arranque.
+- O script arranca o dashboard em segundo plano, sem janela, se ainda não estiver a correr; se já estiver, não faz nada. Não abre o browser.
+- Os registos ficam em `%TEMP%\budget_app.log` (e `budget_app.err.log`).
+- Para parar o dashboard: Gestor de Tarefas → `python.exe` (volta a arrancar na verificação seguinte; para o parar de vez, desativa a tarefa).
+- Para deixar de arrancar com o Windows: Agendador de Tarefas → desativar ou apagar a tarefa.
 
-O atalho aponta para:
+A definição da tarefa está em `deploy/dashboard_task.xml`. Para a criar noutro PC, troca `__USER__` (o utilizador
+Windows) e `__DIR__` (a pasta da app) e importa-a:
 
 ```bash
-powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "<pasta>\start_dashboard.ps1"
+schtasks /Create /TN "Dashboard Budgets (manter ligado)" /XML deploy\dashboard_task.xml
 ```
 
 ## Notas
