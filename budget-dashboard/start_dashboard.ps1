@@ -1,5 +1,6 @@
 # Arranca o dashboard em segundo plano (sem janela) se ainda não estiver a correr.
-# Usado pelo atalho na pasta de Arranque do Windows (ver README: "Arrancar sozinho com o Windows").
+# Usado pela tarefa "Dashboard Budgets (manter ligado)" do Agendador de Tarefas (ver README: "Arrancar sozinho com o Windows").
+# Se o dashboard já estiver a correr, não faz nada; por isso pode correr de 5 em 5 minutos.
 $dir = $PSScriptRoot
 $python = Join-Path $dir ".venv\Scripts\python.exe"
 $port = 8765
