@@ -886,3 +886,14 @@ table.st-tbl tr.hl td { font-weight: 700; background: var(--peach-light); }
 .sl-or { display: block; overflow: visible; min-height: 0; }
 .sl-or .or-body { overflow: visible; margin: 0; padding: 0; }
 .sl-pr-side .sl-note-text { overflow: visible; }
+
+/* Modo apresentação (Present = ecrã inteiro) e PDF: sem botões de edição, sem "Click to write…"/"Saved…"
+   e sem linhas vazias nas Opportunities / Risks. */
+#deck:fullscreen .or-add, #deck:fullscreen .or-del,
+#deck:fullscreen .sl-note-meta, #deck:fullscreen .sl-note-presence { display: none !important; }
+#deck:fullscreen .sl-note-text:empty::before { content: none; }
+#deck:fullscreen .sl-note-text, #deck:fullscreen .or-row input { pointer-events: none; }
+#deck:fullscreen .or-row input::placeholder { color: transparent; }
+#deck:fullscreen .or-row:has(.or-txt:placeholder-shown):has(.or-val:placeholder-shown),
+.print-only .or-row:has(.or-txt:placeholder-shown):has(.or-val:placeholder-shown) { display: none; }
+.print-only .or-row input::placeholder { color: transparent; }
