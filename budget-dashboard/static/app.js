@@ -528,8 +528,8 @@ function prSlideHtml(p, name, t = p, sub = "", keyVariations = phBox("Key Variat
     <div class="sl-pr-body">
       <div class="sl-pr-main"><table class="sl-prt"><thead>${head}</thead><tbody>${body}</tbody>${kpis}</table>
         <div class="sl-src">Source: ${esc(p.file || "")} › ${esc(p.sheet)}${t.footnote ? ` · ${esc(t.footnote)}` : ""}</div></div>
-      <div class="sl-pr-side">${keyVariations}${slideFinancingHtml(p.financing, (p.pr_support || {}).financing)}
-        ${orKey ? oppRiskHtml(orKey) : phBox("Opportunities / Risks")}${suHtml((p.pr_support || {}).su)}</div>
+      <div class="sl-pr-side"><div class="sl-pr-side-in">${keyVariations}${slideFinancingHtml(p.financing, (p.pr_support || {}).financing)}
+        ${orKey ? oppRiskHtml(orKey) : phBox("Opportunities / Risks")}${suHtml((p.pr_support || {}).su)}</div></div>
     </div></div>`;
 }
 
@@ -638,12 +638,17 @@ document.addEventListener("focusout", (e) => {
     if (reloadAfterEdit && !(a && a.closest && a.closest("[data-note], [data-or]"))) { reloadAfterEdit = false; load(); }
   });
 });
+document.addEventListener("input", (e) => {
+  const sl = e.target.closest && e.target.closest(".slide");
+  if (sl && e.target.closest(".sl-pr-side")) fitSide(sl);
+});
 document.addEventListener("click", (e) => {
   const add = e.target.closest("[data-or-add]");
   if (add) {
     const sec = add.closest("[data-or-sec]");
     sec.querySelector(".or-rows").insertAdjacentHTML("beforeend", orRow(add.dataset.orAdd));
     sec.querySelector(".or-rows .or-row:last-child .or-txt").focus();
+    fitSide(add.closest(".slide"));
     return;
   }
   const del = e.target.closest(".or-del");
@@ -651,6 +656,7 @@ document.addEventListener("click", (e) => {
     const box = del.closest("[data-or]"), rows = del.closest(".or-rows");
     del.closest(".or-row").remove();
     if (!rows.children.length) rows.insertAdjacentHTML("beforeend", orRow(rows.closest("[data-or-sec]").dataset.orSec));
+    fitSide(box.closest(".slide"));
     orSave(box);
   }
 });
@@ -750,11 +756,37 @@ function slideHtml(sl, k) {
   </div></div>`;
 }
 
+// Coluna da direita dos slides de Project Review (Key Variations, Financing, Opportunities/Risks, S&U):
+// quando o texto não cabe na altura do slide, reduz só esta coluna (letra mais pequena), para que tudo
+// apareça no slide e no PDF sem mexer no quadro da esquerda.
+function fitSide(sl) {
+  const side = sl.querySelector(".sl-pr-side"), inner = side && side.querySelector(".sl-pr-side-in");
+  if (!inner) return;
+  const fits = () => {
+    const last = inner.lastElementChild;
+    return !last || last.getBoundingClientRect().bottom <= side.getBoundingClientRect().bottom + 0.5;
+  };
+  const apply = (k) => {
+    inner.style.zoom = k === 1 ? "" : k;
+    inner.style.width = k === 1 ? "" : `${side.clientWidth / k}px`;
+  };
+  apply(1);
+  if (!side.clientHeight || fits()) return;
+  let lo = 0.35, hi = 1;
+  for (let i = 0; i < 9; i++) {
+    const mid = (lo + hi) / 2;
+    apply(mid);
+    if (fits()) lo = mid; else hi = mid;
+  }
+  apply(lo);
+}
+
 // Escala as telas para a largura disponível e reduz o conteúdo que não cabe na tela.
 function fitSlides(root = document) {
   root.querySelectorAll(".slide").forEach((sl) => {
     const w = sl.clientWidth, h = sl.clientHeight;
     if (w) sl.style.setProperty("--s", h ? Math.min(w / SLIDE_W, h / (SLIDE_W * 9 / 16)) : w / SLIDE_W);
+    fitSide(sl);
     const body = sl.querySelector(".slide-body"), fit = sl.querySelector(".slide-fit");
     if (!body || !fit) return;
     fit.style.zoom = "";

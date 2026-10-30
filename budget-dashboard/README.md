@@ -206,6 +206,9 @@ No lado direito de cada slide de Project Review:
   `<projeto>.<slide>.opp_risks`), como os Key Variations.
 - **Sources & Uses**: gráfico circular com Financing / Equity / Sales e o total de custos (Uses), em M€.
 
+Se o texto dos Key Variations ou das Opportunities / Risks não couber, a coluna da direita reduz o tamanho
+da letra sozinha (sem scroll), para que tudo apareça no slide e no PDF; o quadro da esquerda não muda.
+
 O ficheiro de apoio ao PR configura-se em `config.json` → `"pr_support"` (`file`, e `projects`: nome da linha
 → nome no quadro). Lê-se a folha `Financing v.2` (e `Financing`, oculta, para os projetos que só lá estão):
 o quadro de financiamento (Capex, Fin/Eq/Sales, spread, recap, garantias) e a tabela "Data for graphs -

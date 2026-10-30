@@ -877,3 +877,12 @@ table.st-tbl tr.hl td { font-weight: 700; background: var(--peach-light); }
 .sl-pr-side .sl-box h3 { margin-bottom: 6px; }
 .sl-pr-side > .sl-note { flex: 0.7 1 0; min-height: 60px; }
 .sl-pr-side > .sl-or { flex: 1.6 1 0; }
+/* Coluna da direita: altura natural das caixas; se não couber, fitSide() reduz a coluna (sem scroll). */
+.sl-pr-side { display: block; overflow: hidden; }
+.sl-pr-side-in { display: flex; flex-direction: column; gap: 14px; min-height: 100%; }
+.sl-pr-side-in > * { flex: none; }
+.sl-pr-side-in > .sl-note { flex: 1 0 auto; min-height: 70px; }
+.sl-pr-side-in > .sl-ph { flex: 1 0 auto; min-height: 80px; }
+.sl-or { display: block; overflow: visible; min-height: 0; }
+.sl-or .or-body { overflow: visible; margin: 0; padding: 0; }
+.sl-pr-side .sl-note-text { overflow: visible; }
