@@ -897,3 +897,10 @@ table.st-tbl tr.hl td { font-weight: 700; background: var(--peach-light); }
 #deck:fullscreen .or-row:has(.or-txt:placeholder-shown):has(.or-val:placeholder-shown),
 .print-only .or-row:has(.or-txt:placeholder-shown):has(.or-val:placeholder-shown) { display: none; }
 .print-only .or-row input::placeholder { color: transparent; }
+/* Sources & Uses: valores sempre numa linha */
+.su-wrap { gap: 10px; }
+.su-pie { width: 104px; height: 104px; }
+.su-leg { font-size: 12.5px; min-width: 0; }
+.su-leg li { grid-template-columns: 10px minmax(0, 1fr) auto 32px; gap: 5px; }
+.su-leg span, .su-leg b, .su-leg small { white-space: nowrap; }
+.su-leg span { overflow: hidden; text-overflow: ellipsis; }
