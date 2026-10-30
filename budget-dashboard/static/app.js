@@ -592,6 +592,13 @@ function prSlideHtml(p, name, t = p, sub = "", keyVariations = phBox("Key Variat
   // colunas de €/sqm sem nenhum valor diferente de zero (p.ex. "Park (Mandatory)") ficam de fora
   const sq = (t.sqm_columns || []).map((c, i) => ({ ...c, i }))
     .filter((c) => t.rows.some((r) => r.sqm && typeof r.sqm[c.i] === "number" && Math.round(r.sqm[c.i] * 100) !== 0));
+  // área da coluna; "Total" sem área no Excel = soma das outras colunas (sem estacionamento)
+  const sqArea = (c) => {
+    if (typeof c.area === "number" && c.area) return c.area;
+    if (!/^total/i.test(c.label || "")) return c.area;
+    const parts = (t.sqm_columns || []).filter((o) => o !== c && !/^total|park/i.test(o.label || "") && typeof o.area === "number");
+    return parts.length ? parts.reduce((a, o) => a + o.area, 0) : c.area;
+  };
   const sqv = (r, c) => {
     const v = r.sqm ? r.sqm[c.i] : null;
     if (typeof v !== "number") return typeof v === "string" && !v.startsWith("#") ? esc(v) : "";
@@ -599,7 +606,7 @@ function prSlideHtml(p, name, t = p, sub = "", keyVariations = phBox("Key Variat
   };
   const head = `<tr><th class="lbl">${esc(p.name)}</th>${t.columns.map((c, i) =>
     `<th class="${i === n - 1 ? "latest" : ""}">${c.lines.map(esc).join("<br>")}</th>`).join("")}<th class="delta">Δ</th>
-    ${sq.length ? `<th class="gap"></th>${sq.map((c) => `<th class="sq">${esc(c.label)}<small>${typeof c.area === "number" ? `${fmtNum(c.area)} sqm` : ""}</small></th>`).join("")}` : ""}</tr>`;
+    ${sq.length ? `<th class="gap"></th>${sq.map((c) => `<th class="sq">${esc(c.label)}<small>${typeof sqArea(c) === "number" ? `${fmtNum(sqArea(c))} sqm` : ""}</small></th>`).join("")}` : ""}</tr>`;
   let prev = null;
   const body = t.rows.map((r) => {
     const cls = [r.kind === "line" ? "" : r.kind, r.kind !== "line" && prev === "line" ? "first-total" : ""].join(" ").trim();
@@ -879,6 +886,14 @@ function fitSlides(root = document) {
     if (w) sl.style.setProperty("--s", h ? Math.min(w / SLIDE_W, h / (SLIDE_W * 9 / 16)) : w / SLIDE_W);
     fitSide(sl);
     sl.querySelectorAll(".pc-host").forEach(drawPace);
+    // quadro do Project Review sempre com a mesma altura (ocupa a altura do slide, mesmo com menos linhas)
+    sl.querySelectorAll(".sl-pr-main").forEach((m) => {
+      const t = m.querySelector("table.sl-prt");
+      if (!t) return;
+      t.style.height = "";
+      const avail = m.clientHeight - [...m.children].filter((c) => c !== t && c.offsetParent).reduce((a, c) => a + c.offsetHeight, 0);
+      if (avail > t.offsetHeight) t.style.height = `${avail}px`;
+    });
     const body = sl.querySelector(".slide-body"), fit = sl.querySelector(".slide-fit");
     if (!body || !fit) return;
     fit.style.zoom = "";

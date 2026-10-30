@@ -963,3 +963,7 @@ table.st-tbl tr.hl td { font-weight: 700; background: var(--peach-light); }
 /* Present / PDF: secção de oportunidades ou riscos sem linhas preenchidas não aparece */
 #deck:fullscreen .or-sec:not(:has(.or-txt:not(:placeholder-shown))):not(:has(.or-val:not(:placeholder-shown))),
 .print-only .or-sec:not(:has(.or-txt:not(:placeholder-shown))):not(:has(.or-val:not(:placeholder-shown))) { display: none; }
+/* linhas um pouco mais baixas: os quadros de 18 linhas cabem sem reduzir o slide; o espaço que sobra é
+   repartido pelas linhas (fitSlides estica o quadro até à altura do slide), por isso todos ficam iguais */
+table.sl-prt td { padding-top: 2px; padding-bottom: 2px; }
+table.sl-prt tbody.sl-kpis tr.sl-kpi-h td { padding-top: 16px; }
