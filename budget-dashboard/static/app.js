@@ -495,6 +495,8 @@ document.addEventListener("focusout", (e) => {
   const box = ed.closest(".sl-mdnote"), txt = ed.innerText.replace(/\n$/, "");
   box.querySelector(".sl-note-md").innerHTML = txt.trim() ? mdHtml(txt) : `<span class="sl-md-empty">Click to write… (- item, **bold**)</span>`;
   box.classList.remove("editing");
+  const sl = box.closest(".slide");
+  if (sl) fitSide(sl);
 });
 
 // Evolução mensal de CPCV (PSPA) e reservas, em M€ (Master Vendas, folha "Master Real Price")
@@ -560,6 +562,15 @@ function commercialSlideHtml(p, name, sub, statusKey) {
     </div></div>`;
 }
 
+// Slide "Timeline & key points": roadmap do projeto em cima (por preencher) e pontos para discussão
+// editáveis em baixo; o texto encolhe para caber na caixa (sem scroll, o resultado é um PDF).
+function timelineSlideHtml(name, sub, key) {
+  return `<div class="sl sl-tl"><div class="sl-head"><h1>${esc(name)}${sub ? ` <small>${esc(sub)}</small>` : ""}</h1></div>
+    <div class="sl-tl-body">${phBox("Project timeline (roadmap)", "sl-tl-road")}
+      <div class="sl-tl-kp sl-fit"><div class="sl-fit-in">${noteMdBox(key, "Key points for discussion")}</div></div>
+    </div></div>`;
+}
+
 const phBox = (label, cls = "") => `<div class="sl-ph ${cls}"><span>${esc(label)}</span><small>To be provided</small></div>`;
 
 function projectSlideHtml(k, p, e, name) {
@@ -571,7 +582,7 @@ function projectSlideHtml(k, p, e, name) {
     return overviewHtml(p || { name, label: name, info: e.info || {}, rows: [], kpis: [], columns: [], sheet: "" });
   }
   if (k === "commercial") return commercialSlideHtml(p, name, sub(k), `${noteSlug(e.project)}.commercial.status`);
-  if (k === "timeline") return ph(["Project timeline", "Key points for discussion – Planning"]);
+  if (k === "timeline") return timelineSlideHtml(name, sub(k), `${noteSlug(e.project)}.timeline.key_points`);
   if (k === "variations") {
     return p ? prSlideHtml(p, name, p, sub(k), kv.html, `${noteSlug(e.project)}.${k}.opp_risks`) : ph(["Project Review table", kv, "Financing", "Opportunities / Risks", "Sources & Uses"]);
   }
@@ -738,7 +749,7 @@ document.addEventListener("focusout", (e) => {
 });
 document.addEventListener("input", (e) => {
   const sl = e.target.closest && e.target.closest(".slide");
-  if (sl && e.target.closest(".sl-pr-side")) fitSide(sl);
+  if (sl && e.target.closest(".sl-pr-side, .sl-fit")) fitSide(sl);
 });
 document.addEventListener("click", (e) => {
   const add = e.target.closest("[data-or-add]");
@@ -858,7 +869,7 @@ function slideHtml(sl, k) {
 // quando o texto não cabe na altura do slide, reduz só esta coluna (letra mais pequena), para que tudo
 // apareça no slide e no PDF sem mexer no quadro da esquerda.
 function fitSide(sl) {
-  const side = sl.querySelector(".sl-pr-side"), inner = side && side.querySelector(".sl-pr-side-in");
+  const side = sl.querySelector(".sl-pr-side, .sl-fit"), inner = side && side.querySelector(".sl-pr-side-in, .sl-fit-in");
   if (!inner) return;
   const fits = () => {
     const last = inner.lastElementChild;
