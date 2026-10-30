@@ -500,27 +500,40 @@ document.addEventListener("focusout", (e) => {
 // Evolução mensal de CPCV (PSPA) e reservas, em M€ (Master Vendas, folha "Master Real Price")
 function paceChartHtml(sp) {
   if (!sp || !(sp.months || []).length) return phBox("PSPA / Reservation evolution", "sl-com-chart");
-  const W = 1000, H = 230, L = 46, R = 14, T = 26, B = 46;
+  const W = 1000, H = 250, L = 46, R = 22, T = 22, B = 52;
   const n = sp.months.length;
-  const max = Math.max(...sp.pspa, ...sp.res, 0.1) * 1.12;
+  const top = Math.max(...sp.pspa, ...sp.res, 0.1);
+  const step = [0.5, 1, 2, 5, 10, 20].find((s) => top / s <= 4) || 20;
+  const max = Math.ceil((top * 1.15) / step) * step;
   const x = (i) => L + (n > 1 ? (i * (W - L - R)) / (n - 1) : (W - L - R) / 2);
   const y = (v) => T + (H - T - B) * (1 - v / max);
-  const step = Math.max(...[1, 2, 5, 10, 20].filter((s) => max / s >= 2).slice(-1), 1);
+  const fmtM = (v) => `${(Math.round(v * 10) / 10).toLocaleString("pt-PT")}M€`;
   let grid = "";
-  for (let v = 0; v <= max; v += step) {
-    grid += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" class="pc-grid"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end" class="pc-ax">${v}M€</text>`;
+  for (let v = 0; v <= max + 1e-9; v += step) {
+    grid += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" class="pc-grid"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end" class="pc-ax">${fmtM(v)}</text>`;
   }
+  // eixo dos meses: no máximo ~18 etiquetas, inclinadas e com espaço por baixo
   const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const every = Math.max(1, Math.ceil(n / 26));
-  const xl = sp.months.map((m, i) => (i % every ? "" : `<text x="${x(i)}" y="${H - B + 14}" text-anchor="end" transform="rotate(-45 ${x(i)} ${H - B + 14})" class="pc-ax">${MON[+m.slice(5) - 1]}/${m.slice(2, 4)}</text>`)).join("");
-  const line = (vals, cls) => {
-    const d = vals.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
-    const lbl = vals.map((v, i) => (v >= 0.05 ? `<text x="${x(i)}" y="${y(v) - 5}" text-anchor="middle" class="pc-lbl ${cls}">${v.toFixed(1).replace(".", ",")}M€</text>` : "")).join("");
-    return `<path d="${d}" class="pc-line ${cls}"/>${lbl}`;
-  };
+  const every = Math.max(1, Math.ceil(n / 18));
+  const xl = sp.months.map((m, i) => (i % every ? "" : `<text x="${x(i)}" y="${H - B + 12}" text-anchor="end" transform="rotate(-40 ${x(i)} ${H - B + 12})" class="pc-ax">${MON[+m.slice(5) - 1]}/${m.slice(2, 4)}</text>`)).join("");
+  // etiquetas de valor: as maiores primeiro e sem se sobreporem (as que colidem ficam de fora)
+  const placed = [];
+  const cands = [];
+  for (const [vals, cls] of [[sp.pspa, "pspa"], [sp.res, "res"]]) {
+    vals.forEach((v, i) => { if (v >= Math.max(0.1, top * 0.08)) cands.push({ v, i, cls }); });
+  }
+  cands.sort((a, b) => b.v - a.v);
+  const labels = cands.map(({ v, i, cls }) => {
+    const t = fmtM(v), w = t.length * 6.2, h = 12, cx = Math.min(Math.max(x(i), L + w / 2), W - R - w / 2), cy = y(v) - 7;
+    const box = { x1: cx - w / 2 - 2, x2: cx + w / 2 + 2, y1: cy - h, y2: cy + 2 };
+    if (placed.some((p) => box.x1 < p.x2 && box.x2 > p.x1 && box.y1 < p.y2 && box.y2 > p.y1)) return "";
+    placed.push(box);
+    return `<text x="${cx}" y="${cy}" text-anchor="middle" class="pc-lbl ${cls}">${t}</text>`;
+  }).join("");
+  const path = (vals, cls) => `<path d="${vals.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ")}" class="pc-line ${cls}"/>`;
   return `<div class="sl-box sl-com-chart pc-box"><div class="pc-head"><h3>PSPA / Reservation evolution</h3>
       <span class="pc-leg"><i class="pspa"></i>PSPA <i class="res"></i>Reservation</span></div>
-    <svg viewBox="0 0 ${W} ${H}" class="pc-svg">${grid}${xl}${line(sp.res, "res")}${line(sp.pspa, "pspa")}</svg></div>`;
+    <svg viewBox="0 0 ${W} ${H}" class="pc-svg">${grid}${xl}${path(sp.res, "res")}${path(sp.pspa, "pspa")}${labels}</svg></div>`;
 }
 
 // Slide "Commercial status": quadro de tipologias (o mesmo da aba Sales, sempre atualizado), estado

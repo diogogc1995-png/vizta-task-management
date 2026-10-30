@@ -948,3 +948,6 @@ table.st-tbl tr.hl td { font-weight: 700; background: var(--peach-light); }
 .sl-com-sales .t-scroll { margin-bottom: 6px; }
 .pc-box { min-height: 175px; }
 .pc-svg { flex: none; height: auto; }
+.pc-ax { font-size: 12px; }
+.pc-lbl { font-size: 11px; font-weight: 700; paint-order: stroke; stroke: var(--peach-pale); stroke-width: 3px; }
+.pc-line { stroke-width: 2.4; stroke-linejoin: round; }
