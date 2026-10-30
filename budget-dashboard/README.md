@@ -220,7 +220,11 @@ Sources & Uses". Em cada novo Project Review, atualiza-se o caminho para o fiche
 - À direita, **Commercial Project Status**: texto editável (clicar para escrever; `- item`, `**negrito**`),
   guardado no servidor (`orion_notes.json`, chave `<projeto>.commercial.status`). Em Present e no PDF só se
   vê o texto formatado.
-- *Buyer Profile* e *PSPA / Reservation evolution* ficam por preencher por agora.
+- Por baixo, **PSPA / Reservation evolution**: soma mensal dos preços de aquisição das frações com CPCV
+  (PSPA) e com reserva, em M€, lida do Master Vendas (folha "Master Real Price": Acquisition Price, PSA
+  Signed Date, Reservation Date). Configura-se em `config.json` → `"sales_pace"` (`file`, e `projects`:
+  nome no Master Vendas → nome no quadro). Relê quando o ficheiro muda.
+- *Buyer Profile* fica por preencher por agora.
 
 ## Notas do Project Review
 

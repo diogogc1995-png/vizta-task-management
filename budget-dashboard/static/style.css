@@ -930,3 +930,21 @@ table.st-tbl tr.hl td { font-weight: 700; background: var(--peach-light); }
 .sl-com-sales table.typo td, .sl-com-sales table.typo th { padding: 4px 8px; }
 .sl-com-side > .sl-mdnote { min-height: 220px; }
 .sl-com-chart { min-height: 70px; }
+/* Gráfico PSPA / Reservation (slide Commercial status) */
+.pc-box { display: flex; flex-direction: column; min-height: 200px; padding-bottom: 6px; }
+.pc-head { display: flex; justify-content: space-between; align-items: baseline; }
+.pc-leg { font-size: 12px; color: var(--muted); }
+.pc-leg i { display: inline-block; width: 18px; height: 3px; vertical-align: middle; margin: 0 4px 0 10px; }
+.pc-leg i.pspa { background: #1f3a5f; } .pc-leg i.res { background: var(--orange); }
+.pc-svg { flex: 1; width: 100%; min-height: 0; }
+.pc-grid { stroke: #ead8cf; stroke-width: 1; }
+.pc-ax { font-size: 11px; fill: var(--muted); }
+.pc-line { fill: none; stroke-width: 2.2; }
+.pc-line.pspa { stroke: #1f3a5f; } .pc-line.res { stroke: var(--orange); }
+.pc-lbl { font-size: 9.5px; font-weight: 600; }
+.pc-lbl.pspa { fill: #1f3a5f; } .pc-lbl.res { fill: var(--orange); }
+.sl-com-sales table.typo { font-size: 13px; }
+.sl-com-sales table.typo td, .sl-com-sales table.typo th { padding: 2px 7px; }
+.sl-com-sales .t-scroll { margin-bottom: 6px; }
+.pc-box { min-height: 175px; }
+.pc-svg { flex: none; height: auto; }

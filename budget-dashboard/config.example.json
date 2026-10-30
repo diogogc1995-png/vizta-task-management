@@ -56,5 +56,9 @@
   "pr_support": {
     "file": "%OneDriveCommercial%/.../N_Operações/PROJECT REVIEW/<pasta do PR>/PR Apoio_AAAAMMDD.xlsx",
     "projects": {"Nome da linha no PR Apoio": "NOME NO QUADRO"}
+  },
+  "sales_pace": {
+    "file": "%OneDriveCommercial%/.../N_DFIN/CONTROLO DE GESTÃO/Mapa de Vendas/Master Vendas - NEW.xlsx",
+    "projects": {"Nome no Master Vendas": "NOME NO QUADRO"}
   }
 }

@@ -497,13 +497,39 @@ document.addEventListener("focusout", (e) => {
   box.classList.remove("editing");
 });
 
+// Evolução mensal de CPCV (PSPA) e reservas, em M€ (Master Vendas, folha "Master Real Price")
+function paceChartHtml(sp) {
+  if (!sp || !(sp.months || []).length) return phBox("PSPA / Reservation evolution", "sl-com-chart");
+  const W = 1000, H = 230, L = 46, R = 14, T = 26, B = 46;
+  const n = sp.months.length;
+  const max = Math.max(...sp.pspa, ...sp.res, 0.1) * 1.12;
+  const x = (i) => L + (n > 1 ? (i * (W - L - R)) / (n - 1) : (W - L - R) / 2);
+  const y = (v) => T + (H - T - B) * (1 - v / max);
+  const step = Math.max(...[1, 2, 5, 10, 20].filter((s) => max / s >= 2).slice(-1), 1);
+  let grid = "";
+  for (let v = 0; v <= max; v += step) {
+    grid += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" class="pc-grid"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end" class="pc-ax">${v}M€</text>`;
+  }
+  const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const every = Math.max(1, Math.ceil(n / 26));
+  const xl = sp.months.map((m, i) => (i % every ? "" : `<text x="${x(i)}" y="${H - B + 14}" text-anchor="end" transform="rotate(-45 ${x(i)} ${H - B + 14})" class="pc-ax">${MON[+m.slice(5) - 1]}/${m.slice(2, 4)}</text>`)).join("");
+  const line = (vals, cls) => {
+    const d = vals.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+    const lbl = vals.map((v, i) => (v >= 0.05 ? `<text x="${x(i)}" y="${y(v) - 5}" text-anchor="middle" class="pc-lbl ${cls}">${v.toFixed(1).replace(".", ",")}M€</text>` : "")).join("");
+    return `<path d="${d}" class="pc-line ${cls}"/>${lbl}`;
+  };
+  return `<div class="sl-box sl-com-chart pc-box"><div class="pc-head"><h3>PSPA / Reservation evolution</h3>
+      <span class="pc-leg"><i class="pspa"></i>PSPA <i class="res"></i>Reservation</span></div>
+    <svg viewBox="0 0 ${W} ${H}" class="pc-svg">${grid}${xl}${line(sp.res, "res")}${line(sp.pspa, "pspa")}</svg></div>`;
+}
+
 // Slide "Commercial status": quadro de tipologias (o mesmo da aba Sales, sempre atualizado), estado
 // comercial editável e, por agora, perfil de comprador e evolução de CPCV/reservas por preencher.
 function commercialSlideHtml(p, name, sub, statusKey) {
   const sales = p && p.sales ? typologyHtml(p.sales).replace(/^\s*<h2 class="sec">[^<]*<\/h2>/, "") : phBox("Typology report – units & amounts");
   return `<div class="sl sl-com"><div class="sl-head"><h1>${esc(name)}${sub ? ` <small>${esc(sub)}</small>` : ""}</h1></div>
     <div class="sl-com-body">
-      <div class="sl-com-main"><div class="sl-com-sales">${sales}</div>${phBox("PSPA / Reservation evolution", "sl-com-chart")}</div>
+      <div class="sl-com-main"><div class="sl-com-sales">${sales}</div>${paceChartHtml(p && p.sales_pace)}</div>
       <div class="sl-com-side">${noteMdBox(statusKey, "Commercial Project Status")}${phBox("Buyer Profile")}</div>
     </div></div>`;
 }
