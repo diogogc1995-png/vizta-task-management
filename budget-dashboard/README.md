@@ -196,6 +196,21 @@ Key takeaways (e o Security package sem dados) são texto editável nos slides, 
 Variations do Orion (`orion_notes.json`, chaves `debt.*`; vence o último a guardar, com o aviso
 "X está a escrever…").
 
+## Slides de Project Review (Orion): financiamento, oportunidades/riscos e Sources & Uses
+
+No lado direito de cada slide de Project Review:
+- **Financing**: contrato da aba Financing (`financing.json`); sem contrato (p.ex. FT Magnolia e Turquesa,
+  já reembolsados), usa o quadro do ficheiro de apoio ao PR.
+- **Opportunities / Risks**: editável no slide, com uma lista de oportunidades (valores positivos) e outra
+  de riscos (negativos), em k€, e o total calculado. Guardado no servidor (`orion_notes.json`, chave
+  `<projeto>.<slide>.opp_risks`), como os Key Variations.
+- **Sources & Uses**: gráfico circular com Financing / Equity / Sales e o total de custos (Uses), em M€.
+
+O ficheiro de apoio ao PR configura-se em `config.json` → `"pr_support"` (`file`, e `projects`: nome da linha
+→ nome no quadro). Lê-se a folha `Financing v.2` (e `Financing`, oculta, para os projetos que só lá estão):
+o quadro de financiamento (Capex, Fin/Eq/Sales, spread, recap, garantias) e a tabela "Data for graphs -
+Sources & Uses". Em cada novo Project Review, atualiza-se o caminho para o ficheiro da nova pasta.
+
 ## Notas do Project Review
 
 Na aba *Project KPIs* de cada projeto há um bloco **Notes** por baixo do quadro, ligado ao Project Review

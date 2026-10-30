@@ -98,7 +98,7 @@ async function poll() {
     const res = await fetch("/api/version", { cache: "no-store" });
     const v = (await res.json()).version;
     if (v !== version) {
-      if (document.activeElement && document.activeElement.closest && document.activeElement.closest("[data-note]")) {
+      if (document.activeElement && document.activeElement.closest && document.activeElement.closest("[data-note], [data-or]")) {
         reloadAfterEdit = true;
         setStatus(true);
         return;
@@ -462,7 +462,7 @@ document.addEventListener("focusout", (e) => {
   if (!el) return;
   stopEditing();
   saveNote(el).then(() => {
-    if (reloadAfterEdit && !document.activeElement.closest("[data-note]")) {
+    if (reloadAfterEdit && !document.activeElement.closest("[data-note], [data-or]")) {
       reloadAfterEdit = false;
       load();
     }
@@ -482,12 +482,12 @@ function projectSlideHtml(k, p, e, name) {
   if (k === "commercial") return ph(["Typology report – units & amounts", "Commercial Project Status", "Buyer Profile", "PSPA / Reservation evolution"]);
   if (k === "timeline") return ph(["Project timeline", "Key points for discussion – Planning"]);
   if (k === "variations") {
-    return p ? prSlideHtml(p, name, p, sub(k), kv.html) : ph(["Project Review table", kv, "Financing", "Opportunities / Risks", "Sources & Uses"]);
+    return p ? prSlideHtml(p, name, p, sub(k), kv.html, `${noteSlug(e.project)}.${k}.opp_risks`) : ph(["Project Review table", kv, "Financing", "Opportunities / Risks", "Sources & Uses"]);
   }
   if (k === "cost_per_item") {
     // segundo quadro da folha do Project Review (p.ex. NOLA: "effective cost per item view")
     const v = p && (p.views || [])[0];
-    return v ? prSlideHtml(p, name, v, sub(k), kv.html) : ph(["Effective cost per item view", kv, "Financing", "Opportunities / Risks"]);
+    return v ? prSlideHtml(p, name, v, sub(k), kv.html, `${noteSlug(e.project)}.${k}.opp_risks`) : ph(["Effective cost per item view", kv, "Financing", "Opportunities / Risks"]);
   }
   if (k === "contract") return ph(["Construction contract – milestones & delivery dates"]);
   if (k === "fees") return ph(["VIZTA fees – milestones, amounts & status"]);
@@ -495,7 +495,7 @@ function projectSlideHtml(k, p, e, name) {
 }
 
 // Quadro do Project Review (colunas do Excel) + €/sqm da mesma folha + caixas de comentário
-function prSlideHtml(p, name, t = p, sub = "", keyVariations = phBox("Key Variations")) {
+function prSlideHtml(p, name, t = p, sub = "", keyVariations = phBox("Key Variations"), orKey = null) {
   // t: quadro a mostrar (o principal ou outro da mesma folha, em p.views)
   const n = t.columns.length;
   // colunas de €/sqm sem nenhum valor diferente de zero (p.ex. "Park (Mandatory)") ficam de fora
@@ -528,12 +528,23 @@ function prSlideHtml(p, name, t = p, sub = "", keyVariations = phBox("Key Variat
     <div class="sl-pr-body">
       <div class="sl-pr-main"><table class="sl-prt"><thead>${head}</thead><tbody>${body}</tbody>${kpis}</table>
         <div class="sl-src">Source: ${esc(p.file || "")} › ${esc(p.sheet)}${t.footnote ? ` · ${esc(t.footnote)}` : ""}</div></div>
-      <div class="sl-pr-side">${keyVariations}${slideFinancingHtml(p.financing)}${phBox("Opportunities / Risks")}${phBox("Sources & Uses", "small")}</div>
+      <div class="sl-pr-side">${keyVariations}${slideFinancingHtml(p.financing, (p.pr_support || {}).financing)}
+        ${orKey ? oppRiskHtml(orKey) : phBox("Opportunities / Risks")}${suHtml((p.pr_support || {}).su)}</div>
     </div></div>`;
 }
 
-// Financiamento do financing.json, em resumo (estado, banco, montante, taxa, prazo)
-function slideFinancingHtml(f) {
+// Financiamento do financing.json, em resumo (estado, banco, montante, taxa, prazo); sem contrato na aba
+// Financing (p.ex. FT Magnolia, Turquesa, já reembolsados), usa o quadro do ficheiro de apoio ao PR.
+function slideFinancingHtml(f, prs) {
+  if (!f && prs) {
+    const items = [
+      ["Status", prs.status ? prs.status.charAt(0).toUpperCase() + prs.status.slice(1) : ""],
+      ["Capex", typeof prs.capex === "number" ? `${prs.capex.toFixed(1).replace(".", ",")} M€` : ""],
+      ["Financing", prs.financing], ["Equity", prs.equity], ["Sales", prs.sales],
+      ["Interest rate", prs.margin], ["Recap", prs.recap && prs.recap !== "n/a" ? prs.recap : ""], ["Guarantee", prs.guarantee],
+    ].filter(([, v]) => v);
+    return `<div class="sl-box"><h3>Financing</h3><dl>${items.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl></div>`;
+  }
   if (!f) return phBox("Financing");
   const rate = [f.index, f.spread !== undefined ? fmtRate(f.spread) : ""].filter(Boolean).map(esc).join(" + ");
   const items = [
@@ -544,6 +555,125 @@ function slideFinancingHtml(f) {
     ["Maturity", f.maturity ? fmtDate(f.maturity) : ""],
   ].filter(([, v]) => v);
   return `<div class="sl-box"><h3>Financing</h3><dl>${items.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl></div>`;
+}
+
+// ---------- Opportunities / Risks (editável no slide; guardado como as notas, em JSON) ----------
+// {"opp": [{"t": descrição, "v": k€ > 0}], "risk": [{"t", "v": k€ < 0}]}; o total é a soma.
+function orData(key) {
+  try {
+    const d = JSON.parse(((data.orion_notes || {})[key] || {}).text || "{}");
+    return { opp: d.opp || [], risk: d.risk || [] };
+  } catch (e) { return { opp: [], risk: [] }; }
+}
+const orFmt = (v) => (typeof v === "number" && !isNaN(v) ? `${v > 0 ? "+" : v < 0 ? "−" : ""}${fmtNum(Math.abs(v))}k€` : "");
+const orRow = (sec, r = {}) => `<div class="or-row"><span class="or-dash">–</span>
+  <input class="or-txt" value="${esc(r.t || "")}" placeholder="${sec === "opp" ? "Opportunity" : "Risk"}" aria-label="Description">
+  <input class="or-val" value="${typeof r.v === "number" ? orFmt(r.v) : ""}" placeholder="${sec === "opp" ? "+0k€" : "−0k€"}" aria-label="Value in k€">
+  <button type="button" class="or-del no-print" title="Remove">×</button></div>`;
+
+function oppRiskHtml(key) {
+  const d = orData(key);
+  const total = [...d.opp, ...d.risk].reduce((a, r) => a + (typeof r.v === "number" ? r.v : 0), 0);
+  const sec = (k, title) => `<div class="or-sec" data-or-sec="${k}"><div class="or-t">${title}</div>
+    <div class="or-rows">${(d[k].length ? d[k] : [{}]).map((r) => orRow(k, r)).join("")}</div>
+    <button type="button" class="or-add no-print" data-or-add="${k}">+ Add</button></div>`;
+  return `<div class="sl-box sl-or" data-or="${esc(key)}"><h3>Opportunities / Risks</h3>${sec("opp", "Opportunities")}${sec("risk", "Risks")}
+    <div class="or-total ${total < 0 ? "neg" : ""}">${orFmt(total) || "0k€"}</div></div>`;
+}
+
+function orParse(txt, sec) {
+  const m = String(txt || "").replace(/[−–]/g, "-").replace(/\s/g, "").replace(/k€|k|€/gi, "").replace(",", ".");
+  if (!m || isNaN(parseFloat(m))) return null;
+  const v = Math.abs(parseFloat(m));
+  return sec === "risk" ? -v : v;
+}
+
+function orCollect(box) {
+  const out = { opp: [], risk: [] };
+  box.querySelectorAll("[data-or-sec]").forEach((s) => {
+    s.querySelectorAll(".or-row").forEach((row) => {
+      const t = row.querySelector(".or-txt").value.trim(), v = orParse(row.querySelector(".or-val").value, s.dataset.orSec);
+      if (t || v !== null) out[s.dataset.orSec].push({ t, v });
+    });
+  });
+  return out;
+}
+
+const orTimers = {};
+async function orSave(box) {
+  const key = box.dataset.or, d = orCollect(box);
+  const total = [...d.opp, ...d.risk].reduce((a, r) => a + (r.v || 0), 0);
+  const tot = box.querySelector(".or-total");
+  tot.textContent = orFmt(total) || "0k€";
+  tot.classList.toggle("neg", total < 0);
+  const text = d.opp.length || d.risk.length ? JSON.stringify(d) : "";
+  const cur = (data.orion_notes || {})[key];
+  if (cur ? cur.text === text : !text) return;
+  try {
+    const res = await fetch("/api/orion-notes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key, text }) });
+    if (!res.ok) throw new Error(res.status);
+    const n = await res.json();
+    (data.orion_notes = data.orion_notes || {})[key] = { text: n.text, updated: n.updated };
+    version = n.version;
+  } catch (e) { tot.textContent = "Not saved"; }
+}
+
+document.addEventListener("input", (e) => {
+  const box = e.target.closest && e.target.closest("[data-or]");
+  if (!box) return;
+  clearTimeout(orTimers[box.dataset.or]);
+  orTimers[box.dataset.or] = setTimeout(() => orSave(box), 800);
+});
+document.addEventListener("focusout", (e) => {
+  const box = e.target.closest && e.target.closest("[data-or]");
+  if (!box) return;
+  if (e.target.classList.contains("or-val")) {  // mostra o valor formatado (+5k€ / −209k€)
+    const v = orParse(e.target.value, e.target.closest("[data-or-sec]").dataset.orSec);
+    e.target.value = v === null ? "" : orFmt(v);
+  }
+  clearTimeout(orTimers[box.dataset.or]);
+  orSave(box).then(() => {
+    const a = document.activeElement;
+    if (reloadAfterEdit && !(a && a.closest && a.closest("[data-note], [data-or]"))) { reloadAfterEdit = false; load(); }
+  });
+});
+document.addEventListener("click", (e) => {
+  const add = e.target.closest("[data-or-add]");
+  if (add) {
+    const sec = add.closest("[data-or-sec]");
+    sec.querySelector(".or-rows").insertAdjacentHTML("beforeend", orRow(add.dataset.orAdd));
+    sec.querySelector(".or-rows .or-row:last-child .or-txt").focus();
+    return;
+  }
+  const del = e.target.closest(".or-del");
+  if (del) {
+    const box = del.closest("[data-or]"), rows = del.closest(".or-rows");
+    del.closest(".or-row").remove();
+    if (!rows.children.length) rows.insertAdjacentHTML("beforeend", orRow(rows.closest("[data-or-sec]").dataset.orSec));
+    orSave(box);
+  }
+});
+
+// ---------- Sources & Uses (gráfico circular; ficheiro de apoio ao PR) ----------
+function suHtml(su) {
+  if (!su || typeof su.total !== "number") return phBox("Sources & Uses", "small");
+  const parts = [["Financing", su.financing, "c0"], ["Equity", su.equity, "c1"], ["Sales", su.sales, "c2"]]
+    .filter(([, v]) => typeof v === "number" && v > 0);
+  const sum = parts.reduce((a, [, v]) => a + v, 0) || 1;
+  const R = 54, C = 2 * Math.PI * R;
+  let off = 0;
+  const arcs = parts.map(([, v, c]) => {
+    const len = (v / sum) * C;
+    const el = `<circle r="${R}" cx="70" cy="70" class="su-arc ${c}" stroke-dasharray="${len} ${C - len}" stroke-dashoffset="${-off}"></circle>`;
+    off += len;
+    return el;
+  }).join("");
+  const m = (v) => `${v.toFixed(1).replace(".", ",")} M€`;
+  return `<div class="sl-box sl-su"><h3>Sources &amp; Uses</h3><div class="su-wrap">
+    <svg viewBox="0 0 140 140" class="su-pie"><g transform="rotate(-90 70 70)">${arcs}</g>
+      <text x="70" y="66" text-anchor="middle" class="su-c1">Uses</text><text x="70" y="84" text-anchor="middle" class="su-c2">${m(su.total)}</text></svg>
+    <ul class="su-leg">${parts.map(([l, v, c]) => `<li><i class="${c}"></i><span>${l}</span><b>${m(v)}</b><small>${Math.round((v / sum) * 100)}%</small></li>`).join("")}</ul>
+  </div></div>`;
 }
 
 // Slide 6: peso de cada fase nos KPIs do Summary e distribuição Lisbon / Porto

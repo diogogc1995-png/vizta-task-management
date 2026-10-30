@@ -28,6 +28,7 @@ import powerbi
 import roadmap
 import status_report
 import debt_summary
+import pr_support
 from budget_parser import apply_versions, attach_budget_details, parse_file
 from excel_export import build_workbook
 from sharepoint import SharePointClient, is_url
@@ -87,6 +88,7 @@ def data_sources(cfg):
         "images": d.get("images") or IMAGES_DIR,
         "roadmap": (cfg.get("roadmap") or {}).get("file"),
         "debt": (cfg.get("debt_summary") or {}).get("file"),
+        "prsup": (cfg.get("pr_support") or {}).get("file"),
         **{f"ps{i}": f for i, f in enumerate((cfg.get("ponto_situacao") or {}).get("files", []))},
     }
 
@@ -157,6 +159,8 @@ class Store:
         # Vizta Debt Summary (DFIN): empréstimos bancários por projeto
         self.debt, self.debt_error, self.debt_sig, self.debt_try = [], None, None, 0
         self.strategic, self.strategic_error, self.strategic_sig = None, None, None
+        # Ficheiro de apoio ao Project Review (financiamento resumido, Sources & Uses)
+        self.prs, self.prs_error, self.prs_sig, self.prs_try = {}, None, None, 0
         # Textos da apresentação: {chave: {"text", "updated"}}; vence sempre o último guardado
         self.notes, self.notes_sig = {}, None
         self.notes_lock = threading.Lock()
@@ -170,7 +174,7 @@ class Store:
             return _expand(src)
         if key == "images":
             return os.path.join(CACHE_DIR, "images")
-        ext = ".xlsx" if key in ("roadmap", "debt") or key.startswith("ps") else ".json"
+        ext = ".xlsx" if key in ("roadmap", "debt", "prsup") or key.startswith("ps") else ".json"
         return os.path.join(CACHE_DIR, "data", key + ext)
 
     def remote_data(self):
@@ -183,7 +187,8 @@ class Store:
             + [self.financing_sig, self.financing_error, self.info_sig, self.info_error,
                self.snap_sig, self.snap_error, self.rm_sig, self.rm_error,
                self.legal_sig, self.legal_error, self.ps_sig, self.ps_error, self.notes_sig,
-               self.debt_sig, self.debt_error, self.strategic_sig, self.strategic_error], default=str)
+               self.debt_sig, self.debt_error, self.strategic_sig, self.strategic_error,
+               self.prs_sig, self.prs_error], default=str)
         self.version = hashlib.sha1(state.encode()).hexdigest()[:12]
 
     def _refresh_financing(self):
@@ -216,6 +221,7 @@ class Store:
         self._refresh_status()
         self._refresh_debt()
         self._refresh_strategic()
+        self._refresh_prs()
         self._refresh_notes()
 
     def _refresh_debt(self):
@@ -258,6 +264,30 @@ class Store:
                           "project_id": ids.get(financing.key(target))})
         return {"loans": loans, "error": self.debt_error,
                 "modified": self.debt_sig[0] if self.debt_sig else None}
+
+    def _refresh_prs(self):
+        """PR Apoio (config.json → "pr_support"): relê quando o ficheiro muda (ou de minuto a minuto após erro)."""
+        path = self.data_path("prsup")
+        if not path:
+            return
+        try:
+            st = os.stat(path)
+            sig = (st.st_mtime, st.st_size)
+        except OSError:
+            sig = None
+        retry = self.prs_error and time.time() - self.prs_try > 60
+        if sig == self.prs_sig and not retry:
+            return
+        self.prs_try = time.time()
+        if sig is None:
+            self.prs_error = "PR Apoio: ficheiro não encontrado"
+        else:
+            try:
+                self.prs = pr_support.by_project(pr_support.read_file(path), (self.cfg.get("pr_support") or {}).get("projects"))
+                self.prs_error = None
+            except Exception as e:  # ficheiro aberto/bloqueado: mantém os últimos dados
+                self.prs_error = f"PR Apoio: {type(e).__name__}: {e}"
+        self.prs_sig = sig
 
     def _refresh_strategic(self):
         """Strategic report (strategic_report.json, escrito pela tarefa semanal): relê quando muda."""
@@ -560,6 +590,7 @@ class Store:
                     snap = self.snap.get(sk) if sk and not live else None
                     projects.append({**detailed, "id": pid, "financing": fin, "info": self.info.get(k),
                                      "legal": self.legal_view(p["name"]),
+                                     "pr_support": self.prs.get(k),
                                      "status_items": (self.ps.get(k, []) if self.data_src_has_ps() else None),
                                      "label": conf.get("label") or p["name"],
                                      "menu_group": conf.get("group"),
@@ -590,6 +621,7 @@ class Store:
                     "status_report": {"files": self.ps_files, "error": self.ps_error, "unmatched": self.ps_unmatched},
                     "orion_notes": self.notes,
                     "strategic": self.strategic, "strategic_error": self.strategic_error,
+                    "pr_support_error": self.prs_error,
                     # entradas do project_info.json sem projeto no dashboard (p.ex. Turquesa, só no Summary)
                     "info_extra": [v for k, v in self.info.items() if k not in ids],
                     "roadmap": {"rows": [{**r, "project_id": ids.get(financing.key(r["project"])) if r.get("project") else None}
