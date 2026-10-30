@@ -1051,7 +1051,13 @@ function debtLoans() {
   });
 }
 
+// data da apresentação: última gravação do Excel (Vizta Debt Summary); sem ela, a última utilização
 function debtAsOf() {
+  const m = ((data && data.debt) || {}).modified;
+  if (m) {
+    const d = new Date(m * 1000);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
   const dates = debtLoans().map((l) => l.last_drawdown).filter(Boolean).sort();
   return dates.length ? dates[dates.length - 1] : null;
 }
