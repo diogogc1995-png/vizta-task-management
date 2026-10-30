@@ -1042,7 +1042,13 @@ const pct1 = (v) => (typeof v === "number" ? `${(v * 100).toFixed(1)}%` : "–")
 const dmy = (iso) => (iso ? iso.split("-").reverse().join("/") : "–");
 
 function debtLoans() {
-  return ((data && data.debt) || {}).loans || [];
+  return (((data && data.debt) || {}).loans || []).map((l) => {
+    // contrato assinado e ainda sem utilizações nem empreitada (p.ex. ARY): "Loan Amount" do Excel a 0,
+    // usa-se o montante aprovado (disponível por inteiro) e o LTC / LTHC sobre esse montante
+    if (l.loan || l.drawn || !l.approved || l.repaid) return l;
+    return { ...l, loan: l.approved, available: l.approved, undrawn: true,
+      ltc: l.total_cost ? l.approved / l.total_cost : l.ltc, lthc: l.hard_cost ? l.approved / l.hard_cost : l.lthc };
+  });
 }
 
 function debtAsOf() {
@@ -1081,7 +1087,7 @@ const BANK_NAMES = { cgd: "Caixa Geral de Depósitos" };
 const bankName = (b) => BANK_NAMES[String(b || "").trim().toLowerCase()] || b || "";
 
 function debtStatus(l) {
-  return l.repaid ? "Repaid" : /drawn|financ/i.test(l.status || "") ? "Financed" : l.status || "–";
+  return l.repaid ? "Repaid" : l.undrawn ? "Signed" : /drawn|financ/i.test(l.status || "") ? "Financed" : l.status || "–";
 }
 
 function debtSlides() {
