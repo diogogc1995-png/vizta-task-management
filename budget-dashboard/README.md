@@ -214,6 +214,14 @@ O ficheiro de apoio ao PR configura-se em `config.json` → `"pr_support"` (`fil
 o quadro de financiamento (Capex, Fin/Eq/Sales, spread, recap, garantias) e a tabela "Data for graphs -
 Sources & Uses". Em cada novo Project Review, atualiza-se o caminho para o ficheiro da nova pasta.
 
+## Slides "Commercial status" (Orion)
+
+- À esquerda, o quadro de tipologias (unidades e montantes) da aba *Sales* do projeto, sempre atualizado.
+- À direita, **Commercial Project Status**: texto editável (clicar para escrever; `- item`, `**negrito**`),
+  guardado no servidor (`orion_notes.json`, chave `<projeto>.commercial.status`). Em Present e no PDF só se
+  vê o texto formatado.
+- *Buyer Profile* e *PSPA / Reservation evolution* ficam por preencher por agora.
+
 ## Notas do Project Review
 
 Na aba *Project KPIs* de cada projeto há um bloco **Notes** por baixo do quadro, ligado ao Project Review

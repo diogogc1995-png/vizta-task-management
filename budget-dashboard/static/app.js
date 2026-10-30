@@ -469,6 +469,45 @@ document.addEventListener("focusout", (e) => {
   });
 });
 
+// Caixa de texto editável com marcação simples (- item, **negrito**): mostra o texto formatado e, ao clicar,
+// abre o texto para editar (guardado como os Key Variations). Em Present e no PDF só se vê o formatado.
+function noteMdBox(key, title) {
+  const n = (data.orion_notes || {})[key];
+  const txt = n ? n.text : "";
+  return `<div class="sl-box sl-note sl-mdnote"><h3>${esc(title)}</h3>
+    <div class="sl-note-md" data-md-for="${esc(key)}">${txt ? mdHtml(txt) : `<span class="sl-md-empty">Click to write… (- item, **bold**)</span>`}</div>
+    <div class="sl-note-text" contenteditable="plaintext-only" spellcheck="false" data-note="${esc(key)}">${esc(txt)}</div>
+    <div class="sl-note-presence" data-note-presence="${esc(key)}" hidden></div>
+    <div class="sl-note-meta" data-note-meta="${esc(key)}">${noteMeta(n)}</div></div>`;
+}
+document.addEventListener("click", (e) => {
+  const md = e.target.closest && e.target.closest(".sl-note-md");
+  if (!md || document.fullscreenElement) return;
+  const box = md.closest(".sl-mdnote"), ed = box.querySelector("[data-note]");
+  box.classList.add("editing");
+  ed.focus();
+  const sl = box.closest(".slide");
+  if (sl) fitSide(sl);
+});
+document.addEventListener("focusout", (e) => {
+  const ed = e.target.closest && e.target.closest(".sl-mdnote [data-note]");
+  if (!ed) return;
+  const box = ed.closest(".sl-mdnote"), txt = ed.innerText.replace(/\n$/, "");
+  box.querySelector(".sl-note-md").innerHTML = txt.trim() ? mdHtml(txt) : `<span class="sl-md-empty">Click to write… (- item, **bold**)</span>`;
+  box.classList.remove("editing");
+});
+
+// Slide "Commercial status": quadro de tipologias (o mesmo da aba Sales, sempre atualizado), estado
+// comercial editável e, por agora, perfil de comprador e evolução de CPCV/reservas por preencher.
+function commercialSlideHtml(p, name, sub, statusKey) {
+  const sales = p && p.sales ? typologyHtml(p.sales).replace(/^\s*<h2 class="sec">[^<]*<\/h2>/, "") : phBox("Typology report – units & amounts");
+  return `<div class="sl sl-com"><div class="sl-head"><h1>${esc(name)}${sub ? ` <small>${esc(sub)}</small>` : ""}</h1></div>
+    <div class="sl-com-body">
+      <div class="sl-com-main"><div class="sl-com-sales">${sales}</div>${phBox("PSPA / Reservation evolution", "sl-com-chart")}</div>
+      <div class="sl-com-side">${noteMdBox(statusKey, "Commercial Project Status")}${phBox("Buyer Profile")}</div>
+    </div></div>`;
+}
+
 const phBox = (label, cls = "") => `<div class="sl-ph ${cls}"><span>${esc(label)}</span><small>To be provided</small></div>`;
 
 function projectSlideHtml(k, p, e, name) {
@@ -479,7 +518,7 @@ function projectSlideHtml(k, p, e, name) {
   if (k === "overview") {
     return overviewHtml(p || { name, label: name, info: e.info || {}, rows: [], kpis: [], columns: [], sheet: "" });
   }
-  if (k === "commercial") return ph(["Typology report – units & amounts", "Commercial Project Status", "Buyer Profile", "PSPA / Reservation evolution"]);
+  if (k === "commercial") return commercialSlideHtml(p, name, sub(k), `${noteSlug(e.project)}.commercial.status`);
   if (k === "timeline") return ph(["Project timeline", "Key points for discussion – Planning"]);
   if (k === "variations") {
     return p ? prSlideHtml(p, name, p, sub(k), kv.html, `${noteSlug(e.project)}.${k}.opp_risks`) : ph(["Project Review table", kv, "Financing", "Opportunities / Risks", "Sources & Uses"]);
