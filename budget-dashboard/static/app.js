@@ -577,7 +577,8 @@ function oppRiskHtml(key) {
   const sec = (k, title) => `<div class="or-sec" data-or-sec="${k}"><div class="or-t">${title}</div>
     <div class="or-rows">${(d[k].length ? d[k] : [{}]).map((r) => orRow(k, r)).join("")}</div>
     <button type="button" class="or-add no-print" data-or-add="${k}">+ Add</button></div>`;
-  return `<div class="sl-box sl-or" data-or="${esc(key)}"><h3>Opportunities / Risks</h3>${sec("opp", "Opportunities")}${sec("risk", "Risks")}
+  return `<div class="sl-box sl-or" data-or="${esc(key)}"><h3>Opportunities / Risks</h3>
+    <div class="or-body">${sec("opp", "Opportunities")}${sec("risk", "Risks")}</div>
     <div class="or-total ${total < 0 ? "neg" : ""}">${orFmt(total) || "0k€"}</div></div>`;
 }
 
