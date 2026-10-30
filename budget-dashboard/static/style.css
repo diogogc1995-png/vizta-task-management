@@ -960,3 +960,6 @@ table.st-tbl tr.hl td { font-weight: 700; background: var(--peach-light); }
 .sl-com-sales table.typo { font-size: 12.5px; }
 .sl-com-sales table.typo td, .sl-com-sales table.typo th { padding: 1px 6px; line-height: 1.35; }
 .sl-com-main > .pc-box { min-height: 235px; }
+/* Present / PDF: secção de oportunidades ou riscos sem linhas preenchidas não aparece */
+#deck:fullscreen .or-sec:not(:has(.or-txt:not(:placeholder-shown))):not(:has(.or-val:not(:placeholder-shown))),
+.print-only .or-sec:not(:has(.or-txt:not(:placeholder-shown))):not(:has(.or-val:not(:placeholder-shown))) { display: none; }
