@@ -498,9 +498,24 @@ document.addEventListener("focusout", (e) => {
 });
 
 // Evolução mensal de CPCV (PSPA) e reservas, em M€ (Master Vendas, folha "Master Real Price")
+// O gráfico é desenhado à medida da caixa (drawPace, chamado no fitSlides): ocupa sempre a largura e a
+// altura disponíveis, no ecrã, em Present e no PDF, com o texto no tamanho real.
 function paceChartHtml(sp) {
   if (!sp || !(sp.months || []).length) return phBox("PSPA / Reservation evolution", "sl-com-chart");
-  const W = 1000, H = 250, L = 46, R = 22, T = 22, B = 52;
+  return `<div class="sl-box sl-com-chart pc-box"><div class="pc-head"><h3>PSPA / Reservation evolution</h3>
+      <span class="pc-leg"><i class="pspa"></i>PSPA <i class="res"></i>Reservation</span></div>
+    <div class="pc-host" data-pace="${esc(JSON.stringify(sp))}">${paceSvg(sp, 1200, 250)}</div></div>`;
+}
+
+function drawPace(host) {
+  const W = Math.round(host.clientWidth), H = Math.round(host.clientHeight);
+  if (W < 50 || H < 50 || host.dataset.size === `${W}x${H}`) return;
+  host.dataset.size = `${W}x${H}`;
+  host.innerHTML = paceSvg(JSON.parse(host.dataset.pace), W, H);
+}
+
+function paceSvg(sp, W, H) {
+  const L = 46, R = 22, T = 18, B = 46;
   const n = sp.months.length;
   const top = Math.max(...sp.pspa, ...sp.res, 0.1);
   const step = [0.5, 1, 2, 5, 10, 20].find((s) => top / s <= 4) || 20;
@@ -514,7 +529,7 @@ function paceChartHtml(sp) {
   }
   // eixo dos meses: no máximo ~18 etiquetas, inclinadas e com espaço por baixo
   const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const every = Math.max(1, Math.ceil(n / 18));
+  const every = Math.max(1, Math.ceil(n / Math.max(6, Math.floor((W - L - R) / 48))));
   const xl = sp.months.map((m, i) => (i % every ? "" : `<text x="${x(i)}" y="${H - B + 12}" text-anchor="end" transform="rotate(-40 ${x(i)} ${H - B + 12})" class="pc-ax">${MON[+m.slice(5) - 1]}/${m.slice(2, 4)}</text>`)).join("");
   // etiquetas de valor: as maiores primeiro e sem se sobreporem (as que colidem ficam de fora)
   const placed = [];
@@ -531,9 +546,7 @@ function paceChartHtml(sp) {
     return `<text x="${cx}" y="${cy}" text-anchor="middle" class="pc-lbl ${cls}">${t}</text>`;
   }).join("");
   const path = (vals, cls) => `<path d="${vals.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ")}" class="pc-line ${cls}"/>`;
-  return `<div class="sl-box sl-com-chart pc-box"><div class="pc-head"><h3>PSPA / Reservation evolution</h3>
-      <span class="pc-leg"><i class="pspa"></i>PSPA <i class="res"></i>Reservation</span></div>
-    <svg viewBox="0 0 ${W} ${H}" class="pc-svg">${grid}${xl}${path(sp.res, "res")}${path(sp.pspa, "pspa")}${labels}</svg></div>`;
+  return `<svg viewBox="0 0 ${W} ${H}" class="pc-svg" preserveAspectRatio="none">${grid}${xl}${path(sp.res, "res")}${path(sp.pspa, "pspa")}${labels}</svg>`;
 }
 
 // Slide "Commercial status": quadro de tipologias (o mesmo da aba Sales, sempre atualizado), estado
@@ -865,6 +878,7 @@ function fitSlides(root = document) {
     const w = sl.clientWidth, h = sl.clientHeight;
     if (w) sl.style.setProperty("--s", h ? Math.min(w / SLIDE_W, h / (SLIDE_W * 9 / 16)) : w / SLIDE_W);
     fitSide(sl);
+    sl.querySelectorAll(".pc-host").forEach(drawPace);
     const body = sl.querySelector(".slide-body"), fit = sl.querySelector(".slide-fit");
     if (!body || !fit) return;
     fit.style.zoom = "";
