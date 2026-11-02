@@ -1044,11 +1044,11 @@ const dmy = (iso) => (iso ? iso.split("-").reverse().join("/") : "–");
 function debtLoans() {
   return (((data && data.debt) || {}).loans || []).map((l) => {
     // contrato assinado ainda sem empreitada no Excel (p.ex. ARY): "Loan Amount" a 0, usa-se o montante
-    // aprovado e o LTC / LTHC sobre esse montante; o disponível nunca fica negativo
+    // aprovado; LTC / LTHC ficam em branco até o Excel os ter; o disponível nunca fica negativo
     if (l.repaid) return l;
     if (l.loan || !l.approved) return typeof l.available === "number" && l.available < 0 ? { ...l, available: 0 } : l;
     return { ...l, loan: l.approved, available: Math.max(0, l.approved - (l.drawn || 0)), undrawn: !l.drawn,
-      ltc: l.total_cost ? l.approved / l.total_cost : l.ltc, lthc: l.hard_cost ? l.approved / l.hard_cost : l.lthc };
+      ltc: l.ltc || null, lthc: l.lthc || null };
   });
 }
 
