@@ -1043,10 +1043,11 @@ const dmy = (iso) => (iso ? iso.split("-").reverse().join("/") : "–");
 
 function debtLoans() {
   return (((data && data.debt) || {}).loans || []).map((l) => {
-    // contrato assinado e ainda sem utilizações nem empreitada (p.ex. ARY): "Loan Amount" do Excel a 0,
-    // usa-se o montante aprovado (disponível por inteiro) e o LTC / LTHC sobre esse montante
-    if (l.loan || l.drawn || !l.approved || l.repaid) return l;
-    return { ...l, loan: l.approved, available: l.approved, undrawn: true,
+    // contrato assinado ainda sem empreitada no Excel (p.ex. ARY): "Loan Amount" a 0, usa-se o montante
+    // aprovado e o LTC / LTHC sobre esse montante; o disponível nunca fica negativo
+    if (l.repaid) return l;
+    if (l.loan || !l.approved) return typeof l.available === "number" && l.available < 0 ? { ...l, available: 0 } : l;
+    return { ...l, loan: l.approved, available: Math.max(0, l.approved - (l.drawn || 0)), undrawn: !l.drawn,
       ltc: l.total_cost ? l.approved / l.total_cost : l.ltc, lthc: l.hard_cost ? l.approved / l.hard_cost : l.lthc };
   });
 }
@@ -1227,10 +1228,12 @@ function debtLoanHtml(l) {
   const used = typeof l.loan === "number" && l.loan ? l.totals.utilization / l.loan : null;
   const fact = (k, v) => `<div class="dt-fact"><dt>${k}</dt><dd>${v}</dd></div>`;
   const drawable = typeof l.approved === "number" && typeof l.loan === "number" && Math.abs(l.approved - l.loan) > 1;
+  // divisão do montante por finalidade (financing.json -> en.loan_split, p.ex. ARY: aquisição + construção)
+  const split = ((f.en || {}).loan_split || []).map((x) => esc(x)).join(" · ");
   const facts = [
     fact("Project", esc(l.project || "–")),
     fact("Lender", esc(bankName(l.bank) || "–")),
-    fact(drawable ? "Loan amount (drawable)" : "Loan amount", eur(l.loan) + (drawable ? `<small>approved ${eur(l.approved)}</small>` : "")),
+    fact(drawable ? "Loan amount (drawable)" : "Loan amount", eur(l.loan) + (drawable ? `<small>approved ${eur(l.approved)}</small>` : "") + (split ? `<small>${split}</small>` : "")),
     fact("Financing term", esc(finTerm(f))),
     fact("LTC / LTHC", `${pct1(l.ltc)} / ${pct1(l.lthc)}`),
     ...(l.repaid ? [fact("Status", esc(l.status)), fact("Total historical drawdown", eur(l.totals.utilization))]
